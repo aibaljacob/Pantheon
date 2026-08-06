@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
+@layer base {
+  :root {
+    --bg: #141312;
+    --surface-low: #1c1b1a;
+    --surface-mid: #201f1e;
+    --surface-high: #2b2a29;
+    --surface-highest: #363433;
+    
+    --text-primary: #e6e2df;
+    --text-secondary: #cac6bc;
+    --text-muted: #8c887e;
+    
+    --border-dark: #2c2b28;
+    --border-silver: #48473f;
+    --border-light: #605e56;
+    
+    --accent-bronze: #2A2724;
+  }
+}
+
+@theme {
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Hanken Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  
+  --color-pantheon-bg: #141312;
+  --color-pantheon-low: #1c1b1a;
+  --color-pantheon-mid: #201f1e;
+  --color-pantheon-high: #2b2a29;
+  --color-pantheon-highest: #363433;
+  --color-pantheon-ivory: #e6e2df;
+  --color-pantheon-muted: #cac6bc;
+  --color-pantheon-dim: #8c887e;
+  --color-pantheon-border: #48473f;
+  --color-pantheon-border-dark: #2c2b28;
+  --color-pantheon-bronze: #2A2724;
+}
+
+body {
+  background-color: #141312;
+  color: #e6e2df;
+  font-family: 'Hanken Grotesk', sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Manrope', sans-serif;
+}
+
+code, .font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom Lighting & Sculpted Effects from DESIGN.md */
+.sculpted-btn {
+  background: linear-gradient(180deg, #E8E4D9 0%, #D4CFBF 100%);
+  color: #1A1918;
+  box-shadow: inset 0px 1px 0px rgba(255, 255, 255, 0.4), 0px 2px 8px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sculpted-btn:hover {
+  background: linear-gradient(180deg, #F0ECE0 0%, #DDD8C8 100%);
+  box-shadow: inset 0px 1px 0px rgba(255, 255, 255, 0.6), 0px 4px 16px rgba(232, 228, 217, 0.15);
+  transform: translateY(-1px);
+}
+
+.secondary-btn {
+  background: transparent;
+  border: 1px solid #48473f;
+  color: #e6e2df;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.secondary-btn:hover {
+  background: rgba(230, 226, 223, 0.05);
+  border-color: #939188;
+  box-shadow: 0 0 15px rgba(230, 226, 223, 0.08);
+  transform: translateY(-1px);
+}
+
+.filmic-card {
+  background-color: #1c1b1a;
+  border: 1px solid #363433;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.filmic-card:hover {
+  border-color: #48473f;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 12px 32px -8px rgba(0, 0, 0, 0.6);
+  transform: translateY(-2px);
+}
+
+.glow-vignette {
+  background: radial-gradient(circle at 50% 0%, rgba(72, 71, 63, 0.25) 0%, rgba(20, 19, 18, 0) 70%);
+}
+
+.spotlight-glow {
+  background: radial-gradient(circle at 50% 30%, rgba(230, 226, 223, 0.08) 0%, rgba(20, 19, 18, 0) 60%);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #141312;
+}
+::-webkit-scrollbar-thumb {
+  background: #2b2a29;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #48473f;
+}
