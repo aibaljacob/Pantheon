@@ -109,13 +109,13 @@ export const ResetPasswordPage: React.FC = () => {
         </div>
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <PasswordStrengthMeter password={watchedPassword} />
           <PasswordField
-            label="Confirm New Password"
-            placeholder="Re-enter your new password"
-            error={errors.confirmPassword?.message}
-            {...register('confirmPassword')}
+            label="New Password"
+            placeholder="At least 8 characters"
+            error={errors.password?.message}
+            {...register('password')}
           />
+          <PasswordStrengthMeter password={watchedPassword} />
           <div className="space-y-1.5">
             <PasswordField
               label="Confirm New Password"

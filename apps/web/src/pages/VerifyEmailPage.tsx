@@ -1,41 +1,45 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthLayout } from '../components/auth/AuthLayout';
 import { Button } from '../components/ui/Button';
 import { Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { verifyEmail } from '../features/auth/services/authService';
+
 export const VerifyEmailPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const verificationExecutedRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!token) {
       setIsLoading(false);
       setError('Verification token is missing from URL.');
       return;
     }
-    let isMounted = true;
+
+    if (verificationExecutedRef.current === token) {
+      return;
+    }
+    verificationExecutedRef.current = token;
+
     async function executeVerification() {
       try {
         await verifyEmail(token as string);
-        if (isMounted) {
-          navigate('/email-verified', { replace: true });
-        }
+        navigate('/email-verified', { replace: true });
       } catch (err) {
-        if (isMounted) {
-          const msg = err instanceof Error ? err.message : 'Failed to verify email token.';
-          setError(msg);
-          setIsLoading(false);
-        }
+        const msg = err instanceof Error ? err.message : 'Failed to verify email token.';
+        setError(msg);
+        setIsLoading(false);
       }
     }
+
     executeVerification();
-    return () => {
-      isMounted = false;
-    };
   }, [token, navigate]);
+
   return (
     <AuthLayout>
       <div className="space-y-6 text-left">
