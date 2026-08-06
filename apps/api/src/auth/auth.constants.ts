@@ -1,6 +1,7 @@
 export const AUTH_PASSWORD_MIN_LENGTH = 8;
 export const AUTH_USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])?$/;
-export const AUTH_PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+export const AUTH_PASSWORD_PATTERN =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export const AUTH_ACCESS_TOKEN_TTL_MS = 1000 * 60 * 60 * 24;
 export const AUTH_ACCESS_TOKEN_REMEMBER_ME_TTL_MS = 1000 * 60 * 60 * 24 * 30;

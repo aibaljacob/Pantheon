@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  OnModuleInit,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { type AuthSession, type User, type UserProfile } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
@@ -54,7 +61,9 @@ export class AuthService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     await this.seedDemoUser();
   }
-  async register(input: AuthRegisterInput): Promise<ApiResponse<AuthRegistrationResult>> {
+  async register(
+    input: AuthRegisterInput,
+  ): Promise<ApiResponse<AuthRegistrationResult>> {
     const normalizedEmail = normalizeEmail(input.email);
     const normalizedUsername = normalizeUsername(input.username);
     const existingUser = await this.prisma.user.findFirst({
@@ -95,12 +104,18 @@ export class AuthService implements OnModuleInit {
         data: {
           userId: user.id,
           tokenHash: hashToken(verificationToken),
-          expiresAt: addMilliseconds(new Date(), AUTH_EMAIL_VERIFICATION_TTL_MS),
+          expiresAt: addMilliseconds(
+            new Date(),
+            AUTH_EMAIL_VERIFICATION_TTL_MS,
+          ),
         },
       });
       return { user, profile };
     });
-    await this.mailService.sendVerificationEmail(normalizedEmail, this.buildVerificationLink(verificationToken));
+    await this.mailService.sendVerificationEmail(
+      normalizedEmail,
+      this.buildVerificationLink(verificationToken),
+    );
     return {
       success: true,
       data: {
@@ -108,33 +123,49 @@ export class AuthService implements OnModuleInit {
         profile: this.toPublicProfile(created.profile),
         emailVerificationSent: true,
       },
-      message: 'Registration successful. Please verify your email address before signing in.',
+      message:
+        'Registration successful. Please verify your email address before signing in.',
     };
   }
-  async login(input: AuthLoginInput): Promise<ApiResponse<AuthSessionResponse>> {
+  async login(
+    input: AuthLoginInput,
+  ): Promise<ApiResponse<AuthSessionResponse>> {
     const user = await this.prisma.user.findUnique({
       where: { email: normalizeEmail(input.email) },
       include: { profile: true },
     });
-    if (!user || !user.passwordHash || !(await verifyPassword(input.password, user.passwordHash))) {
+    if (
+      !user ||
+      !user.passwordHash ||
+      !(await verifyPassword(input.password, user.passwordHash))
+    ) {
       throw new UnauthorizedException('Invalid email or password.');
     }
     if (!user.emailVerified) {
-      throw new ForbiddenException('Email address must be verified before signing in.');
+      throw new ForbiddenException(
+        'Email address must be verified before signing in.',
+      );
     }
-    return this.buildSessionResponse(user, input.rememberMe ?? false, 'Login successful.');
+    return this.buildSessionResponse(
+      user,
+      input.rememberMe ?? false,
+      'Login successful.',
+    );
   }
   async verifyEmail(token: string): Promise<ApiResponse<{ verified: true }>> {
     const tokenHash = hashToken(token);
-    const verificationToken = await this.prisma.emailVerificationToken.findFirst({
-      where: { tokenHash },
-      include: { user: true },
-    });
+    const verificationToken =
+      await this.prisma.emailVerificationToken.findFirst({
+        where: { tokenHash },
+        include: { user: true },
+      });
     if (!verificationToken) {
       throw new BadRequestException('Verification token is invalid.');
     }
     if (verificationToken.expiresAt <= new Date()) {
-      await this.prisma.emailVerificationToken.delete({ where: { id: verificationToken.id } }).catch(() => undefined);
+      await this.prisma.emailVerificationToken
+        .delete({ where: { id: verificationToken.id } })
+        .catch(() => undefined);
       throw new BadRequestException('Verification token has expired.');
     }
     await this.prisma.$transaction(async (transaction) => {
@@ -142,7 +173,9 @@ export class AuthService implements OnModuleInit {
         where: { id: verificationToken.userId },
         data: { emailVerified: true },
       });
-      await transaction.emailVerificationToken.delete({ where: { id: verificationToken.id } });
+      await transaction.emailVerificationToken.delete({
+        where: { id: verificationToken.id },
+      });
     });
     return {
       success: true,
@@ -150,7 +183,9 @@ export class AuthService implements OnModuleInit {
       message: 'Email verified successfully.',
     };
   }
-  async resendVerification(email: string): Promise<ApiResponse<{ verificationSent: boolean }>> {
+  async resendVerification(
+    email: string,
+  ): Promise<ApiResponse<{ verificationSent: boolean }>> {
     const user = await this.prisma.user.findUnique({
       where: { email: normalizeEmail(email) },
     });
@@ -158,28 +193,40 @@ export class AuthService implements OnModuleInit {
       return {
         success: true,
         data: { verificationSent: true },
-        message: 'If an account exists and is unverified, a verification email has been sent.',
+        message:
+          'If an account exists and is unverified, a verification email has been sent.',
       };
     }
     const verificationToken = createSecureToken();
     await this.prisma.$transaction(async (transaction) => {
-      await transaction.emailVerificationToken.deleteMany({ where: { userId: user.id } });
+      await transaction.emailVerificationToken.deleteMany({
+        where: { userId: user.id },
+      });
       await transaction.emailVerificationToken.create({
         data: {
           userId: user.id,
           tokenHash: hashToken(verificationToken),
-          expiresAt: addMilliseconds(new Date(), AUTH_EMAIL_VERIFICATION_TTL_MS),
+          expiresAt: addMilliseconds(
+            new Date(),
+            AUTH_EMAIL_VERIFICATION_TTL_MS,
+          ),
         },
       });
     });
-    await this.mailService.sendVerificationEmail(user.email, this.buildVerificationLink(verificationToken));
+    await this.mailService.sendVerificationEmail(
+      user.email,
+      this.buildVerificationLink(verificationToken),
+    );
     return {
       success: true,
       data: { verificationSent: true },
-      message: 'If an account exists and is unverified, a verification email has been sent.',
+      message:
+        'If an account exists and is unverified, a verification email has been sent.',
     };
   }
-  async forgotPassword(email: string): Promise<ApiResponse<{ emailSent: boolean }>> {
+  async forgotPassword(
+    email: string,
+  ): Promise<ApiResponse<{ emailSent: boolean }>> {
     const user = await this.prisma.user.findUnique({
       where: { email: normalizeEmail(email) },
     });
@@ -192,7 +239,9 @@ export class AuthService implements OnModuleInit {
     }
     const resetToken = createSecureToken();
     await this.prisma.$transaction(async (transaction) => {
-      await transaction.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await transaction.passwordResetToken.deleteMany({
+        where: { userId: user.id },
+      });
       await transaction.passwordResetToken.create({
         data: {
           userId: user.id,
@@ -201,14 +250,19 @@ export class AuthService implements OnModuleInit {
         },
       });
     });
-    await this.mailService.sendPasswordResetEmail(user.email, this.buildPasswordResetLink(resetToken));
+    await this.mailService.sendPasswordResetEmail(
+      user.email,
+      this.buildPasswordResetLink(resetToken),
+    );
     return {
       success: true,
       data: { emailSent: true },
       message: 'If an account exists, a password reset email has been sent.',
     };
   }
-  async resetPassword(input: AuthResetPasswordInput): Promise<ApiResponse<{ passwordReset: true }>> {
+  async resetPassword(
+    input: AuthResetPasswordInput,
+  ): Promise<ApiResponse<{ passwordReset: true }>> {
     const resetToken = await this.prisma.passwordResetToken.findFirst({
       where: { tokenHash: hashToken(input.token) },
       include: { user: true },
@@ -217,7 +271,9 @@ export class AuthService implements OnModuleInit {
       throw new BadRequestException('Reset token is invalid.');
     }
     if (resetToken.expiresAt <= new Date()) {
-      await this.prisma.passwordResetToken.delete({ where: { id: resetToken.id } }).catch(() => undefined);
+      await this.prisma.passwordResetToken
+        .delete({ where: { id: resetToken.id } })
+        .catch(() => undefined);
       throw new BadRequestException('Reset token has expired.');
     }
     const passwordHash = await hashPassword(input.password);
@@ -229,8 +285,12 @@ export class AuthService implements OnModuleInit {
           refreshTokenVersion: { increment: 1 },
         },
       });
-      await transaction.passwordResetToken.delete({ where: { id: resetToken.id } });
-      await transaction.authSession.deleteMany({ where: { userId: resetToken.userId } });
+      await transaction.passwordResetToken.delete({
+        where: { id: resetToken.id },
+      });
+      await transaction.authSession.deleteMany({
+        where: { userId: resetToken.userId },
+      });
     });
     return {
       success: true,
@@ -238,7 +298,9 @@ export class AuthService implements OnModuleInit {
       message: 'Password reset successfully. Please sign in again.',
     };
   }
-  async checkUsernameAvailability(username: string): Promise<ApiResponse<{ available: boolean; username: string }>> {
+  async checkUsernameAvailability(
+    username: string,
+  ): Promise<ApiResponse<{ available: boolean; username: string }>> {
     const normalized = normalizeUsername(username);
     const existing = await this.prisma.user.findUnique({
       where: { username: normalized },
@@ -248,10 +310,14 @@ export class AuthService implements OnModuleInit {
     return {
       success: true,
       data: { available, username: normalized },
-      message: available ? 'Username is available.' : 'Username is already taken.',
+      message: available
+        ? 'Username is available.'
+        : 'Username is already taken.',
     };
   }
-  async checkEmailAvailability(email: string): Promise<ApiResponse<{ available: boolean; email: string }>> {
+  async checkEmailAvailability(
+    email: string,
+  ): Promise<ApiResponse<{ available: boolean; email: string }>> {
     const normalized = normalizeEmail(email);
     const existing = await this.prisma.user.findUnique({
       where: { email: normalized },
@@ -261,10 +327,14 @@ export class AuthService implements OnModuleInit {
     return {
       success: true,
       data: { available, email: normalized },
-      message: available ? 'Email is available.' : 'An account with this email already exists.',
+      message: available
+        ? 'Email is available.'
+        : 'An account with this email already exists.',
     };
   }
-  async authenticateGoogleUser(profile: GoogleOAuthProfile): Promise<ApiResponse<AuthSessionResponse>> {
+  async authenticateGoogleUser(
+    profile: GoogleOAuthProfile,
+  ): Promise<ApiResponse<AuthSessionResponse>> {
     const user = await this.findOrCreateGoogleUser(profile);
     return this.buildSessionResponse(user, true, 'Google sign-in successful.');
   }
@@ -282,7 +352,9 @@ export class AuthService implements OnModuleInit {
       message: 'Current user loaded.',
     };
   }
-  async logout(accessToken: string | null): Promise<ApiResponse<{ loggedOut: boolean }>> {
+  async logout(
+    accessToken: string | null,
+  ): Promise<ApiResponse<{ loggedOut: boolean }>> {
     if (accessToken) {
       await this.prisma.authSession.deleteMany({ where: { accessToken } });
     }
@@ -292,9 +364,18 @@ export class AuthService implements OnModuleInit {
       message: 'Logged out successfully.',
     };
   }
-  private async buildSessionResponse(user: UserWithProfile, rememberMe: boolean, message: string): Promise<ApiResponse<AuthSessionResponse>> {
+  private async buildSessionResponse(
+    user: UserWithProfile,
+    rememberMe: boolean,
+    message: string,
+  ): Promise<ApiResponse<AuthSessionResponse>> {
     const sessionId = randomUUID();
-    const expiresAt = addMilliseconds(new Date(), rememberMe ? AUTH_ACCESS_TOKEN_REMEMBER_ME_TTL_MS : AUTH_ACCESS_TOKEN_TTL_MS);
+    const expiresAt = addMilliseconds(
+      new Date(),
+      rememberMe
+        ? AUTH_ACCESS_TOKEN_REMEMBER_ME_TTL_MS
+        : AUTH_ACCESS_TOKEN_TTL_MS,
+    );
     const payload: AccessTokenPayload = {
       sub: user.id,
       sid: sessionId,
@@ -329,13 +410,18 @@ export class AuthService implements OnModuleInit {
       message,
     };
   }
-  private async findValidSession(accessToken: string): Promise<SessionWithUser> {
+  private async findValidSession(
+    accessToken: string,
+  ): Promise<SessionWithUser> {
     let payload: AccessTokenPayload;
     try {
-      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(accessToken, {
-        issuer: AUTH_JWT_ISSUER,
-        secret: getAuthJwtSecret(),
-      });
+      payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
+        accessToken,
+        {
+          issuer: AUTH_JWT_ISSUER,
+          secret: getAuthJwtSecret(),
+        },
+      );
     } catch {
       throw new UnauthorizedException('Session expired. Please sign in again.');
     }
@@ -343,14 +429,22 @@ export class AuthService implements OnModuleInit {
       where: { id: payload.sid },
       include: { user: { include: { profile: true } } },
     });
-    if (!session || session.accessToken !== accessToken || session.expiresAt <= new Date()) {
+    if (
+      !session ||
+      session.accessToken !== accessToken ||
+      session.expiresAt <= new Date()
+    ) {
       if (session) {
-        await this.prisma.authSession.delete({ where: { id: session.id } }).catch(() => undefined);
+        await this.prisma.authSession
+          .delete({ where: { id: session.id } })
+          .catch(() => undefined);
       }
       throw new UnauthorizedException('Session expired. Please sign in again.');
     }
     if (session.user.refreshTokenVersion !== payload.ver) {
-      await this.prisma.authSession.delete({ where: { id: session.id } }).catch(() => undefined);
+      await this.prisma.authSession
+        .delete({ where: { id: session.id } })
+        .catch(() => undefined);
       throw new UnauthorizedException('Session expired. Please sign in again.');
     }
     return session;
@@ -389,7 +483,9 @@ export class AuthService implements OnModuleInit {
       });
     });
   }
-  private async findOrCreateGoogleUser(profile: GoogleOAuthProfile): Promise<UserWithProfile> {
+  private async findOrCreateGoogleUser(
+    profile: GoogleOAuthProfile,
+  ): Promise<UserWithProfile> {
     const normalizedEmail = normalizeEmail(profile.email);
     const existingByProviderId = await this.prisma.user.findUnique({
       where: { providerId: profile.id },
@@ -447,7 +543,11 @@ export class AuthService implements OnModuleInit {
       }
       return updatedUser;
     }
-    const usernameBase = createUsernameSlug(`${profile.firstName}.${profile.lastName}` || normalizedEmail.split('@')[0] || 'pantheon');
+    const usernameBase = createUsernameSlug(
+      `${profile.firstName}.${profile.lastName}` ||
+        normalizedEmail.split('@')[0] ||
+        'pantheon',
+    );
     const username = await this.createUniqueUsername(usernameBase);
     return this.prisma.user.create({
       data: {
@@ -474,7 +574,12 @@ export class AuthService implements OnModuleInit {
     const normalizedBase = createUsernameSlug(baseUsername);
     let candidate = normalizedBase;
     let suffix = 2;
-    while (await this.prisma.user.findUnique({ where: { username: candidate }, select: { id: true } })) {
+    while (
+      await this.prisma.user.findUnique({
+        where: { username: candidate },
+        select: { id: true },
+      })
+    ) {
       candidate = `${normalizedBase}${suffix}`;
       suffix += 1;
     }
@@ -491,7 +596,9 @@ export class AuthService implements OnModuleInit {
       createdAt: user.createdAt.toISOString(),
     };
   }
-  private toPublicProfile(profile: UserProfile | null | undefined): AuthUserProfile {
+  private toPublicProfile(
+    profile: UserProfile | null | undefined,
+  ): AuthUserProfile {
     if (!profile) {
       return {
         firstName: '',
@@ -511,7 +618,9 @@ export class AuthService implements OnModuleInit {
       experienceYears: profile.experienceYears,
     };
   }
-  private toPublicProfileOrNull(profile: UserProfile | null | undefined): AuthUserProfile | null {
+  private toPublicProfileOrNull(
+    profile: UserProfile | null | undefined,
+  ): AuthUserProfile | null {
     return profile ? this.toPublicProfile(profile) : null;
   }
   private buildVerificationLink(token: string): string {

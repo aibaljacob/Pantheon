@@ -1,7 +1,10 @@
 import { createHash, randomUUID, randomBytes } from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 
-export function createAvatarDataUrl(firstName: string, lastName: string): string {
+export function createAvatarDataUrl(
+  firstName: string,
+  lastName: string,
+): string {
   const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   const safeInitials = initials.replace(/[^A-Z0-9]/g, '').slice(0, 2) || 'P';
 
@@ -31,10 +34,12 @@ export function normalizeUsername(value: string): string {
 }
 
 export function createUsernameSlug(value: string): string {
-  return normalizeUsername(value)
-    .replace(/[^a-z0-9]+/g, '.')
-    .replace(/\.+/g, '.')
-    .replace(/^\.|\.$/g, '') || 'pantheon';
+  return (
+    normalizeUsername(value)
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/\.+/g, '.')
+      .replace(/^\.|\.$/g, '') || 'pantheon'
+  );
 }
 
 export function createToken(prefix: string, userId: string): string {
@@ -53,7 +58,10 @@ export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
 }
 
-export function verifyPassword(password: string, storedHash: string): Promise<boolean> {
+export function verifyPassword(
+  password: string,
+  storedHash: string,
+): Promise<boolean> {
   return bcrypt.compare(password, storedHash);
 }
 

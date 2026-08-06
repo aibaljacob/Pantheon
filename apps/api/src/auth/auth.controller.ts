@@ -1,7 +1,26 @@
-import { Body, Controller, Get, Headers, HttpCode, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Post,
+  Query,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { EmailQueryDto, EmailValueDto, LoginAuthDto, RegisterAuthDto, ResetPasswordDto, UsernameQueryDto, VerifyEmailQueryDto } from './auth.dto';
+import {
+  EmailQueryDto,
+  EmailValueDto,
+  LoginAuthDto,
+  RegisterAuthDto,
+  ResetPasswordDto,
+  UsernameQueryDto,
+  VerifyEmailQueryDto,
+} from './auth.dto';
 import { AuthService } from './auth.service';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { GOOGLE_OAUTH_STATE_COOKIE } from './google-auth.constants';
@@ -77,21 +96,38 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(GoogleAuthGuard)
-  @ApiOperation({ summary: 'Handle the Google OAuth callback and redirect to the frontend' })
-  @ApiResponse({ status: 302, description: 'Redirects back to the frontend with the new session tokens.' })
+  @ApiOperation({
+    summary: 'Handle the Google OAuth callback and redirect to the frontend',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects back to the frontend with the new session tokens.',
+  })
   async googleCallback(@Req() request: Request, @Res() response: Response) {
     if (response.headersSent) {
       return;
     }
 
-    const payload = request.user as { id: string; email: string; firstName: string; lastName: string; avatarUrl: string | null; emailVerified: boolean } | undefined;
+    const payload = request.user as
+      | {
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          avatarUrl: string | null;
+          emailVerified: boolean;
+        }
+      | undefined;
     if (!payload) {
       response.redirect(this.buildFrontendErrorRedirect('google_auth_failed'));
       return;
     }
 
     const session = await this.authService.authenticateGoogleUser(payload);
-    const redirectUrl = new URL('/auth/google/callback', this.getFrontendBaseUrl());
+    const redirectUrl = new URL(
+      '/auth/google/callback',
+      this.getFrontendBaseUrl(),
+    );
     redirectUrl.hash = new URLSearchParams({
       accessToken: session.data.accessToken,
       refreshToken: session.data.refreshToken ?? '',
@@ -129,7 +165,10 @@ export class AuthController {
   }
 
   private buildFrontendErrorRedirect(error: string): string {
-    const redirectUrl = new URL('/auth/google/callback', this.getFrontendBaseUrl());
+    const redirectUrl = new URL(
+      '/auth/google/callback',
+      this.getFrontendBaseUrl(),
+    );
     redirectUrl.hash = new URLSearchParams({ error }).toString();
     return redirectUrl.toString();
   }

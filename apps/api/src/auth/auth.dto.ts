@@ -12,7 +12,11 @@ import {
   type ValidationArguments,
   type ValidationOptions,
 } from 'class-validator';
-import { AUTH_PASSWORD_MIN_LENGTH, AUTH_PASSWORD_PATTERN, AUTH_USERNAME_PATTERN } from './auth.constants';
+import {
+  AUTH_PASSWORD_MIN_LENGTH,
+  AUTH_PASSWORD_PATTERN,
+  AUTH_USERNAME_PATTERN,
+} from './auth.constants';
 import { normalizeEmail, normalizeUsername } from './auth.utils';
 
 function Match(property: string, validationOptions?: ValidationOptions) {
@@ -26,7 +30,12 @@ function Match(property: string, validationOptions?: ValidationOptions) {
       validator: {
         validate(value: unknown, arguments_: ValidationArguments) {
           const [relatedPropertyName] = arguments_.constraints;
-          return value === (arguments_.object as Record<string, unknown>)[relatedPropertyName as string];
+          return (
+            value ===
+            (arguments_.object as Record<string, unknown>)[
+              relatedPropertyName as string
+            ]
+          );
         },
       },
     });
@@ -50,7 +59,8 @@ export class RegisterAuthDto {
   @IsNotEmpty()
   @Length(3, 30)
   @Matches(AUTH_USERNAME_PATTERN, {
-    message: 'Username can only contain lowercase letters, numbers, dots, underscores, and hyphens.',
+    message:
+      'Username can only contain lowercase letters, numbers, dots, underscores, and hyphens.',
   })
   @Transform(({ value }) => normalizeUsername(String(value)))
   username!: string;
@@ -65,7 +75,8 @@ export class RegisterAuthDto {
   @IsNotEmpty()
   @Length(AUTH_PASSWORD_MIN_LENGTH, 128)
   @Matches(AUTH_PASSWORD_PATTERN, {
-    message: 'Password must include uppercase, lowercase, number, and special character.',
+    message:
+      'Password must include uppercase, lowercase, number, and special character.',
   })
   password!: string;
 
@@ -112,7 +123,8 @@ export class ResetPasswordDto {
   @IsNotEmpty()
   @Length(AUTH_PASSWORD_MIN_LENGTH, 128)
   @Matches(AUTH_PASSWORD_PATTERN, {
-    message: 'Password must include uppercase, lowercase, number, and special character.',
+    message:
+      'Password must include uppercase, lowercase, number, and special character.',
   })
   password!: string;
 
@@ -133,7 +145,8 @@ export class UsernameQueryDto {
   @IsNotEmpty()
   @Length(3, 30)
   @Matches(AUTH_USERNAME_PATTERN, {
-    message: 'Username can only contain lowercase letters, numbers, dots, underscores, and hyphens.',
+    message:
+      'Username can only contain lowercase letters, numbers, dots, underscores, and hyphens.',
   })
   @Transform(({ value }) => normalizeUsername(String(value)))
   username!: string;
@@ -146,4 +159,3 @@ export class EmailQueryDto {
   @Transform(({ value }) => normalizeEmail(String(value)))
   email!: string;
 }
-

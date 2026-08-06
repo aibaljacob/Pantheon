@@ -9,7 +9,10 @@ interface GoogleStrategyRequest extends Request {
   oauthState?: string;
 }
 
-function readCookieValue(cookieHeader: string | undefined, cookieName: string): string | null {
+function readCookieValue(
+  cookieHeader: string | undefined,
+  cookieName: string,
+): string | null {
   if (!cookieHeader) {
     return null;
   }
@@ -38,14 +41,31 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     super({
       clientID: process.env.GOOGLE_CLIENT_ID ?? '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
-      callbackURL: process.env.GOOGLE_CALLBACK_URL ?? 'http://localhost:3000/auth/google/callback',
+      callbackURL:
+        process.env.GOOGLE_CALLBACK_URL ??
+        'http://localhost:3000/auth/google/callback',
       passReqToCallback: true,
     });
   }
 
-  async validate(request: GoogleStrategyRequest, accessToken: string, refreshToken: string, profile: { id: string; displayName?: string; name?: { givenName?: string; familyName?: string }; emails?: Array<{ value?: string; verified?: boolean }>; photos?: Array<{ value?: string }> }): Promise<GoogleOAuthProfile> {
-    const expectedState = readCookieValue(request.headers.cookie, GOOGLE_OAUTH_STATE_COOKIE);
-    const returnedState = typeof request.query.state === 'string' ? request.query.state : null;
+  async validate(
+    request: GoogleStrategyRequest,
+    accessToken: string,
+    refreshToken: string,
+    profile: {
+      id: string;
+      displayName?: string;
+      name?: { givenName?: string; familyName?: string };
+      emails?: Array<{ value?: string; verified?: boolean }>;
+      photos?: Array<{ value?: string }>;
+    },
+  ): Promise<GoogleOAuthProfile> {
+    const expectedState = readCookieValue(
+      request.headers.cookie,
+      GOOGLE_OAUTH_STATE_COOKIE,
+    );
+    const returnedState =
+      typeof request.query.state === 'string' ? request.query.state : null;
 
     if (!expectedState || !returnedState || expectedState !== returnedState) {
       throw new UnauthorizedException('Invalid Google OAuth state.');
@@ -57,8 +77,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     }
 
     const emailVerified = Boolean(profile.emails?.[0]?.verified);
-    const firstName = profile.name?.givenName?.trim() || splitName(profile.displayName ?? email.split('@')[0] ?? '').firstName || 'Google';
-    const lastName = profile.name?.familyName?.trim() || splitName(profile.displayName ?? email.split('@')[0] ?? '').lastName || 'User';
+    const firstName =
+      profile.name?.givenName?.trim() ||
+      splitName(profile.displayName ?? email.split('@')[0] ?? '').firstName ||
+      'Google';
+    const lastName =
+      profile.name?.familyName?.trim() ||
+      splitName(profile.displayName ?? email.split('@')[0] ?? '').lastName ||
+      'User';
     const avatarUrl = profile.photos?.[0]?.value ?? null;
 
     return {
