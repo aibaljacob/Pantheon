@@ -17,7 +17,7 @@ const navItems = [
   { label: 'Discover', href: '/dashboard#discover', icon: Compass },
   { label: 'Messages', href: '/dashboard#messages', icon: MessagesSquare },
   { label: 'Notifications', href: '/dashboard#notifications', icon: BellRing },
-  { label: 'Portfolio', href: '/profile', icon: BadgeHelp },
+  { label: 'Profile & Portfolio', href: '/profile', icon: BadgeHelp },
   { label: 'Tasks', href: '/dashboard#tasks', icon: CheckSquare },
   { label: 'Calendar', href: '/dashboard#calendar', icon: CalendarDays, comingSoon: true },
   { label: 'Settings', href: '/settings', icon: Settings },
@@ -34,8 +34,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onCloseMobile }) => {
       <nav className="flex-1 space-y-2 px-3 py-5" aria-label="Dashboard navigation">
         {navItems.map((item) => {
           const Icon = item.icon;
+          const targetHref = item.href === '/profile' ? `/u/${user.username}` : item.href;
           return (
-            <Link key={item.label} to={item.href} onClick={onCloseMobile} className="group flex items-center justify-between rounded-2xl border border-transparent px-3 py-3 text-sm text-[#cac6bc] transition-colors hover:border-[#363433] hover:bg-[#1c1b1a] hover:text-[#ffffff]">
+            <Link key={item.label} to={targetHref} onClick={onCloseMobile} className="group flex items-center justify-between rounded-2xl border border-transparent px-3 py-3 text-sm text-[#cac6bc] transition-colors hover:border-[#363433] hover:bg-[#1c1b1a] hover:text-[#ffffff]">
               <span className="flex items-center gap-3"><Icon className="h-4 w-4 text-[#8c887e] transition-colors group-hover:text-[#e6e2df]" />{item.label}</span>
               <span>{item.comingSoon ? <Badge variant="bronze" className="text-[9px]">Soon</Badge> : null}</span>
             </Link>

@@ -30,6 +30,9 @@ export function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+          {/* Canonical Public User Profile Route */}
+          <Route path="/u/:username" element={<ProfilePage />} />
+
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />

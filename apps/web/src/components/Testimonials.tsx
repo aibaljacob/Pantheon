@@ -46,11 +46,14 @@ const TESTIMONIALS: Testimonial[] = [
 export const Testimonials: React.FC = () => {
   return (
     <section className="py-24 bg-[#1c1b1a]/40 border-y border-[#2b2a29] relative overflow-hidden">
+      {/* Volumetric Section Backdrop Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[500px] section-volumetric-glow rounded-full blur-3xl pointer-events-none opacity-85" />
+
       <div className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-20 relative z-10">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <Badge variant="accent" className="border-[#48473f]">
+          <Badge variant="accent" className="border-t-[#e6e2df]/40 border-l-[#939188]/30 border-r-[#363433] border-b-[#2b2a29]">
             STUDIO VERDICT
           </Badge>
 
@@ -71,10 +74,10 @@ export const Testimonials: React.FC = () => {
                 
                 {/* Header Quote Icon & Engine Badge */}
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-[#201f1e] border border-[#363433] flex items-center justify-center text-[#e6e2df]">
+                  <div className="w-10 h-10 rounded-xl bg-[#201f1e] border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] flex items-center justify-center text-[#e6e2df] shadow-inner">
                     <Quote className="w-5 h-5 text-[#cac6bc]" />
                   </div>
-                  <Badge variant="bronze" className="text-[10px] font-mono">
+                  <Badge variant="bronze" className="text-[10px] font-mono border-t-[#e6e2df]/20">
                     {item.engine}
                   </Badge>
                 </div>
@@ -96,7 +99,7 @@ export const Testimonials: React.FC = () => {
               {/* Author Info */}
               <div className="pt-6 mt-6 border-t border-[#2b2a29] flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#2b2a29] border border-[#48473f] flex items-center justify-center font-mono font-bold text-xs text-[#e6e2df]">
+                  <div className="w-10 h-10 rounded-full bg-[#2b2a29] border border-[#48473f] flex items-center justify-center font-mono font-bold text-xs text-[#e6e2df] shadow-sm">
                     {item.avatarInitials}
                   </div>
                   <div>

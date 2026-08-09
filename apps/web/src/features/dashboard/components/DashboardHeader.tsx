@@ -49,7 +49,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onOpenSi
                   <p className="text-sm font-semibold text-[#ffffff]">{user.fullName}</p>
                   <p className="text-xs text-[#8c887e]">@{user.username}</p>
                 </div>
-                <Link to="/profile" role="menuitem" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-[#cac6bc] transition-colors hover:bg-[#141312] hover:text-[#e6e2df]" onClick={() => setProfileMenuOpen(false)}>
+                <Link to={`/u/${user.username}`} role="menuitem" className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-[#cac6bc] transition-colors hover:bg-[#141312] hover:text-[#e6e2df]" onClick={() => setProfileMenuOpen(false)}>
                   <UserRound className="h-4 w-4" />
                   View Profile
                 </Link>

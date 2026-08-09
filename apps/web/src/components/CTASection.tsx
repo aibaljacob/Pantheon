@@ -9,44 +9,47 @@ export const CTASection: React.FC = () => {
 
   return (
     <section className="py-24 relative overflow-hidden bg-[#141312]">
-      {/* Background Lighting Glow */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] spotlight-glow rounded-full blur-3xl pointer-events-none opacity-80" />
+      {/* Volumetric Section Backdrop Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[450px] hero-halo rounded-full pointer-events-none opacity-85" />
 
       <div className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-20 relative z-10">
-        <div className="filmic-card rounded-3xl p-10 md:p-16 border border-[#48473f]/70 bg-gradient-to-b from-[#201f1e] via-[#1c1b1a] to-[#141312] text-center space-y-8 shadow-2xl relative overflow-hidden">
+        <div className="filmic-card focal-bloom-dashboard rounded-3xl p-10 md:p-16 border-t border-l border-[#e6e2df]/40 border-r border-b border-[#363433] bg-gradient-to-b from-[#201f1e] via-[#1c1b1a] to-[#141312] text-center space-y-8 shadow-2xl relative overflow-hidden">
           
-          {/* Subtle Accent Glow Edge */}
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#e6e2df]/40 to-transparent" />
+          {/* Top Edge Specular Highlight Catch */}
+          <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-[#e6e2df]/60 to-transparent pointer-events-none" />
 
-          <div className="inline-flex items-center gap-2 mx-auto">
-            <Badge variant="accent" className="border-[#48473f]">
+          {/* Soft Surface Gradient Layer */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_20%,rgba(230,226,223,0.06)_0%,rgba(20,19,18,0.3)_80%)] pointer-events-none" />
+
+          <div className="inline-flex items-center gap-2 mx-auto relative z-10">
+            <Badge variant="accent" className="border-t-[#e6e2df]/40 border-l-[#939188]/30 border-r-[#363433] border-b-[#2b2a29]">
               <Sparkles className="w-3.5 h-3.5 text-[#e6e2df]" />
               JOIN THE PANTHEON NETWORK
             </Badge>
           </div>
 
-          <h2 className="font-headline font-extrabold text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#ffffff] tracking-tight max-w-4xl mx-auto leading-tight">
+          <h2 className="font-headline font-extrabold text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-[#ffffff] tracking-tight max-w-4xl mx-auto leading-tight relative z-10">
             Ready to build your next game?
           </h2>
 
-          <p className="font-sans text-base sm:text-lg text-[#cac6bc] max-w-2xl mx-auto leading-relaxed">
+          <p className="font-sans text-base sm:text-lg text-[#cac6bc] max-w-2xl mx-auto leading-relaxed relative z-10">
             Join thousands of developers, technical directors, 3D artists, and studios creating the next generation of games on Pantheon.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 relative z-10">
             <Button
               variant="primary"
               size="lg"
               icon={<ArrowRight className="w-5 h-5" />}
               onClick={() => navigate('/register')}
-              className="w-full sm:w-auto text-base"
+              className="w-full sm:w-auto text-base focal-bloom-hero-cta"
             >
               Create Your Account
             </Button>
           </div>
 
           {/* Micro Guarantee Metrics */}
-          <div className="pt-8 border-t border-[#2b2a29] flex flex-wrap items-center justify-center gap-8 text-xs font-mono text-[#8c887e]">
+          <div className="pt-8 border-t border-[#2b2a29] flex flex-wrap items-center justify-center gap-8 text-xs font-mono text-[#8c887e] relative z-10">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-[#e6e2df]" />
               <span>14-Day Free Studio Trial</span>

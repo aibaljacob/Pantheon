@@ -59,6 +59,9 @@ const FEATURES: FeatureItem[] = [
 export const Features: React.FC = () => {
   return (
     <section id="features" className="py-24 relative overflow-hidden bg-[#141312]">
+      {/* Volumetric Section Backdrop Lighting */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1200px] h-[650px] section-volumetric-glow rounded-full blur-3xl pointer-events-none opacity-80" />
+
       {/* Background Subtle Grid */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#2b2a2915_1px,transparent_1px),linear-gradient(to_bottom,#2b2a2915_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
 
@@ -66,7 +69,7 @@ export const Features: React.FC = () => {
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <Badge variant="accent" className="border-[#48473f]">
+          <Badge variant="accent" className="border-t-[#e6e2df]/40 border-l-[#939188]/30 border-r-[#363433] border-b-[#2b2a29]">
             SYSTEM CAPABILITIES
           </Badge>
 
@@ -82,14 +85,14 @@ export const Features: React.FC = () => {
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {FEATURES.map((feature, idx) => (
-            <Card key={idx} className="group hover:border-[#48473f] flex flex-col justify-between h-full">
+            <Card key={idx} className="group flex flex-col justify-between h-full">
               <div className="space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-[#201f1e] border border-[#363433] group-hover:border-[#48473f] transition-colors">
+                  <div className="p-3 rounded-xl bg-[#201f1e] border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] group-hover:border-[#48473f] transition-colors shadow-inner">
                     {feature.icon}
                   </div>
-                  <Badge variant="bronze" className="text-[10px] tracking-widest font-mono">
+                  <Badge variant="bronze" className="text-[10px] tracking-widest font-mono border-t-[#e6e2df]/20">
                     {feature.tag}
                   </Badge>
                 </div>

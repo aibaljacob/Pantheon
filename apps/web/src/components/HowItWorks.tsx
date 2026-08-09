@@ -77,11 +77,14 @@ export const HowItWorks: React.FC = () => {
 
   return (
     <section id="how-it-works" className="py-24 bg-[#1c1b1a]/50 border-y border-[#2b2a29] relative overflow-hidden">
+      {/* Volumetric Section Backdrop Glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1100px] h-[600px] section-volumetric-glow rounded-full blur-3xl pointer-events-none opacity-80" />
+
       <div className="max-w-[1440px] mx-auto px-6 md:px-12 lg:px-20 relative z-10">
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <Badge variant="accent" className="border-[#48473f]">
+          <Badge variant="accent" className="border-t-[#e6e2df]/40 border-l-[#939188]/30 border-r-[#363433] border-b-[#2b2a29]">
             PRODUCTION WORKFLOW
           </Badge>
 
@@ -107,16 +110,19 @@ export const HowItWorks: React.FC = () => {
                   onClick={() => setActiveStep(index)}
                   className={`p-6 rounded-2xl border transition-all duration-300 cursor-pointer ${
                     isActive
-                      ? 'bg-[#201f1e] border-[#48473f] shadow-xl'
+                      ? 'bg-[#201f1e] border-t-[#e6e2df]/50 border-l-[#939188]/35 border-r-[#363433] border-b-[#2b2a29] shadow-xl relative overflow-hidden'
                       : 'bg-[#141312]/60 border-[#2b2a29] hover:border-[#363433]'
                   }`}
                 >
+                  {isActive && (
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#e6e2df]/50 to-transparent pointer-events-none" />
+                  )}
                   <div className="flex items-start gap-4">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm transition-colors ${
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono font-bold text-sm transition-colors border ${
                         isActive
-                          ? 'bg-[#e6e2df] text-[#141312]'
-                          : 'bg-[#2b2a29] text-[#cac6bc]'
+                          ? 'bg-[#e6e2df] text-[#141312] border-[#ffffff] shadow-md'
+                          : 'bg-[#2b2a29] text-[#cac6bc] border-[#363433]'
                       }`}
                     >
                       {step.number}
@@ -141,12 +147,13 @@ export const HowItWorks: React.FC = () => {
 
           {/* Right Side: Active Step Deep Dive & Code Simulation */}
           <div className="lg:col-span-7">
-            <div className="filmic-card rounded-2xl p-8 border border-[#363433] bg-[#141312] space-y-6">
+            <div className="filmic-card rounded-2xl p-8 border border-[#363433] bg-[#141312] space-y-6 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#e6e2df]/40 to-transparent pointer-events-none" />
               
               {/* Header Badge */}
-              <div className="flex items-center justify-between pb-4 border-b border-[#2b2a29]">
+              <div className="flex items-center justify-between pb-4 border-b border-[#2b2a29] relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 rounded-xl bg-[#201f1e] border border-[#363433]">
+                  <div className="p-2.5 rounded-xl bg-[#201f1e] border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] shadow-inner">
                     {STEPS[activeStep].icon}
                   </div>
                   <div>
@@ -156,18 +163,18 @@ export const HowItWorks: React.FC = () => {
                     </h4>
                   </div>
                 </div>
-                <Badge variant="outline" className="font-mono text-xs">
+                <Badge variant="outline" className="font-mono text-xs border-t-[#e6e2df]/30">
                   PHASE {activeStep + 1} OF 3
                 </Badge>
               </div>
 
               {/* Description */}
-              <p className="font-sans text-base text-[#cac6bc] leading-relaxed">
+              <p className="font-sans text-base text-[#cac6bc] leading-relaxed relative z-10">
                 {STEPS[activeStep].description}
               </p>
 
               {/* Key Deliverables Bullet Points */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-3 pt-2 relative z-10">
                 <span className="font-mono text-xs text-[#e6e2df] uppercase tracking-wider block">
                   Key Capabilities:
                 </span>
@@ -180,12 +187,12 @@ export const HowItWorks: React.FC = () => {
               </div>
 
               {/* Code Snippet Box */}
-              <div className="pt-4">
+              <div className="pt-4 relative z-10">
                 <div className="flex items-center justify-between px-4 py-2 bg-[#1c1b1a] border-t border-x border-[#2b2a29] rounded-t-xl text-xs font-mono text-[#8c887e]">
                   <span>PANTHEON_CLI // SCRIPT</span>
                   <span>TYPESCRIPT</span>
                 </div>
-                <pre className="p-4 bg-[#0f0e0d] border border-[#2b2a29] rounded-b-xl overflow-x-auto text-xs font-mono text-[#cac6bc] leading-relaxed">
+                <pre className="p-4 bg-[#0f0e0d] border border-[#2b2a29] rounded-b-xl overflow-x-auto text-xs font-mono text-[#cac6bc] leading-relaxed shadow-inner">
                   <code>{STEPS[activeStep].codeSnippet}</code>
                 </pre>
               </div>
