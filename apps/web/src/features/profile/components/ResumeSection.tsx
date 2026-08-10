@@ -1,8 +1,5 @@
 import React from 'react';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
-import { Badge } from '../../../components/ui/Badge';
-import { FileText, Eye, RefreshCw, Trash2, Lock, EyeOff } from 'lucide-react';
+import { FileText, Eye, RefreshCw, Trash2, Lock } from 'lucide-react';
 import type { Resume } from '../types';
 
 interface ResumeSectionProps {
@@ -24,59 +21,47 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
     if (!isOwner) return null;
 
     return (
-      <Card className="space-y-4">
-        <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
-          <h2 className="font-headline text-base font-bold text-[#ffffff]">Resume</h2>
-          <Badge variant="outline">Missing</Badge>
+      <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/60 p-4 space-y-2">
+        <div className="flex items-center justify-between text-xs font-mono">
+          <span className="text-[#8c887e]">Resume / CV</span>
+          <span className="text-[#8c887e]">Missing</span>
         </div>
-        <div className="rounded-xl border border-dashed border-[#363433] p-6 text-center">
-          <FileText className="mx-auto h-8 w-8 text-[#8c887e]/60" />
-          <p className="mt-2 text-xs text-[#8c887e]">No resume uploaded yet.</p>
-          <Button variant="secondary" size="sm" onClick={onReplaceResume} className="mt-3">
-            Upload Resume (PDF)
-          </Button>
-        </div>
-      </Card>
+        <button
+          type="button"
+          onClick={onReplaceResume}
+          className="w-full py-2 border border-dashed border-[#363433] rounded-xl text-xs font-mono text-[#cac6bc] hover:border-[#e6e2df] hover:text-[#ffffff] transition-colors"
+        >
+          + Upload Resume (PDF)
+        </button>
+      </div>
     );
   }
 
   // Visitor viewing private resume
   if (!isOwner && resume.visibility === 'Private') {
     return (
-      <Card className="space-y-3 opacity-75">
-        <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
-          <h2 className="font-headline text-base font-bold text-[#ffffff]">Resume</h2>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Lock className="h-3 w-3" /> Private
-          </Badge>
+      <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/40 p-3.5 flex items-center justify-between text-xs font-mono text-[#8c887e]">
+        <div className="flex items-center gap-2">
+          <Lock className="h-3.5 w-3.5" />
+          <span>Resume is set to Private</span>
         </div>
-        <div className="flex items-center gap-3 rounded-xl bg-[#141312] p-4 text-xs text-[#8c887e]">
-          <EyeOff className="h-4 w-4" />
-          <span>The user has set their resume to private.</span>
-        </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="space-y-4">
-      <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
+    <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/60 p-4 space-y-3">
+      <div className="flex items-center justify-between text-xs font-mono">
+        <span className="text-[#8c887e]">Resume</span>
         <div className="flex items-center gap-2">
-          <h2 className="font-headline text-base font-bold text-[#ffffff]">Resume</h2>
-          <span className="text-[10px] font-mono text-[#8c887e]">Official CV</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Badge variant={resume.visibility === 'Public' ? 'accent' : 'outline'}>
+          <span className="text-[10px] text-[#e6e2df] uppercase tracking-wider bg-[#201f1e] px-2 py-0.5 rounded border border-[#2b2a29]">
             {resume.visibility}
-          </Badge>
-
+          </span>
           {isOwner && onToggleVisibility && (
             <button
               type="button"
               onClick={onToggleVisibility}
-              className="text-xs font-mono text-[#8c887e] hover:text-[#e6e2df] underline"
-              title="Toggle visibility"
+              className="text-[#8c887e] hover:text-[#e6e2df] text-[11px] underline"
             >
               Toggle
             </button>
@@ -84,30 +69,28 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 rounded-xl border border-[#2b2a29] bg-[#141312] p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-[#363433] bg-[#201f1e] p-3 text-[#e6e2df]">
-            <FileText className="h-6 w-6 text-[#e6e2df]" />
-          </div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <FileText className="h-4 w-4 text-[#e6e2df] shrink-0" />
           <div className="min-w-0">
-            <p className="truncate font-mono text-sm font-semibold text-[#ffffff]" title={resume.fileName}>
+            <p className="truncate font-mono text-xs font-semibold text-[#ffffff]" title={resume.fileName}>
               {resume.fileName}
             </p>
-            <p className="text-xs font-mono text-[#8c887e]">
-              {resume.fileType} · {resume.fileSize} · Updated {resume.updatedAt}
+            <p className="text-[10px] font-mono text-[#8c887e]">
+              PDF · {resume.fileSize} · Updated {resume.updatedAt}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
           <a
             href={resume.downloadUrl || '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#48473f] bg-[#201f1e] px-3 py-1.5 font-mono text-xs font-medium text-[#e6e2df] hover:border-[#e6e2df] hover:text-[#ffffff] transition-colors"
+            className="inline-flex items-center gap-1 rounded-lg border border-[#48473f] bg-[#201f1e] px-2.5 py-1 font-mono text-xs text-[#e6e2df] hover:border-[#e6e2df] transition-colors"
           >
-            <Eye className="h-3.5 w-3.5" />
-            <span>View Resume</span>
+            <Eye className="h-3 w-3" />
+            <span>View</span>
           </a>
 
           {isOwner && (
@@ -116,26 +99,26 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
                 <button
                   type="button"
                   onClick={onReplaceResume}
-                  className="p-2 text-[#8c887e] hover:text-[#e6e2df] transition-colors"
+                  className="p-1 text-[#8c887e] hover:text-[#e6e2df]"
                   title="Replace Resume"
                 >
-                  <RefreshCw className="h-4 w-4" />
+                  <RefreshCw className="h-3.5 w-3.5" />
                 </button>
               )}
               {onDeleteResume && (
                 <button
                   type="button"
                   onClick={onDeleteResume}
-                  className="p-2 text-[#8c887e] hover:text-red-400 transition-colors"
+                  className="p-1 text-[#8c887e] hover:text-red-400"
                   title="Delete Resume"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
               )}
             </>
           )}
         </div>
       </div>
-    </Card>
+    </div>
   );
 };

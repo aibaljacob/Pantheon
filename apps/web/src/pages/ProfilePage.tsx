@@ -26,7 +26,7 @@ export const ProfilePage: React.FC = () => {
   const location = useLocation();
   const currentUser = useAuthStore((state) => state.currentUser);
 
-  // If user visits /profile without username param, redirect to canonical /u/:username
+  // Redirect /profile to /u/:username
   useEffect(() => {
     if (location.pathname === '/profile') {
       const targetUsername = currentUser?.username || 'aibal';
@@ -34,21 +34,16 @@ export const ProfilePage: React.FC = () => {
     }
   }, [location.pathname, currentUser, navigate]);
 
-  // Route username parameter
   const targetUsername = routeUsername || currentUser?.username || 'aibal';
 
-  // Ownership calculation
   const isOwner = Boolean(
     currentUser && currentUser.username.toLowerCase() === targetUsername.toLowerCase()
   );
 
-  // Follow State for Visitors
   const [isFollowing, setIsFollowing] = useState(false);
-
-  // Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // INLINE LOCAL PLACEHOLDER DATA (No separate mock-data file created per Rule 17)
+  // INLINE LOCAL PLACEHOLDER DATA (Rule 17/20 Compliance: No separate mock-data files created)
   const [profileData, setProfileData] = useState<ProfileData>(() => ({
     user: {
       id: 'usr-aibal-001',
@@ -162,7 +157,6 @@ export const ProfilePage: React.FC = () => {
     isFollowing: false,
   }));
 
-  // Toggle follow status
   const handleToggleFollow = () => {
     setIsFollowing((prev) => !prev);
     setProfileData((prev) => ({
@@ -174,7 +168,6 @@ export const ProfilePage: React.FC = () => {
     }));
   };
 
-  // Add / Edit / Delete Handlers for local state persistence during session
   const handleAddExperience = () => setIsEditModalOpen(true);
   const handleEditExperience = () => setIsEditModalOpen(true);
   const handleDeleteExperience = (id: string) => {
@@ -227,10 +220,10 @@ export const ProfilePage: React.FC = () => {
     setProfileData(updated);
   };
 
-  // Profile Content Render Engine
+  // Simplified & Spacious Profile Layout Engine
   const profileContent = (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* 1. Header Component */}
+    <div className="space-y-12 max-w-7xl mx-auto pb-12">
+      {/* 1. Profile Header */}
       <ProfileHeader
         user={profileData.user}
         stats={profileData.stats}
@@ -240,14 +233,17 @@ export const ProfilePage: React.FC = () => {
         onOpenEditModal={() => setIsEditModalOpen(true)}
       />
 
-      {/* Main Grid Layout: Desktop 2-column (Content Left, Sidebar Right), Mobile single-column */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Left / Main Column (2 Spans on Desktop) */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* About */}
+      {/* Main Grid Layout: Desktop 2-column (Spacious narrative left, compact support right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
+        {/* Left Column (Main Narrative) */}
+        <div className="lg:col-span-2 space-y-10">
+          {/* About Section */}
           <ProfileAbout user={profileData.user} />
 
-          {/* Portfolio Showcase */}
+          {/* Professional Identity Summary + Progressive Disclosure */}
+          <ProfessionalIdentitySection identity={profileData.professional} />
+
+          {/* Portfolio Showcase (Focused Cards + Detail Modal) */}
           <PortfolioSection
             portfolio={profileData.portfolio}
             isOwner={isOwner}
@@ -255,9 +251,6 @@ export const ProfilePage: React.FC = () => {
             onEditProject={handleEditProject}
             onDeleteProject={handleDeleteProject}
           />
-
-          {/* Professional Identity & Skills */}
-          <ProfessionalIdentitySection identity={profileData.professional} />
 
           {/* Experience Timeline */}
           <ExperienceSection
@@ -278,9 +271,9 @@ export const ProfilePage: React.FC = () => {
           />
         </div>
 
-        {/* Right Sidebar Column (1 Span on Desktop) */}
-        <div className="space-y-8 sticky top-24">
-          {/* Profile Completion (OWNER ONLY) */}
+        {/* Right Sidebar Column (Supporting information - compact & non-competing) */}
+        <div className="space-y-6 lg:sticky lg:top-24">
+          {/* Profile Completion (OWNER ONLY - Compact + Modal Checklist) */}
           {isOwner && (
             <ProfileCompletionCard
               stats={profileData.stats}
@@ -288,7 +281,7 @@ export const ProfilePage: React.FC = () => {
             />
           )}
 
-          {/* Official Resume */}
+          {/* Compact Resume Card */}
           <ResumeSection
             resume={profileData.resume}
             isOwner={isOwner}
@@ -297,7 +290,7 @@ export const ProfilePage: React.FC = () => {
             onToggleVisibility={handleToggleResumeVisibility}
           />
 
-          {/* External Links */}
+          {/* Compact Links List */}
           <LinksSection
             links={profileData.links}
             isOwner={isOwner}
@@ -308,7 +301,7 @@ export const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
+      {/* Full Edit Profile Modal */}
       <EditProfileModal
         isOpen={isEditModalOpen}
         onClose={() => setIsEditModalOpen(false)}
@@ -318,12 +311,11 @@ export const ProfilePage: React.FC = () => {
     </div>
   );
 
-  // If viewer is logged in, wrap in DashboardLayout
+  // Authenticated Dashboard Wrapper vs Public Layout
   if (currentUser) {
     return <DashboardLayout user={currentUser}>{profileContent}</DashboardLayout>;
   }
 
-  // If viewer is unauthenticated visitor, wrap in Public Layout (Navbar + Footer)
   return (
     <div className="min-h-screen bg-[#141312] text-[#e6e2df] flex flex-col font-sans relative selection:bg-[#48473f]">
       <div className="absolute top-0 left-0 right-0 h-[800px] global-ambient-light pointer-events-none z-0" />

@@ -1,6 +1,4 @@
 import React from 'react';
-import { Card } from '../../../components/ui/Card';
-import { Button } from '../../../components/ui/Button';
 import { ExternalLink, Globe, Plus, Trash2, Edit2, Gamepad, Sparkles, Code2 } from 'lucide-react';
 import type { ProfileLink } from '../types';
 
@@ -22,90 +20,74 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
   const getLinkIcon = (platform: ProfileLink['platform']) => {
     switch (platform) {
       case 'github':
-        return <Code2 className="h-4 w-4 text-[#e6e2df]" />;
+        return <Code2 className="h-3.5 w-3.5 text-[#e6e2df]" />;
       case 'linkedin':
-        return <Globe className="h-4 w-4 text-sky-400" />;
+        return <Globe className="h-3.5 w-3.5 text-sky-400" />;
       case 'artstation':
-        return <Sparkles className="h-4 w-4 text-emerald-400" />;
+        return <Sparkles className="h-3.5 w-3.5 text-emerald-400" />;
       case 'itchio':
       case 'steam':
-        return <Gamepad className="h-4 w-4 text-amber-400" />;
+        return <Gamepad className="h-3.5 w-3.5 text-amber-400" />;
       case 'website':
       default:
-        return <Globe className="h-4 w-4" />;
+        return <Globe className="h-3.5 w-3.5" />;
     }
   };
 
   return (
-    <Card className="space-y-4">
-      <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
-        <div>
-          <h2 className="font-headline text-base font-bold text-[#ffffff]">Professional Links</h2>
-          <p className="text-[11px] text-[#8c887e]">External profiles & portfolios</p>
-        </div>
-
+    <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/60 p-4 space-y-3">
+      <div className="flex items-center justify-between text-xs font-mono">
+        <span className="text-[#8c887e]">Links & Profiles</span>
         {isOwner && (
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
+            type="button"
             onClick={onAddLink}
-            icon={<Plus className="h-3.5 w-3.5" />}
-            iconPosition="left"
+            className="text-xs font-mono text-[#cac6bc] hover:text-[#ffffff] flex items-center gap-1"
           >
-            Add Link
-          </Button>
+            <Plus className="h-3 w-3" />
+            <span>Add</span>
+          </button>
         )}
       </div>
 
       {links.length === 0 ? (
-        <p className="text-xs text-[#8c887e] italic py-2">No external links added.</p>
+        <p className="text-xs font-mono text-[#8c887e] italic">No links added.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex flex-wrap gap-2">
           {links.map((link) => (
             <div
               key={link.id}
-              className="group flex items-center justify-between rounded-xl border border-[#2b2a29] bg-[#141312] p-3 transition-colors hover:border-[#363433]"
+              className="group inline-flex items-center gap-1.5 rounded-lg border border-[#363433] bg-[#141312] px-2.5 py-1.5 font-mono text-xs text-[#e6e2df] hover:border-[#48473f] transition-colors"
             >
               <a
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 min-w-0 flex-1 hover:text-[#ffffff] transition-colors"
+                className="inline-flex items-center gap-1.5 hover:text-[#ffffff]"
               >
-                <div className="rounded-lg bg-[#201f1e] p-2 text-[#cac6bc] group-hover:text-[#ffffff]">
-                  {getLinkIcon(link.platform)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-mono font-semibold text-[#e6e2df] group-hover:text-[#ffffff]">
-                    {link.displayName}
-                  </p>
-                  <p className="truncate text-[10px] font-mono text-[#8c887e]">
-                    {link.url.replace(/^https?:\/\//, '')}
-                  </p>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-[#8c887e] opacity-0 group-hover:opacity-100 transition-opacity mr-2" />
+                {getLinkIcon(link.platform)}
+                <span>{link.displayName}</span>
+                <ExternalLink className="h-3 w-3 text-[#8c887e] group-hover:text-[#e6e2df]" />
               </a>
 
               {isOwner && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-1 border-l border-[#2b2a29] pl-1">
                   {onEditLink && (
                     <button
                       type="button"
                       onClick={() => onEditLink(link)}
-                      className="p-1 text-[#8c887e] hover:text-[#e6e2df]"
-                      title="Edit link"
+                      className="text-[#8c887e] hover:text-[#e6e2df]"
                     >
-                      <Edit2 className="h-3 w-3" />
+                      <Edit2 className="h-2.5 w-2.5" />
                     </button>
                   )}
                   {onDeleteLink && (
                     <button
                       type="button"
                       onClick={() => onDeleteLink(link.id)}
-                      className="p-1 text-[#8c887e] hover:text-red-400"
-                      title="Delete link"
+                      className="text-[#8c887e] hover:text-red-400"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-2.5 w-2.5" />
                     </button>
                   )}
                 </div>
@@ -114,6 +96,6 @@ export const LinksSection: React.FC<LinksSectionProps> = ({
           ))}
         </div>
       )}
-    </Card>
+    </div>
   );
 };
