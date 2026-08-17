@@ -13,6 +13,9 @@ export interface ProfileUser {
   bio: string;
   availability: 'Available for collaboration' | 'Open to offers' | 'Not available' | 'Founder active';
   isFounder?: boolean;
+  role?: 'USER' | 'ADMINISTRATOR' | string;
+  email?: string;
+  createdAt?: string;
 }
 
 export interface TaxonomyItem {

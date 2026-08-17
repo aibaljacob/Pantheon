@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { GoogleAuthGuard } from './google-auth.guard';
 import { GoogleStrategy } from './google.strategy';
 import { MailService } from './mail.service';
+import { AdminAuthGuard } from './admin-auth.guard';
 import { getAuthJwtSecret } from './auth.constants';
 
 @Module({
@@ -18,7 +19,7 @@ import { getAuthJwtSecret } from './auth.constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, MailService, GoogleStrategy, GoogleAuthGuard],
-  exports: [AuthService, MailService],
+  providers: [AuthService, MailService, GoogleStrategy, GoogleAuthGuard, AdminAuthGuard],
+  exports: [AuthService, MailService, AdminAuthGuard],
 })
 export class AuthModule {}

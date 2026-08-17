@@ -6,12 +6,18 @@ import { DashboardProjectsSection } from '../features/dashboard/components/Dashb
 import { UserProfileCard } from '../features/dashboard/components/UserProfileCard';
 import { AccountStatusCard } from '../features/dashboard/components/AccountStatusCard';
 import { ProfileReadinessCard } from '../features/dashboard/components/ProfileReadinessCard';
+import { AdminDashboardPage } from '../features/admin/components/AdminDashboardPage';
 
 export const DashboardPage: React.FC = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
 
   if (!currentUser) {
     return null;
+  }
+
+  // Role-based Dashboard selection derived from authenticated session
+  if (currentUser.role === 'Administrator') {
+    return <AdminDashboardPage user={currentUser} />;
   }
 
   return (

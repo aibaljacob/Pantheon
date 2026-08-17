@@ -11,7 +11,14 @@ interface SidebarProps {
   onCloseMobile: () => void;
 }
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  comingSoon?: boolean;
+}
+
+const userNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Discover', href: '/dashboard#discover', icon: Compass },
@@ -23,7 +30,19 @@ const navItems = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
+const adminNavItems: NavItem[] = [
+  { label: 'Dashboard Overview', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'User Management', href: '/dashboard#users', icon: UserCog },
+  { label: 'Platform Projects', href: '/dashboard#projects', icon: FolderKanban },
+  { label: 'Taxonomy Manager', href: '/dashboard#taxonomy', icon: Compass },
+  { label: 'Account Profile', href: '/profile', icon: BadgeHelp },
+  { label: 'Settings', href: '/settings', icon: Settings },
+];
+
 export const Sidebar: React.FC<SidebarProps> = ({ user, onCloseMobile }) => {
+  const isAdmin = user.role === 'Administrator';
+  const navItems = isAdmin ? adminNavItems : userNavItems;
+
   return (
     <aside className="flex h-full flex-col border-r border-[#2b2a29] bg-[#141312]">
       <div className="flex items-center justify-between border-b border-[#2b2a29] px-5 py-5">

@@ -16,6 +16,7 @@ import { PortfolioSection } from '../features/profile/components/PortfolioSectio
 import { ResumeSection } from '../features/profile/components/ResumeSection';
 import { LinksSection } from '../features/profile/components/LinksSection';
 import { ProfileCompletionCard } from '../features/profile/components/ProfileCompletionCard';
+import { AdminProfileView } from '../features/profile/components/AdminProfileView';
 
 // Section-Owned Modals
 import { AvatarEditModal } from '../features/profile/components/AvatarEditModal';
@@ -363,7 +364,40 @@ export const ProfilePage: React.FC = () => {
     );
   }
 
-  const profileContent = (
+  const isAdminProfile = profileData.user.role === 'ADMINISTRATOR';
+
+  const profileContent = isAdminProfile ? (
+    <>
+      <AdminProfileView
+        user={profileData.user}
+        isOwner={isOwner}
+        onEditBasicProfile={() => setIsBasicModalOpen(true)}
+        onEditAvatar={() => setIsAvatarModalOpen(true)}
+        onEditBanner={() => setIsBannerModalOpen(true)}
+      />
+
+      <AvatarEditModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatarUrl={profileData.user.avatarUrl}
+        onAvatarUpdated={handleAvatarUpdated}
+      />
+
+      <BannerEditModal
+        isOpen={isBannerModalOpen}
+        onClose={() => setIsBannerModalOpen(false)}
+        currentBannerUrl={profileData.user.bannerUrl}
+        onBannerUpdated={handleBannerUpdated}
+      />
+
+      <EditBasicProfileModal
+        isOpen={isBasicModalOpen}
+        onClose={() => setIsBasicModalOpen(false)}
+        user={profileData.user}
+        onUpdated={handleBasicProfileUpdated}
+      />
+    </>
+  ) : (
     <div className="space-y-12 max-w-7xl mx-auto pb-12">
       {/* 1. Profile Header */}
       <ProfileHeader
