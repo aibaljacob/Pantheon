@@ -1,4 +1,10 @@
-import type { CreateProjectInput, DashboardProjectItem, DashboardProjectsResponse } from '../types';
+import type {
+  CreateProjectInput,
+  DashboardProjectItem,
+  DashboardProjectsResponse,
+  ProjectDetail,
+  UpdateProjectInput,
+} from '../types';
 import { formatApiAssetUrl } from '../../profile/services/profileService';
 
 function getApiBaseUrl(): string {
@@ -81,5 +87,75 @@ export async function fetchPublicProjects(
 
   return {
     projects: formattedProjects,
+  };
+}
+
+export async function fetchProjectDetails(
+  projectId: string,
+  accessToken?: string | null,
+): Promise<ProjectDetail> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Project not found.');
+  }
+
+  const project: ProjectDetail = await response.json();
+  return {
+    ...project,
+    coverUrl: formatApiAssetUrl(project.coverUrl),
+    founder: {
+      ...project.founder,
+      avatarUrl: formatApiAssetUrl(project.founder.avatarUrl),
+    },
+    members: (project.members || []).map((m) => ({
+      ...m,
+      avatarUrl: formatApiAssetUrl(m.avatarUrl),
+    })),
+  };
+}
+
+export async function updateProject(
+  accessToken: string,
+  projectId: string,
+  payload: UpdateProjectInput,
+): Promise<ProjectDetail> {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to update project.');
+  }
+
+  const project: ProjectDetail = await response.json();
+  return {
+    ...project,
+    coverUrl: formatApiAssetUrl(project.coverUrl),
+    founder: {
+      ...project.founder,
+      avatarUrl: formatApiAssetUrl(project.founder.avatarUrl),
+    },
+    members: (project.members || []).map((m) => ({
+      ...m,
+      avatarUrl: formatApiAssetUrl(m.avatarUrl),
+    })),
   };
 }

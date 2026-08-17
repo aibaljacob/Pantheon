@@ -1,0 +1,365 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import {
+  FolderKanban,
+  Crown,
+  Users,
+  Edit3,
+  Clock,
+  XCircle,
+  ArrowLeft,
+  AlertCircle,
+  Loader2,
+  Layers,
+  Gamepad2,
+  Cpu,
+} from 'lucide-react';
+import { useAuthStore } from '../features/auth/store/authStore';
+import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
+import { Navbar } from '../components/Navbar';
+import { Footer } from '../components/Footer';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import type { ProjectDetail } from '../features/projects/types';
+import { fetchProjectDetails } from '../features/projects/services/projectService';
+import { EditProjectModal } from '../features/profile/components/EditProjectModal';
+
+function formatStatus(status: string): string {
+  switch (status) {
+    case 'PLANNING':
+      return 'Planning';
+    case 'PRE_PRODUCTION':
+      return 'Pre-Production';
+    case 'PROTOTYPE':
+      return 'Prototype';
+    case 'IN_DEVELOPMENT':
+      return 'In Development';
+    case 'ALPHA':
+      return 'Alpha';
+    case 'BETA':
+      return 'Beta';
+    case 'COMPLETED':
+      return 'Completed';
+    case 'PAUSED':
+      return 'Paused';
+    default:
+      return status;
+  }
+}
+
+export const ProjectDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+
+  const loadProject = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data = await fetchProjectDetails(id, accessToken);
+      setProject(data);
+    } catch (err: any) {
+      setError(err.message || 'Project not found or restricted access.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProject();
+  }, [id, accessToken]);
+
+  const handleProjectUpdated = (updatedProject: ProjectDetail) => {
+    setProject(updatedProject);
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex h-96 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#8c887e]" />
+        </div>
+      );
+    }
+
+    if (error || !project) {
+      return (
+        <div className="mx-auto max-w-xl p-6 text-center space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-red-500/30 bg-red-950/20 text-red-400">
+            <AlertCircle className="h-7 w-7" />
+          </div>
+          <div>
+            <h2 className="font-headline text-xl font-bold text-[#ffffff]">
+              Project Unavailable
+            </h2>
+            <p className="mt-1 text-xs text-[#8c887e] font-mono">
+              {error || 'This project does not exist or requires authorization.'}
+            </p>
+          </div>
+          <Link to="/projects">
+            <Button variant="secondary" size="sm" icon={<ArrowLeft className="h-4 w-4" />}>
+              Back to Projects
+            </Button>
+          </Link>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-8">
+        {/* Back Link */}
+        <div className="flex items-center justify-between">
+          <Link
+            to="/projects"
+            className="inline-flex items-center gap-2 text-xs font-mono text-[#8c887e] hover:text-[#ffffff] transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Projects</span>
+          </Link>
+
+          {/* Founder Action Button */}
+          {project.isFounder && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsEditModalOpen(true)}
+              icon={<Edit3 className="h-3.5 w-3.5" />}
+            >
+              Edit Project
+            </Button>
+          )}
+        </div>
+
+        {/* Moderation Warning Banners for Founder/Member */}
+        {project.moderationStatus === 'PENDING_REVIEW' && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 flex items-center gap-3 text-amber-200 text-xs font-mono">
+            <Clock className="h-4 w-4 text-amber-400 shrink-0 animate-pulse" />
+            <div>
+              <p className="font-bold">Pending Administrator Review</p>
+              <p className="text-[11px] text-amber-300/80 font-sans">
+                This project is currently under review by Pantheon administrators. It will become visible in the public discovery directory once approved.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {project.moderationStatus === 'REJECTED' && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-950/20 p-4 flex items-center gap-3 text-red-200 text-xs font-mono">
+            <XCircle className="h-4 w-4 text-red-400 shrink-0" />
+            <div>
+              <p className="font-bold">Rejected by Administrator</p>
+              <p className="text-[11px] text-red-300/80 font-sans">
+                This project submission did not pass administrator review and is hidden from public discovery.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Project Header Banner & Title Card */}
+        <Card className="p-0 overflow-hidden border-[#363433] bg-[#1c1b1a]">
+          <div className="relative h-48 sm:h-64 border-b border-[#2b2a29] bg-[#141312] overflow-hidden">
+            {project.coverUrl ? (
+              <img
+                src={project.coverUrl}
+                alt={project.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] via-[#1c1b1a] to-[#141312]">
+                <FolderKanban className="h-16 w-16 text-[#363433]" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#1c1b1a] via-transparent to-transparent opacity-80" />
+
+            {/* Development Stage Badge */}
+            <div className="absolute top-4 left-4 rounded-full border border-[#48473f] bg-[#141312]/90 backdrop-blur-md px-3.5 py-1 text-xs font-mono text-[#ffffff]">
+              ● {formatStatus(project.status)}
+            </div>
+          </div>
+
+          <div className="p-6 sm:p-8 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h1 className="font-headline text-3xl sm:text-4xl font-bold text-[#ffffff] tracking-tight">
+                  {project.name}
+                </h1>
+                <p className="text-xs font-mono text-[#8c887e] mt-1">
+                  /{project.slug}
+                </p>
+              </div>
+
+              {/* Tag Chips */}
+              <div className="flex items-center gap-2 flex-wrap text-xs font-mono text-[#cac6bc]">
+                {project.genre && (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#2b2a29] bg-[#141312] px-3 py-1.5">
+                    <Gamepad2 className="h-3.5 w-3.5 text-[#8c887e]" />
+                    {project.genre}
+                  </span>
+                )}
+                {project.platform && (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#2b2a29] bg-[#141312] px-3 py-1.5">
+                    <Layers className="h-3.5 w-3.5 text-[#8c887e]" />
+                    {project.platform}
+                  </span>
+                )}
+                {project.gameEngine && (
+                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-[#2b2a29] bg-[#141312] px-3 py-1.5">
+                    <Cpu className="h-3.5 w-3.5 text-[#8c887e]" />
+                    {project.gameEngine}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Main Grid: Overview & Team Roster */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left 2 Columns: Overview & Founder */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* About Project */}
+            <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-3">
+              <h3 className="font-headline text-lg font-bold text-[#ffffff]">
+                About the Project
+              </h3>
+              <p className="text-sm leading-relaxed text-[#cac6bc] whitespace-pre-line">
+                {project.description}
+              </p>
+            </div>
+
+            {/* Founder Card */}
+            <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
+                <span className="text-xs font-mono uppercase tracking-widest text-[#8c887e]">
+                  Studio Founder
+                </span>
+                <Crown className="h-4 w-4 text-amber-400" />
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Link to={`/u/${project.founder.username}`}>
+                  {project.founder.avatarUrl ? (
+                    <img
+                      src={project.founder.avatarUrl}
+                      alt={project.founder.displayName}
+                      className="h-12 w-12 rounded-full object-cover border border-[#48473f]"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-lg text-[#ffffff]">
+                      {project.founder.displayName.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </Link>
+
+                <div>
+                  <Link
+                    to={`/u/${project.founder.username}`}
+                    className="font-headline text-base font-bold text-[#ffffff] hover:text-amber-200 transition-colors"
+                  >
+                    {project.founder.displayName}
+                  </Link>
+                  <p className="text-xs font-mono text-[#8c887e]">
+                    @{project.founder.username}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Team Roster */}
+          <div className="space-y-6">
+            <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-[#e6e2df]" />
+                  <h3 className="font-headline text-base font-bold text-[#ffffff]">
+                    Production Team
+                  </h3>
+                </div>
+                <span className="text-xs font-mono text-[#8c887e]">
+                  {project.memberCount} {project.memberCount === 1 ? 'member' : 'members'}
+                </span>
+              </div>
+
+              {/* Members List */}
+              <div className="space-y-3">
+                {project.members.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-2xl border border-[#2b2a29] bg-[#141312] p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Link to={`/u/${member.username}`}>
+                        {member.avatarUrl ? (
+                          <img
+                            src={member.avatarUrl}
+                            alt={member.displayName}
+                            className="h-9 w-9 rounded-full object-cover border border-[#363433]"
+                          />
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-[#201f1e] border border-[#363433] flex items-center justify-center font-bold text-xs text-[#ffffff]">
+                            {member.displayName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </Link>
+                      <div>
+                        <Link
+                          to={`/u/${member.username}`}
+                          className="text-xs font-semibold text-[#ffffff] hover:text-[#e6e2df] transition-colors"
+                        >
+                          {member.displayName}
+                        </Link>
+                        <p className="text-[10px] font-mono text-[#8c887e]">
+                          @{member.username}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="inline-block rounded-full border border-[#48473f] bg-[#201f1e] px-2.5 py-0.5 text-[10px] font-mono text-[#e6e2df]">
+                        {member.role}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Edit Modal for Founder */}
+        {project.isFounder && (
+          <EditProjectModal
+            isOpen={isEditModalOpen}
+            project={project}
+            onClose={() => setIsEditModalOpen(false)}
+            onUpdated={handleProjectUpdated}
+          />
+        )}
+      </div>
+    );
+  };
+
+  if (currentUser) {
+    return (
+      <DashboardLayout user={currentUser}>
+        <div className="max-w-7xl mx-auto pb-12">{renderContent()}</div>
+      </DashboardLayout>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#141312] text-[#e6e2df] flex flex-col">
+      <Navbar />
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">{renderContent()}</main>
+      <Footer />
+    </div>
+  );
+};

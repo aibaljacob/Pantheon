@@ -12,9 +12,11 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { EmailVerifiedPage } from './pages/EmailVerifiedPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { AuthBootstrap } from './features/auth/components/AuthBootstrap';
 import { ProtectedRoute } from './features/auth/components/ProtectedRoute';
 import { PublicRoute } from './features/auth/components/PublicRoute';
+
 export function App() {
   return (
     <BrowserRouter>
@@ -32,6 +34,8 @@ export function App() {
           <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
           {/* Canonical Public User Profile Route */}
           <Route path="/u/:username" element={<ProfilePage />} />
+          {/* Canonical Project Details Route */}
+          <Route path="/projects/:id" element={<ProjectDetailPage />} />
 
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<LoginPage />} />

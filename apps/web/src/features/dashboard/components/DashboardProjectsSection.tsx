@@ -155,7 +155,7 @@ export const DashboardProjectsSection: React.FC = () => {
       {!isLoading && !error && projects.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((project) => (
-            <Link key={project.id} to={`/projects`}>
+            <Link key={project.id} to={`/projects/${project.id}`}>
               <Card className="h-full p-0 overflow-hidden hover:border-[#48473f] transition-all group relative">
                 <div className="relative h-36 border-b border-[#2b2a29] bg-[#141312] overflow-hidden">
                   {project.coverUrl ? (

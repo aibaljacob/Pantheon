@@ -10,9 +10,10 @@ import { EmptyState } from './EmptyState';
 
 interface HeroSectionProps {
   user: DashboardUser;
+  onBecomeFounder?: () => void;
 }
 
-export const HeroSection: React.FC<HeroSectionProps> = ({ user }) => {
+export const HeroSection: React.FC<HeroSectionProps> = ({ user, onBecomeFounder }) => {
   const hasProjectAccess = (user.projectsCount ?? 0) > 0;
 
   return (
@@ -37,7 +38,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ user }) => {
               <div className="flex flex-wrap gap-3">
                 <Button variant="primary" size="lg" icon={<ArrowRight className="h-4 w-4" />}>Continue Project</Button>
                 <Button variant="secondary" size="lg" icon={<BriefcaseBusiness className="h-4 w-4" />}>Browse Projects</Button>
-                <Button variant="secondary" size="lg" icon={<Crown className="h-4 w-4" />}>Become a Founder</Button>
+                <Button variant="secondary" size="lg" onClick={onBecomeFounder} icon={<Crown className="h-4 w-4" />}>Become a Founder</Button>
               </div>
             </div>
 

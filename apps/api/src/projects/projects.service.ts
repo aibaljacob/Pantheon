@@ -1,7 +1,19 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import type { CreateProjectDto, DashboardProjectDto, DashboardProjectsResponseDto } from './projects.dto';
-import { ProjectModerationStatus, ProjectStatus } from '@prisma/client';
+import type {
+  CreateProjectDto,
+  DashboardProjectDto,
+  DashboardProjectsResponseDto,
+  ProjectDetailResponseDto,
+  UpdateProjectDto,
+} from './projects.dto';
+import { ProjectModerationStatus, ProjectStatus, Role } from '@prisma/client';
 
 @Injectable()
 export class ProjectsService {
@@ -20,6 +32,33 @@ export class ProjectsService {
   }
 
   async createProject(userId: string, dto: CreateProjectDto): Promise<DashboardProjectDto> {
+    if (dto.genre?.trim()) {
+      const genreExists = await this.prisma.genre.findFirst({
+        where: { name: dto.genre.trim(), isActive: true },
+      });
+      if (!genreExists) {
+        throw new BadRequestException(`Unrecognized genre taxonomy value: "${dto.genre}"`);
+      }
+    }
+
+    if (dto.platform?.trim()) {
+      const platformExists = await this.prisma.platform.findFirst({
+        where: { name: dto.platform.trim(), isActive: true },
+      });
+      if (!platformExists) {
+        throw new BadRequestException(`Unrecognized platform taxonomy value: "${dto.platform}"`);
+      }
+    }
+
+    if (dto.gameEngine?.trim()) {
+      const engineExists = await this.prisma.gameEngine.findFirst({
+        where: { name: dto.gameEngine.trim(), isActive: true },
+      });
+      if (!engineExists) {
+        throw new BadRequestException(`Unrecognized game engine taxonomy value: "${dto.gameEngine}"`);
+      }
+    }
+
     let slug = this.generateSlug(dto.name);
 
     // Check slug collision
@@ -203,5 +242,192 @@ export class ProjectsService {
     return {
       projects: mappedProjects,
     };
+  }
+
+  async getProjectDetails(
+    idOrSlug: string,
+    currentUserId?: string,
+    currentUserRole?: string,
+  ): Promise<ProjectDetailResponseDto> {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+      },
+      include: {
+        founder: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                    firstName: true,
+                    lastName: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const isFounder = Boolean(currentUserId && project.founderId === currentUserId);
+    const isMember = Boolean(
+      currentUserId && (isFounder || project.members.some((m) => m.userId === currentUserId)),
+    );
+    const isAdmin = currentUserRole === Role.ADMINISTRATOR;
+
+    // Authorization rule: Non-published projects are only visible to Founder, Members, or Admins.
+    if (project.moderationStatus !== ProjectModerationStatus.PUBLISHED) {
+      if (!isFounder && !isMember && !isAdmin) {
+        throw new NotFoundException('Project not found.');
+      }
+    }
+
+    const founderDisplayName =
+      project.founder.profile?.displayName ||
+      `${project.founder.profile?.firstName || ''} ${project.founder.profile?.lastName || ''}`.trim() ||
+      project.founder.username;
+
+    const mappedMembers = project.members.map((m) => {
+      const displayName =
+        m.user.profile?.displayName ||
+        `${m.user.profile?.firstName || ''} ${m.user.profile?.lastName || ''}`.trim() ||
+        m.user.username;
+
+      return {
+        id: m.id,
+        userId: m.userId,
+        username: m.user.username,
+        displayName,
+        avatarUrl: m.user.profile?.avatarUrl || null,
+        role: m.role,
+        joinedAt: m.joinedAt.toISOString(),
+      };
+    });
+
+    return {
+      id: project.id,
+      name: project.name,
+      slug: project.slug,
+      description: project.description,
+      coverUrl: project.coverUrl,
+      status: project.status,
+      moderationStatus: project.moderationStatus,
+      genre: project.genre,
+      platform: project.platform,
+      gameEngine: project.gameEngine,
+      createdAt: project.createdAt.toISOString(),
+      updatedAt: project.updatedAt.toISOString(),
+      founder: {
+        id: project.founder.id,
+        username: project.founder.username,
+        displayName: founderDisplayName,
+        avatarUrl: project.founder.profile?.avatarUrl || null,
+      },
+      members: mappedMembers,
+      memberCount: project.members.length,
+      isFounder,
+      isMember,
+    };
+  }
+
+  async updateProject(
+    projectId: string,
+    userId: string,
+    dto: UpdateProjectDto,
+  ): Promise<ProjectDetailResponseDto> {
+    const existing = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Project record not found.');
+    }
+
+    if (existing.founderId !== userId) {
+      throw new ForbiddenException('Only the project founder can edit project details.');
+    }
+
+    // Taxonomy validations if updated
+    if (dto.genre?.trim()) {
+      const genreExists = await this.prisma.genre.findFirst({
+        where: { name: dto.genre.trim(), isActive: true },
+      });
+      if (!genreExists) {
+        throw new BadRequestException(`Unrecognized genre taxonomy value: "${dto.genre}"`);
+      }
+    }
+
+    if (dto.platform?.trim()) {
+      const platformExists = await this.prisma.platform.findFirst({
+        where: { name: dto.platform.trim(), isActive: true },
+      });
+      if (!platformExists) {
+        throw new BadRequestException(`Unrecognized platform taxonomy value: "${dto.platform}"`);
+      }
+    }
+
+    if (dto.gameEngine?.trim()) {
+      const engineExists = await this.prisma.gameEngine.findFirst({
+        where: { name: dto.gameEngine.trim(), isActive: true },
+      });
+      if (!engineExists) {
+        throw new BadRequestException(`Unrecognized game engine taxonomy value: "${dto.gameEngine}"`);
+      }
+    }
+
+    let slug = existing.slug;
+    if (dto.name && dto.name.trim() !== existing.name) {
+      slug = this.generateSlug(dto.name);
+      const slugCollision = await this.prisma.project.findFirst({
+        where: {
+          slug,
+          NOT: { id: projectId },
+        },
+      });
+      if (slugCollision) {
+        const suffix = Math.floor(1000 + Math.random() * 9000);
+        slug = `${slug}-${suffix}`;
+      }
+    }
+
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        ...(dto.name && { name: dto.name.trim(), slug }),
+        ...(dto.description && { description: dto.description.trim() }),
+        ...(dto.coverUrl !== undefined && { coverUrl: dto.coverUrl?.trim() || null }),
+        ...(dto.status && { status: dto.status }),
+        ...(dto.genre !== undefined && { genre: dto.genre?.trim() || null }),
+        ...(dto.platform !== undefined && { platform: dto.platform?.trim() || null }),
+        ...(dto.gameEngine !== undefined && { gameEngine: dto.gameEngine?.trim() || null }),
+      },
+    });
+
+    return this.getProjectDetails(projectId, userId);
   }
 }
