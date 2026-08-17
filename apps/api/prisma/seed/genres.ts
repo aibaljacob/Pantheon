@@ -1,0 +1,16 @@
+export const initialGenres = [
+  { name: 'Action', description: 'Real-time reflexes, combat, and movement challenges.' },
+  { name: 'RPG (Role-Playing Game)', description: 'Character growth, stats, quests, and narrative choice.' },
+  { name: 'Strategy', description: 'Tactical planning, resource management, and strategic warfare.' },
+  { name: 'Horror', description: 'Survival atmosphere, psychological tension, and fear mechanics.' },
+  { name: 'Adventure', description: 'Exploration, environmental puzzles, and story progression.' },
+  { name: 'Simulation', description: 'Realistic or stylized physics, vehicle, or life simulation.' },
+  { name: 'Racing', description: 'Competitive vehicle driving, lap timing, and arcade or sim physics.' },
+  { name: 'Platformer', description: 'Precision jumping, obstacle navigation, and spatial timing.' },
+  { name: 'Puzzle', description: 'Logic, pattern matching, and problem-solving mechanics.' },
+  { name: 'Survival', description: 'Scavenging, craft management, base building, and environmental hazards.' },
+  { name: 'FPS (First-Person Shooter)', description: 'First-person perspective gunplay and tactical combat.' },
+  { name: 'TPS (Third-Person Shooter)', description: 'Over-the-shoulder perspective combat and cover systems.' },
+  { name: 'MOBA', description: 'Multiplayer online battle arena games.' },
+  { name: 'MMORPG', description: 'Massively multiplayer online role-playing games.' },
+];

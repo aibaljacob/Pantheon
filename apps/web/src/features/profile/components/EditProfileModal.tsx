@@ -1,7 +1,34 @@
 import React, { useState } from 'react';
-import { X, User, Tag, Briefcase, GraduationCap, Layers, FileText, Plus, Trash2, Check } from 'lucide-react';
+import { X, User, Tag, Briefcase, GraduationCap, Layers, FileText, Plus, Trash2, Check, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
-import type { ProfileData, ExperienceItem, EducationItem, PortfolioItem, ProfileLink } from '../types';
+import type { ProfileData, ExperienceItem, EducationItem, PortfolioItem, ProfileLink, TaxonomyItem } from '../types';
+import { TaxonomyMultiSelect } from './TaxonomyMultiSelect';
+import {
+  searchRoles,
+  searchSpecializations,
+  searchSkills,
+  searchTools,
+  searchGameEngines,
+  searchGenres,
+  searchPlatforms,
+  updateIdentity,
+} from '../services/taxonomyService';
+import {
+  updateBasicProfile,
+  createExperience,
+  updateExperience,
+  deleteExperience,
+  createEducation,
+  updateEducation,
+  deleteEducation,
+  createPortfolioItem,
+  updatePortfolioItem,
+  deletePortfolioItem,
+  createLink,
+  updateLink,
+  deleteLink,
+} from '../services/profileService';
+import { useAuthStore } from '../../auth/store/authStore';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -12,6 +39,11 @@ interface EditProfileModalProps {
 
 type TabType = 'basic' | 'identity' | 'experience' | 'education' | 'portfolio' | 'resume_links';
 
+const normalizeTaxonomyArray = (items: (TaxonomyItem | string)[] = []): TaxonomyItem[] => {
+  if (!Array.isArray(items)) return [];
+  return items.map((item) => (typeof item === 'string' ? { id: item, name: item } : item));
+};
+
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   isOpen,
   onClose,
@@ -20,21 +52,170 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [formData, setFormData] = useState<ProfileData>(profileData);
-
-  // Helper state for adding dynamic tags
-  const [tagInputs, setTagInputs] = useState<{ [key: string]: string }>({
-    roles: '',
-    specializations: '',
-    skills: '',
-    tools: '',
-    gameEngines: '',
-    genres: '',
-    platforms: '',
-  });
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const accessToken = useAuthStore((state) => state.accessToken);
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
+  const professional = formData.professional || {
+    roles: [],
+    specializations: [],
+    skills: [],
+    tools: [],
+    gameEngines: [],
+    genres: [],
+    platforms: [],
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+
+    // Collect taxonomy UUIDs
+    const extractIds = (items: (TaxonomyItem | string)[] = []) =>
+      normalizeTaxonomyArray(items)
+        .map((i) => i.id)
+        .filter((id) => Boolean(id) && id.length > 10);
+
+    const payload = {
+      roleIds: extractIds(professional.roles),
+      specializationIds: extractIds(professional.specializations),
+      skillIds: extractIds(professional.skills),
+      toolIds: extractIds(professional.tools),
+      gameEngineIds: extractIds(professional.gameEngines),
+      genreIds: extractIds(professional.genres),
+      platformIds: extractIds(professional.platforms),
+    };
+
+    try {
+      if (accessToken) {
+        // 1 & 2. Basic Profile + Taxonomy Identity (Parallel)
+        await Promise.all([
+          updateBasicProfile(accessToken, {
+            firstName: formData.user.firstName || '',
+            lastName: formData.user.lastName || '',
+            displayName: formData.user.displayName || '',
+            headline: formData.user.headline || '',
+            bio: formData.user.bio || '',
+            location: formData.user.location || '',
+            timezone: formData.user.timezone || '',
+            experienceYears: formData.user.experienceYears || 0,
+            availability: formData.user.availability || 'Available for collaboration',
+          }),
+          updateIdentity(accessToken, payload),
+        ]);
+
+        // 3. Experiences CRUD Sync
+        const currentExpIds = new Set((formData.experiences || []).map((e) => e.id));
+        const deletedExpIds = (profileData.experiences || [])
+          .filter((e) => !currentExpIds.has(e.id))
+          .map((e) => e.id);
+
+        for (const id of deletedExpIds) {
+          await deleteExperience(accessToken, id).catch((err) => console.warn('Delete exp error:', err));
+        }
+
+        for (const exp of formData.experiences || []) {
+          const dto = {
+            position: exp.position || 'Developer',
+            company: exp.company || 'Studio',
+            location: exp.location || '',
+            startDate: exp.startDate || '2024',
+            endDate: exp.endDate || '',
+            isCurrent: Boolean(exp.isCurrent),
+            description: exp.description || '',
+            technologies: exp.technologies || [],
+          };
+          if (exp.id.startsWith('exp-')) {
+            await createExperience(accessToken, dto).catch((err) => console.warn('Create exp error:', err));
+          } else {
+            await updateExperience(accessToken, exp.id, dto).catch((err) => console.warn('Update exp error:', err));
+          }
+        }
+
+        // 4. Education CRUD Sync
+        const currentEduIds = new Set((formData.education || []).map((e) => e.id));
+        const deletedEduIds = (profileData.education || [])
+          .filter((e) => !currentEduIds.has(e.id))
+          .map((e) => e.id);
+
+        for (const id of deletedEduIds) {
+          await deleteEducation(accessToken, id).catch((err) => console.warn('Delete edu error:', err));
+        }
+
+        for (const edu of formData.education || []) {
+          const dto = {
+            institution: edu.institution || 'University',
+            degree: edu.degree || 'Degree',
+            startDate: edu.startDate || '2020',
+            endDate: edu.endDate || '',
+            description: edu.description || '',
+          };
+          if (edu.id.startsWith('edu-')) {
+            await createEducation(accessToken, dto).catch((err) => console.warn('Create edu error:', err));
+          } else {
+            await updateEducation(accessToken, edu.id, dto).catch((err) => console.warn('Update edu error:', err));
+          }
+        }
+
+        // 5. Portfolio CRUD Sync
+        const currentProjIds = new Set((formData.portfolio || []).map((p) => p.id));
+        const deletedProjIds = (profileData.portfolio || [])
+          .filter((p) => !currentProjIds.has(p.id))
+          .map((p) => p.id);
+
+        for (const id of deletedProjIds) {
+          await deletePortfolioItem(accessToken, id).catch((err) => console.warn('Delete portfolio error:', err));
+        }
+
+        for (const proj of formData.portfolio || []) {
+          const dto = {
+            title: proj.title || 'Project',
+            description: proj.description || '',
+            role: proj.role || 'Developer',
+            gameEngine: proj.gameEngine || 'Unreal Engine 5',
+            genre: proj.genre || 'Action',
+            platform: proj.platform || 'PC',
+            status: proj.status || 'In Development',
+            coverUrl: proj.coverUrl || '',
+            projectUrl: proj.projectUrl || '',
+            technologies: proj.technologies || [],
+          };
+          if (proj.id.startsWith('proj-')) {
+            await createPortfolioItem(accessToken, dto).catch((err) => console.warn('Create portfolio error:', err));
+          } else {
+            await updatePortfolioItem(accessToken, proj.id, dto).catch((err) => console.warn('Update portfolio error:', err));
+          }
+        }
+
+        // 6. Links CRUD Sync
+        const currentLinkIds = new Set((formData.links || []).map((l) => l.id));
+        const deletedLinkIds = (profileData.links || [])
+          .filter((l) => !currentLinkIds.has(l.id))
+          .map((l) => l.id);
+
+        for (const id of deletedLinkIds) {
+          await deleteLink(accessToken, id).catch((err) => console.warn('Delete link error:', err));
+        }
+
+        for (const link of formData.links || []) {
+          const dto = {
+            platform: link.platform || 'website',
+            displayName: link.displayName || 'Portfolio Link',
+            url: link.url || 'https://pantheon.dev',
+          };
+          if (link.id.startsWith('link-')) {
+            await createLink(accessToken, dto).catch((err) => console.warn('Create link error:', err));
+          } else {
+            await updateLink(accessToken, link.id, dto).catch((err) => console.warn('Update link error:', err));
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Profile save notice:', error);
+    } finally {
+      setIsSaving(false);
+    }
+
     onSave(formData);
     onClose();
   };
@@ -46,32 +227,27 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }));
   };
 
-  const handleAddTag = (category: keyof ProfileData['professional']) => {
-    const val = tagInputs[category]?.trim();
-    if (!val) return;
-    if (formData.professional[category].includes(val)) return;
-
+  const handleTaxonomyChange = (
+    category: keyof ProfileData['professional'],
+    items: TaxonomyItem[],
+  ) => {
     setFormData((prev) => ({
       ...prev,
       professional: {
-        ...prev.professional,
-        [category]: [...prev.professional[category], val],
-      },
-    }));
-    setTagInputs((prev) => ({ ...prev, [category]: '' }));
-  };
-
-  const handleRemoveTag = (category: keyof ProfileData['professional'], tagToRemove: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      professional: {
-        ...prev.professional,
-        [category]: prev.professional[category].filter((t) => t !== tagToRemove),
+        ...(prev.professional || {
+          roles: [],
+          specializations: [],
+          skills: [],
+          tools: [],
+          gameEngines: [],
+          genres: [],
+          platforms: [],
+        }),
+        [category]: items,
       },
     }));
   };
 
-  // Add dummy item helpers
   const handleAddExperienceItem = () => {
     const newExp: ExperienceItem = {
       id: `exp-${Date.now()}`,
@@ -85,14 +261,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     };
     setFormData((prev) => ({
       ...prev,
-      experiences: [newExp, ...prev.experiences],
+      experiences: [newExp, ...(prev.experiences || [])],
     }));
   };
 
   const handleRemoveExperienceItem = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      experiences: prev.experiences.filter((e) => e.id !== id),
+      experiences: (prev.experiences || []).filter((e) => e.id !== id),
     }));
   };
 
@@ -107,14 +283,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     };
     setFormData((prev) => ({
       ...prev,
-      education: [...prev.education, newEdu],
+      education: [...(prev.education || []), newEdu],
     }));
   };
 
   const handleRemoveEducationItem = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      education: prev.education.filter((e) => e.id !== id),
+      education: (prev.education || []).filter((e) => e.id !== id),
     }));
   };
 
@@ -133,14 +309,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     };
     setFormData((prev) => ({
       ...prev,
-      portfolio: [newProj, ...prev.portfolio],
+      portfolio: [newProj, ...(prev.portfolio || [])],
     }));
   };
 
   const handleRemovePortfolioItem = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      portfolio: prev.portfolio.filter((p) => p.id !== id),
+      portfolio: (prev.portfolio || []).filter((p) => p.id !== id),
     }));
   };
 
@@ -153,14 +329,14 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     };
     setFormData((prev) => ({
       ...prev,
-      links: [...prev.links, newLink],
+      links: [...(prev.links || []), newLink],
     }));
   };
 
   const handleRemoveLinkItem = (id: string) => {
     setFormData((prev) => ({
       ...prev,
-      links: prev.links.filter((l) => l.id !== id),
+      links: (prev.links || []).filter((l) => l.id !== id),
     }));
   };
 
@@ -222,7 +398,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <label className="block text-xs font-mono text-[#8c887e] mb-1">First Name</label>
                   <input
                     type="text"
-                    value={formData.user.firstName}
+                    value={formData.user.firstName || ''}
                     onChange={(e) => handleUserChange('firstName', e.target.value)}
                     className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                   />
@@ -232,7 +408,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <label className="block text-xs font-mono text-[#8c887e] mb-1">Last Name</label>
                   <input
                     type="text"
-                    value={formData.user.lastName}
+                    value={formData.user.lastName || ''}
                     onChange={(e) => handleUserChange('lastName', e.target.value)}
                     className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                   />
@@ -254,7 +430,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <label className="block text-xs font-mono text-[#8c887e] mb-1">Professional Headline</label>
                 <input
                   type="text"
-                  value={formData.user.headline}
+                  value={formData.user.headline || ''}
                   onChange={(e) => handleUserChange('headline', e.target.value)}
                   className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                 />
@@ -264,7 +440,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 <label className="block text-xs font-mono text-[#8c887e] mb-1">Professional Bio</label>
                 <textarea
                   rows={4}
-                  value={formData.user.bio}
+                  value={formData.user.bio || ''}
                   onChange={(e) => handleUserChange('bio', e.target.value)}
                   className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                 />
@@ -275,7 +451,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <label className="block text-xs font-mono text-[#8c887e] mb-1">Location</label>
                   <input
                     type="text"
-                    value={formData.user.location}
+                    value={formData.user.location || ''}
                     onChange={(e) => handleUserChange('location', e.target.value)}
                     className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                   />
@@ -285,7 +461,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <label className="block text-xs font-mono text-[#8c887e] mb-1">Timezone</label>
                   <input
                     type="text"
-                    value={formData.user.timezone}
+                    value={formData.user.timezone || ''}
                     onChange={(e) => handleUserChange('timezone', e.target.value)}
                     className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                   />
@@ -295,7 +471,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <label className="block text-xs font-mono text-[#8c887e] mb-1">Experience (Years)</label>
                   <input
                     type="number"
-                    value={formData.user.experienceYears}
+                    value={formData.user.experienceYears ?? 0}
                     onChange={(e) => handleUserChange('experienceYears', parseInt(e.target.value) || 0)}
                     className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                   />
@@ -305,7 +481,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               <div>
                 <label className="block text-xs font-mono text-[#8c887e] mb-1">Availability Status</label>
                 <select
-                  value={formData.user.availability}
+                  value={formData.user.availability || 'Available for collaboration'}
                   onChange={(e) => handleUserChange('availability', e.target.value)}
                   className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
                 >
@@ -318,66 +494,84 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: SKILLS & TAGS */}
+          {/* TAB 2: CONTROLLED TAXONOMY SKILLS & IDENTITY */}
           {activeTab === 'identity' && (
             <div className="space-y-6">
-              {(
-                [
-                  { key: 'roles', title: 'Roles' },
-                  { key: 'specializations', title: 'Specializations' },
-                  { key: 'gameEngines', title: 'Game Engines' },
-                  { key: 'skills', title: 'Technical Skills' },
-                  { key: 'tools', title: 'Tools & Software' },
-                  { key: 'platforms', title: 'Platforms' },
-                  { key: 'genres', title: 'Genres' },
-                ] as const
-              ).map(({ key, title }) => (
-                <div key={key} className="space-y-2 border-b border-[#2b2a29] pb-4">
-                  <label className="block text-xs font-mono uppercase tracking-wider text-[#8c887e]">
-                    {title}
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      placeholder={`Add new ${title.toLowerCase()}...`}
-                      value={tagInputs[key]}
-                      onChange={(e) => setTagInputs({ ...tagInputs, [key]: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddTag(key);
-                        }
-                      }}
-                      className="flex-1 rounded-xl border border-[#363433] bg-[#141312] px-3 py-1.5 text-xs font-mono text-[#e6e2df] focus:border-[#48473f] focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleAddTag(key)}
-                      className="rounded-xl bg-[#201f1e] border border-[#363433] px-3 py-1.5 font-mono text-xs text-[#e6e2df] hover:border-[#e6e2df]"
-                    >
-                      Add
-                    </button>
-                  </div>
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 text-xs font-mono text-amber-200">
+                <span>
+                  💡 Pantheon Taxonomy: Professional identity uses backend-verified taxonomy entities. Select recognized values from the backend search. Custom arbitrary entries are disabled.
+                </span>
+              </div>
 
-                  <div className="flex flex-wrap gap-1.5 pt-2">
-                    {formData.professional[key].map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-[#48473f] bg-[#201f1e] px-2.5 py-1 text-xs font-mono text-[#e6e2df]"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(key, tag)}
-                          className="text-[#8c887e] hover:text-red-400"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+              {/* 1. Primary Roles (Max 5) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Primary Roles"
+                placeholder="Search recognized roles (e.g. Gameplay Programmer, Technical Artist)..."
+                selectedItems={normalizeTaxonomyArray(professional.roles)}
+                onChange={(items) => handleTaxonomyChange('roles', items)}
+                fetchSearch={searchRoles}
+                maxLimit={5}
+              />
+
+              {/* 2. Specializations (Max 10) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Specializations"
+                placeholder="Search specializations (e.g. Core Gameplay, Multiplayer)..."
+                selectedItems={normalizeTaxonomyArray(professional.specializations)}
+                onChange={(items) => handleTaxonomyChange('specializations', items)}
+                fetchSearch={searchSpecializations}
+                maxLimit={10}
+              />
+
+              {/* 3. Game Engines (Max 10) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Game Engines"
+                placeholder="Search game engines (e.g. Unreal Engine, Unity, Godot)..."
+                selectedItems={normalizeTaxonomyArray(professional.gameEngines)}
+                onChange={(items) => handleTaxonomyChange('gameEngines', items)}
+                fetchSearch={searchGameEngines}
+                maxLimit={10}
+              />
+
+              {/* 4. Technical Skills (Max 30) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Technical & Creative Skills"
+                placeholder="Search skills (e.g. C++, Shader Programming, Game AI)..."
+                selectedItems={normalizeTaxonomyArray(professional.skills)}
+                onChange={(items) => handleTaxonomyChange('skills', items)}
+                fetchSearch={searchSkills}
+                maxLimit={30}
+              />
+
+              {/* 5. Tools & Software (Max 30) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Tools & Software"
+                placeholder="Search tools (e.g. Blender, Maya, Visual Studio, Wwise)..."
+                selectedItems={normalizeTaxonomyArray(professional.tools)}
+                onChange={(items) => handleTaxonomyChange('tools', items)}
+                fetchSearch={searchTools}
+                maxLimit={30}
+              />
+
+              {/* 6. Platforms (Max 10) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Platform Experience"
+                placeholder="Search platforms (e.g. PC, PlayStation, Xbox, Mobile)..."
+                selectedItems={normalizeTaxonomyArray(professional.platforms)}
+                onChange={(items) => handleTaxonomyChange('platforms', items)}
+                fetchSearch={searchPlatforms}
+                maxLimit={10}
+              />
+
+              {/* 7. Genres (Max 10) */}
+              <TaxonomyMultiSelect
+                categoryLabel="Preferred Genres"
+                placeholder="Search genres (e.g. Action, RPG, Strategy, FPS)..."
+                selectedItems={normalizeTaxonomyArray(professional.genres)}
+                onChange={(items) => handleTaxonomyChange('genres', items)}
+                fetchSearch={searchGenres}
+                maxLimit={10}
+              />
             </div>
           )}
 
@@ -391,7 +585,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </Button>
               </div>
 
-              {formData.experiences.map((exp) => (
+              {(formData.experiences || []).map((exp) => (
                 <div key={exp.id} className="rounded-xl border border-[#2b2a29] bg-[#141312] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-[#8c887e]">ID: {exp.id}</span>
@@ -406,12 +600,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"
-                      value={exp.position}
+                      value={exp.position || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          experiences: prev.experiences.map((item) => item.id === exp.id ? { ...item, position: val } : item),
+                          experiences: (prev.experiences || []).map((item) => item.id === exp.id ? { ...item, position: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -419,12 +613,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     />
                     <input
                       type="text"
-                      value={exp.company}
+                      value={exp.company || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          experiences: prev.experiences.map((item) => item.id === exp.id ? { ...item, company: val } : item),
+                          experiences: (prev.experiences || []).map((item) => item.id === exp.id ? { ...item, company: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -446,7 +640,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </Button>
               </div>
 
-              {formData.education.map((edu) => (
+              {(formData.education || []).map((edu) => (
                 <div key={edu.id} className="rounded-xl border border-[#2b2a29] bg-[#141312] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-[#8c887e]">ID: {edu.id}</span>
@@ -461,12 +655,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"
-                      value={edu.degree}
+                      value={edu.degree || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          education: prev.education.map((item) => item.id === edu.id ? { ...item, degree: val } : item),
+                          education: (prev.education || []).map((item) => item.id === edu.id ? { ...item, degree: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -474,12 +668,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     />
                     <input
                       type="text"
-                      value={edu.institution}
+                      value={edu.institution || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          education: prev.education.map((item) => item.id === edu.id ? { ...item, institution: val } : item),
+                          education: (prev.education || []).map((item) => item.id === edu.id ? { ...item, institution: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -501,7 +695,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 </Button>
               </div>
 
-              {formData.portfolio.map((proj) => (
+              {(formData.portfolio || []).map((proj) => (
                 <div key={proj.id} className="rounded-xl border border-[#2b2a29] bg-[#141312] p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-xs text-[#8c887e]">{proj.title}</span>
@@ -516,12 +710,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <input
                       type="text"
-                      value={proj.title}
+                      value={proj.title || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          portfolio: prev.portfolio.map((item) => item.id === proj.id ? { ...item, title: val } : item),
+                          portfolio: (prev.portfolio || []).map((item) => item.id === proj.id ? { ...item, title: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -529,12 +723,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     />
                     <input
                       type="text"
-                      value={proj.role}
+                      value={proj.role || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          portfolio: prev.portfolio.map((item) => item.id === proj.id ? { ...item, role: val } : item),
+                          portfolio: (prev.portfolio || []).map((item) => item.id === proj.id ? { ...item, role: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -542,12 +736,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     />
                     <input
                       type="text"
-                      value={proj.gameEngine}
+                      value={proj.gameEngine || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          portfolio: prev.portfolio.map((item) => item.id === proj.id ? { ...item, gameEngine: val } : item),
+                          portfolio: (prev.portfolio || []).map((item) => item.id === proj.id ? { ...item, gameEngine: val } : item),
                         }));
                       }}
                       className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#e6e2df]"
@@ -605,16 +799,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   </Button>
                 </div>
 
-                {formData.links.map((link) => (
+                {(formData.links || []).map((link) => (
                   <div key={link.id} className="rounded-xl border border-[#2b2a29] bg-[#141312] p-3 flex items-center gap-3">
                     <input
                       type="text"
-                      value={link.displayName}
+                      value={link.displayName || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          links: prev.links.map((l) => (l.id === link.id ? { ...l, displayName: val } : l)),
+                          links: (prev.links || []).map((l) => (l.id === link.id ? { ...l, displayName: val } : l)),
                         }));
                       }}
                       className="w-1/3 rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1 text-xs text-[#e6e2df]"
@@ -622,12 +816,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     />
                     <input
                       type="text"
-                      value={link.url}
+                      value={link.url || ''}
                       onChange={(e) => {
                         const val = e.target.value;
                         setFormData((prev) => ({
                           ...prev,
-                          links: prev.links.map((l) => (l.id === link.id ? { ...l, url: val } : l)),
+                          links: (prev.links || []).map((l) => (l.id === link.id ? { ...l, url: val } : l)),
                         }));
                       }}
                       className="flex-1 rounded-lg border border-[#363433] bg-[#1c1b1a] px-3 py-1 text-xs text-[#e6e2df]"
@@ -649,11 +843,17 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
 
         {/* Modal Footer Actions */}
         <div className="flex items-center justify-end gap-3 border-t border-[#2b2a29] bg-[#141312] px-6 py-4">
-          <Button variant="ghost" size="md" onClick={onClose}>
+          <Button variant="ghost" size="md" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button variant="primary" size="md" onClick={handleSave} icon={<Check className="h-4 w-4" />}>
-            Save Changes
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleSave}
+            disabled={isSaving}
+            icon={isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
       </div>

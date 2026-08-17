@@ -27,6 +27,8 @@ function persistSnapshot(state: AuthStoreState): AuthStateSnapshot {
   };
 }
 
+let inFlightInitializationPromise: Promise<AuthUser | null> | null = null;
+
 export const useAuthStore = create<AuthStoreState>()(
   persist(
     (set, get) => ({
@@ -78,6 +80,11 @@ export const useAuthStore = create<AuthStoreState>()(
             refreshToken: sessionTokens.refreshToken ?? null,
             rememberMe: sessionTokens.rememberMe ?? false,
           });
+          inFlightInitializationPromise = null;
+        }
+
+        if (inFlightInitializationPromise) {
+          return inFlightInitializationPromise;
         }
 
         const { accessToken, currentUser } = get();
@@ -93,16 +100,22 @@ export const useAuthStore = create<AuthStoreState>()(
 
         set({ isRestoringSession: true, error: null });
 
-        try {
-          const response = await me(accessToken);
-          set({ currentUser: response.data, isRestoringSession: false, error: null });
-          return response.data;
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Unable to restore session.';
-          get().clearSession();
-          set({ isRestoringSession: false, error: message });
-          return null;
-        }
+        inFlightInitializationPromise = (async () => {
+          try {
+            const response = await me(accessToken);
+            set({ currentUser: response.data, isRestoringSession: false, error: null });
+            return response.data;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to restore session.';
+            get().clearSession();
+            set({ isRestoringSession: false, error: message });
+            return null;
+          } finally {
+            inFlightInitializationPromise = null;
+          }
+        })();
+
+        return inFlightInitializationPromise;
       },
 
       registerWithCredentials: async (input) => {

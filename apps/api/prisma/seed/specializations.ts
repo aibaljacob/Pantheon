@@ -1,0 +1,15 @@
+export const initialSpecializations = [
+  { name: 'Core Gameplay & Mechanics', description: 'Player controls, character movement feel, and primary loop mechanics.' },
+  { name: 'Multiplayer & Networking', description: 'Netcode, authoritative server architecture, rollback, and match state.' },
+  { name: 'Game AI & Behavioral Systems', description: 'Behavior trees, utility AI, navmesh pathfinding, and combat AI.' },
+  { name: 'Rendering & Shaders', description: 'HLSL/GLSL shaders, ray tracing, post-processing, and GPU optimization.' },
+  { name: 'Physics & Simulation', description: 'Rigid body dynamics, soft body physics, destruction, and fluid simulation.' },
+  { name: 'UI & UX Scripting', description: 'Heads-up display, menu systems, controller navigation, and UI animation.' },
+  { name: 'Hard-Surface Modeling', description: 'Weapons, vehicles, props, machinery, and architectural 3D modeling.' },
+  { name: 'Character Sculpting & Rigging', description: 'Anatomy sculpting, blendshapes, skeleton deformation, and IK rigs.' },
+  { name: 'World & Environment Art', description: 'Level lighting, foliage, biome assets, and photogrammetry workflows.' },
+  { name: 'Combat & Balance Design', description: 'Weapon tuning, enemy encounter scripting, damage formulas, and balance.' },
+  { name: 'Quest & Narrative Scripting', description: 'Branching quest lines, conversation trees, and event triggers.' },
+  { name: 'Interactive Audio & Music', description: 'Adaptive audio middleware integration, spatialization, and dynamic mixing.' },
+  { name: 'Build & Release Pipeline', description: 'Continuous integration, automated build deployment, and asset baking.' },
+];

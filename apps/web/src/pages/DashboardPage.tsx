@@ -2,6 +2,7 @@ import React from 'react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { DashboardOverviewHero } from '../features/dashboard/components/DashboardOverviewHero';
+import { DashboardProjectsSection } from '../features/dashboard/components/DashboardProjectsSection';
 import { UserProfileCard } from '../features/dashboard/components/UserProfileCard';
 import { AccountStatusCard } from '../features/dashboard/components/AccountStatusCard';
 import { ProfileReadinessCard } from '../features/dashboard/components/ProfileReadinessCard';
@@ -19,13 +20,16 @@ export const DashboardPage: React.FC = () => {
         {/* 1. Dashboard Overview Hero (User + UserProfile core identity) */}
         <DashboardOverviewHero user={currentUser} />
 
-        {/* 2. Developer Profile Feature (Mapped 1-to-1 to UserProfile Prisma Table) */}
+        {/* 2. Real Database Dashboard Projects Section */}
+        <DashboardProjectsSection />
+
+        {/* 3. Developer Profile Feature (Mapped 1-to-1 to UserProfile Prisma Table) */}
         <UserProfileCard user={currentUser} />
 
-        {/* 3. Account & Identity Status Feature (Mapped 1-to-1 to User Prisma Table) */}
+        {/* 4. Account & Identity Status Feature (Mapped 1-to-1 to User Prisma Table) */}
         <AccountStatusCard user={currentUser} />
 
-        {/* 4. Profile & Talent Readiness Checklist */}
+        {/* 5. Profile & Talent Readiness Checklist */}
         <ProfileReadinessCard user={currentUser} />
       </div>
     </DashboardLayout>

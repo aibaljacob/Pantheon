@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 // Subcomponents
 import { ProfileHeader } from '../features/profile/components/ProfileHeader';
@@ -15,212 +16,353 @@ import { PortfolioSection } from '../features/profile/components/PortfolioSectio
 import { ResumeSection } from '../features/profile/components/ResumeSection';
 import { LinksSection } from '../features/profile/components/LinksSection';
 import { ProfileCompletionCard } from '../features/profile/components/ProfileCompletionCard';
-import { EditProfileModal } from '../features/profile/components/EditProfileModal';
 
-// Types
-import type { ProfileData } from '../features/profile/types';
+// Section-Owned Modals
+import { AvatarEditModal } from '../features/profile/components/AvatarEditModal';
+import { BannerEditModal } from '../features/profile/components/BannerEditModal';
+import { EditBasicProfileModal } from '../features/profile/components/EditBasicProfileModal';
+import { EditIdentityModal } from '../features/profile/components/EditIdentityModal';
+import { ExperienceModal } from '../features/profile/components/ExperienceModal';
+import { EducationModal } from '../features/profile/components/EducationModal';
+import { PortfolioModal } from '../features/profile/components/PortfolioModal';
+import { ResumeModal } from '../features/profile/components/ResumeModal';
+import { LinkModal } from '../features/profile/components/LinkModal';
+
+// Services & Types
+import {
+  fetchPublicProfile,
+  fetchOwnProfile,
+  followUser,
+  unfollowUser,
+  deleteResume,
+  updateResumeVisibility,
+} from '../features/profile/services/profileService';
+import type {
+  ProfileData,
+  ExperienceItem,
+  EducationItem,
+  PortfolioItem,
+  ProfileLink,
+  Resume,
+  ProfessionalIdentity,
+  ProfileUser,
+} from '../features/profile/types';
 
 export const ProfilePage: React.FC = () => {
   const { username: routeUsername } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+
   const currentUser = useAuthStore((state) => state.currentUser);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const isRestoringSession = useAuthStore((state) => state.isRestoringSession);
 
   // Redirect /profile to /u/:username
   useEffect(() => {
-    if (location.pathname === '/profile') {
-      const targetUsername = currentUser?.username || 'aibal';
-      navigate(`/u/${targetUsername}`, { replace: true });
+    if (location.pathname === '/profile' && currentUser?.username) {
+      navigate(`/u/${currentUser.username}`, { replace: true });
     }
   }, [location.pathname, currentUser, navigate]);
 
-  const targetUsername = routeUsername || currentUser?.username || 'aibal';
+  const targetUsername = routeUsername || currentUser?.username || '';
 
   const isOwner = Boolean(
-    currentUser && currentUser.username.toLowerCase() === targetUsername.toLowerCase()
+    currentUser && currentUser.username.toLowerCase() === targetUsername.toLowerCase(),
   );
 
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
 
-  // INLINE LOCAL PLACEHOLDER DATA (Rule 17/20 Compliance: No separate mock-data files created)
-  const [profileData, setProfileData] = useState<ProfileData>(() => ({
-    user: {
-      id: 'usr-aibal-001',
-      username: targetUsername,
-      firstName: targetUsername === 'aibal' ? 'Aibal' : 'Ava',
-      lastName: targetUsername === 'aibal' ? 'Jacob' : 'Sol',
-      displayName: targetUsername === 'aibal' ? 'Aibal Jacob' : 'Ava Sol',
-      headline:
-        targetUsername === 'aibal'
-          ? 'Gameplay Programmer · Game Developer'
-          : 'Lead Technical Artist & Shader Developer',
-      location: 'Kerala, India',
-      timezone: 'UTC+05:30 (IST)',
-      experienceYears: 4,
-      bio: 'Gameplay-focused developer interested in systemic mechanics, multiplayer experiences and technical game development. Passionate about architecture, engine optimization, and combat interaction design.',
-      availability: 'Available for collaboration',
-      isFounder: targetUsername === 'aibal',
-      avatarUrl: '',
-      bannerUrl: '',
-    },
-    professional: {
-      roles: ['Gameplay Programmer', 'Systems Programmer', 'Game Developer'],
-      specializations: ['Gameplay Systems', 'Multiplayer Mechanics', 'UI Systems', 'Combat Architecture', 'AI Behaviors'],
-      skills: ['C++', 'C#', 'Python', 'Networking', 'Gameplay Ability System', 'Data Structures', 'Git'],
-      tools: ['Unreal Engine 5', 'Visual Studio', 'Rider', 'Blender', 'Perforce', 'RenderDoc'],
-      gameEngines: ['Unreal Engine 5', 'Unity', 'Godot'],
-      genres: ['Action RPG', 'Systemic Horror', 'Tactical Multiplayer', 'Strategy'],
-      platforms: ['PC (Steam/Epic)', 'PlayStation 5', 'Xbox Series X/S'],
-    },
-    experiences: [
-      {
-        id: 'exp-1',
-        position: 'Senior Gameplay Programmer',
-        company: 'Nexus Interactive',
-        location: 'Remote',
-        startDate: '2024',
-        isCurrent: true,
-        description: 'Built core gameplay systems, player interaction mechanics, and enemy AI behavior trees in Unreal Engine 5 using C++.',
-        technologies: ['C++', 'Unreal Engine 5', 'Gameplay Ability System', 'Perforce'],
-      },
-      {
-        id: 'exp-2',
-        position: 'Game Developer & Systems Architect',
-        company: 'Pantheon Studios',
-        location: 'Kerala, India',
-        startDate: '2022',
-        endDate: '2024',
-        isCurrent: false,
-        description: 'Designed networked multiplayer movement synchronization, inventory pipelines, and custom physics interactions.',
-        technologies: ['C++', 'C#', 'Unity', 'Git', 'PhysX'],
-      },
-    ],
-    education: [
-      {
-        id: 'edu-1',
-        institution: 'APJ Abdul Kalam Technological University',
-        degree: 'Bachelor of Technology in Computer Science & Engineering',
-        startDate: '2020',
-        endDate: '2024',
-        description: 'Specialized in computer graphics, real-time rendering algorithms, parallel computing, and game engine mechanics.',
-      },
-    ],
-    portfolio: [
-      {
-        id: 'proj-helios',
-        title: 'PROJECT HELIOS',
-        description: 'Third-person action RPG prototype focused on dynamic combat hit-reaction systems, melee combos, and directional enemy AI behavior.',
-        role: 'Lead Gameplay Programmer',
-        gameEngine: 'Unreal Engine 5',
-        genre: 'Action RPG',
-        platform: 'PC',
-        status: 'In Development',
-        technologies: ['C++', 'GAS', 'Unreal Engine 5', 'Motion Matching'],
-        projectUrl: 'https://github.com/aibaljacob/Pantheon',
-      },
-      {
-        id: 'proj-aether',
-        title: 'AETHER NETWORKING FRAMEWORK',
-        description: 'Custom lightweight C++ multiplayer state serialization library designed for high-frequency physics replication across game clients.',
-        role: 'Systems Engineer',
-        gameEngine: 'Custom C++ Engine',
-        genre: 'Multiplayer Tech',
-        platform: 'PC / Cross-platform',
-        status: 'Released',
-        technologies: ['C++20', 'Sockets', 'FlatBuffers', 'CMake'],
-        projectUrl: 'https://github.com/aibaljacob',
-      },
-    ],
-    resume: {
-      id: 'res-001',
-      fileName: 'Aibal_Jacob_Gameplay_Developer_Resume.pdf',
-      fileType: 'PDF Document',
-      fileSize: '2.4 MB',
-      updatedAt: '2 days ago',
-      visibility: 'Public',
-      downloadUrl: '#',
-    },
-    links: [
-      { id: 'link-1', platform: 'github', displayName: 'GitHub Profile', url: 'https://github.com/aibaljacob' },
-      { id: 'link-2', platform: 'linkedin', displayName: 'LinkedIn Professional', url: 'https://linkedin.com/in/aibaljacob' },
-      { id: 'link-3', platform: 'artstation', displayName: 'ArtStation Showcase', url: 'https://artstation.com' },
-      { id: 'link-4', platform: 'itchio', displayName: 'itch.io Game Demos', url: 'https://itch.io' },
-    ],
-    stats: {
-      followersCount: 1248,
-      followingCount: 184,
-      profileCompletion: 85,
-      portfolioCompletion: 75,
-    },
-    isOwner,
-    isFollowing: false,
-  }));
+  // Section-owned Modal Visibility States
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isBannerModalOpen, setIsBannerModalOpen] = useState(false);
+  const [isBasicModalOpen, setIsBasicModalOpen] = useState(false);
+  const [isIdentityModalOpen, setIsIdentityModalOpen] = useState(false);
 
-  const handleToggleFollow = () => {
-    setIsFollowing((prev) => !prev);
-    setProfileData((prev) => ({
-      ...prev,
-      stats: {
-        ...prev.stats,
-        followersCount: !isFollowing ? prev.stats.followersCount + 1 : prev.stats.followersCount - 1,
-      },
-    }));
+  const [isExpModalOpen, setIsExpModalOpen] = useState(false);
+  const [expToEdit, setExpToEdit] = useState<ExperienceItem | null>(null);
+
+  const [isEduModalOpen, setIsEduModalOpen] = useState(false);
+  const [eduToEdit, setEduToEdit] = useState<EducationItem | null>(null);
+
+  const [isProjModalOpen, setIsProjModalOpen] = useState(false);
+  const [projToEdit, setProjToEdit] = useState<PortfolioItem | null>(null);
+
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [linkToEdit, setLinkToEdit] = useState<ProfileLink | null>(null);
+
+  const fetchedKeyRef = useRef<string | null>(null);
+
+  // Fetch profile from backend database
+  const loadProfile = useCallback(async () => {
+    if (!targetUsername) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const data =
+        isOwner && accessToken
+          ? await fetchOwnProfile(accessToken)
+          : await fetchPublicProfile(targetUsername, accessToken);
+      setProfileData(data);
+      setIsFollowing(Boolean(data.isFollowing));
+    } catch (err: any) {
+      setError(err.message || `Unable to load profile for user '@${targetUsername}'.`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [targetUsername, accessToken, isOwner]);
+
+  useEffect(() => {
+    if (isRestoringSession) return;
+    const fetchKey = `${targetUsername}:${isOwner}:${accessToken || ''}`;
+    if (fetchedKeyRef.current === fetchKey) return;
+    fetchedKeyRef.current = fetchKey;
+    loadProfile();
+  }, [isRestoringSession, targetUsername, isOwner, accessToken, loadProfile]);
+
+  const handleToggleFollow = async () => {
+    if (!accessToken) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      if (isFollowing) {
+        await unfollowUser(accessToken, targetUsername);
+        setIsFollowing(false);
+        if (profileData) {
+          setProfileData({
+            ...profileData,
+            stats: {
+              ...profileData.stats,
+              followersCount: Math.max(0, profileData.stats.followersCount - 1),
+            },
+          });
+        }
+      } else {
+        await followUser(accessToken, targetUsername);
+        setIsFollowing(true);
+        if (profileData) {
+          setProfileData({
+            ...profileData,
+            stats: {
+              ...profileData.stats,
+              followersCount: profileData.stats.followersCount + 1,
+            },
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error('Follow action error:', err);
+    }
   };
 
-  const handleAddExperience = () => setIsEditModalOpen(true);
-  const handleEditExperience = () => setIsEditModalOpen(true);
-  const handleDeleteExperience = (id: string) => {
-    setProfileData((prev) => ({
-      ...prev,
-      experiences: prev.experiences.filter((e) => e.id !== id),
-    }));
+  // Section Update Handlers (Local state updating — NO /profile/me refetches)
+  const handleAvatarUpdated = (newAvatarUrl: string | undefined) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        user: { ...profileData.user, avatarUrl: newAvatarUrl },
+      });
+    }
   };
 
-  const handleAddEducation = () => setIsEditModalOpen(true);
-  const handleEditEducation = () => setIsEditModalOpen(true);
-  const handleDeleteEducation = (id: string) => {
-    setProfileData((prev) => ({
-      ...prev,
-      education: prev.education.filter((e) => e.id !== id),
-    }));
+  const handleBannerUpdated = (newBannerUrl: string | undefined) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        user: { ...profileData.user, bannerUrl: newBannerUrl },
+      });
+    }
   };
 
-  const handleAddProject = () => setIsEditModalOpen(true);
-  const handleEditProject = () => setIsEditModalOpen(true);
-  const handleDeleteProject = (id: string) => {
-    setProfileData((prev) => ({
-      ...prev,
-      portfolio: prev.portfolio.filter((p) => p.id !== id),
-    }));
+  const handleBasicProfileUpdated = (updatedUser: ProfileUser) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        user: { ...profileData.user, ...updatedUser },
+      });
+    }
   };
 
-  const handleAddLink = () => setIsEditModalOpen(true);
-  const handleEditLink = () => setIsEditModalOpen(true);
-  const handleDeleteLink = (id: string) => {
-    setProfileData((prev) => ({
-      ...prev,
-      links: prev.links.filter((l) => l.id !== id),
-    }));
+  const handleIdentityUpdated = (updatedIdentity: ProfessionalIdentity) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        professional: updatedIdentity,
+      });
+    }
   };
 
-  const handleToggleResumeVisibility = () => {
-    setProfileData((prev) => ({
-      ...prev,
-      resume: prev.resume
-        ? {
-            ...prev.resume,
-            visibility: prev.resume.visibility === 'Public' ? 'Private' : 'Public',
-          }
-        : null,
-    }));
+  // Experience Handlers
+  const handleAddExperience = () => {
+    setExpToEdit(null);
+    setIsExpModalOpen(true);
+  };
+  const handleEditExperience = (exp: ExperienceItem) => {
+    setExpToEdit(exp);
+    setIsExpModalOpen(true);
+  };
+  const handleExperienceSaved = (savedExp: ExperienceItem) => {
+    if (!profileData) return;
+    const exists = profileData.experiences.some((e) => e.id === savedExp.id);
+    const nextExperiences = exists
+      ? profileData.experiences.map((e) => (e.id === savedExp.id ? savedExp : e))
+      : [savedExp, ...profileData.experiences];
+    setProfileData({ ...profileData, experiences: nextExperiences });
+  };
+  const handleExperienceDeleted = (id: string) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        experiences: profileData.experiences.filter((e) => e.id !== id),
+      });
+    }
   };
 
-  const handleSaveModal = (updated: ProfileData) => {
-    setProfileData(updated);
+  // Education Handlers
+  const handleAddEducation = () => {
+    setEduToEdit(null);
+    setIsEduModalOpen(true);
+  };
+  const handleEditEducation = (edu: EducationItem) => {
+    setEduToEdit(edu);
+    setIsEduModalOpen(true);
+  };
+  const handleEducationSaved = (savedEdu: EducationItem) => {
+    if (!profileData) return;
+    const exists = profileData.education.some((e) => e.id === savedEdu.id);
+    const nextEducation = exists
+      ? profileData.education.map((e) => (e.id === savedEdu.id ? savedEdu : e))
+      : [...profileData.education, savedEdu];
+    setProfileData({ ...profileData, education: nextEducation });
+  };
+  const handleEducationDeleted = (id: string) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        education: profileData.education.filter((e) => e.id !== id),
+      });
+    }
   };
 
-  // Simplified & Spacious Profile Layout Engine
+  // Portfolio Handlers
+  const handleAddPortfolio = () => {
+    setProjToEdit(null);
+    setIsProjModalOpen(true);
+  };
+  const handleEditPortfolio = (item: PortfolioItem) => {
+    setProjToEdit(item);
+    setIsProjModalOpen(true);
+  };
+  const handlePortfolioSaved = (savedItem: PortfolioItem) => {
+    if (!profileData) return;
+    const exists = profileData.portfolio.some((p) => p.id === savedItem.id);
+    const nextPortfolio = exists
+      ? profileData.portfolio.map((p) => (p.id === savedItem.id ? savedItem : p))
+      : [savedItem, ...profileData.portfolio];
+    setProfileData({ ...profileData, portfolio: nextPortfolio });
+  };
+  const handlePortfolioDeleted = (id: string) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        portfolio: profileData.portfolio.filter((p) => p.id !== id),
+      });
+    }
+  };
+
+  // Resume Handlers
+  const handleResumeSaved = (savedResume: Resume | null) => {
+    if (profileData) {
+      setProfileData({ ...profileData, resume: savedResume });
+    }
+  };
+  const handleToggleResumeVisibility = async () => {
+    if (profileData?.resume && accessToken) {
+      const nextVis = profileData.resume.visibility === 'Public' ? 'Private' : 'Public';
+      try {
+        const updated = await updateResumeVisibility(accessToken, nextVis);
+        setProfileData({ ...profileData, resume: updated });
+      } catch (err) {
+        console.warn('Resume visibility toggle note:', err);
+      }
+    }
+  };
+  const handleDeleteResumeDirect = async () => {
+    if (accessToken && profileData?.resume) {
+      try {
+        await deleteResume(accessToken);
+        setProfileData({ ...profileData, resume: null });
+      } catch (err) {
+        console.warn('Resume delete note:', err);
+      }
+    }
+  };
+
+  // Link Handlers
+  const handleAddLink = () => {
+    setLinkToEdit(null);
+    setIsLinkModalOpen(true);
+  };
+  const handleEditLink = (link: ProfileLink) => {
+    setLinkToEdit(link);
+    setIsLinkModalOpen(true);
+  };
+  const handleLinkSaved = (savedLink: ProfileLink) => {
+    if (!profileData) return;
+    const exists = profileData.links.some((l) => l.id === savedLink.id);
+    const nextLinks = exists
+      ? profileData.links.map((l) => (l.id === savedLink.id ? savedLink : l))
+      : [...profileData.links, savedLink];
+    setProfileData({ ...profileData, links: nextLinks });
+  };
+  const handleLinkDeleted = (id: string) => {
+    if (profileData) {
+      setProfileData({
+        ...profileData,
+        links: profileData.links.filter((l) => l.id !== id),
+      });
+    }
+  };
+
+  if (isLoading && !profileData) {
+    return (
+      <div className="min-h-screen bg-[#141312] flex items-center justify-center p-6 text-[#e6e2df]">
+        <div className="flex items-center gap-3 font-mono text-sm">
+          <Loader2 className="h-5 w-5 animate-spin text-[#cac6bc]" />
+          <span>Loading developer profile from Pantheon database...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !profileData) {
+    return (
+      <div className="min-h-screen bg-[#141312] flex items-center justify-center p-6 text-[#e6e2df]">
+        <div className="rounded-2xl border border-red-500/30 bg-red-950/20 p-6 text-center space-y-3 max-w-md">
+          <AlertCircle className="h-8 w-8 text-red-400 mx-auto" />
+          <h2 className="font-headline text-lg font-bold">Profile Not Found</h2>
+          <p className="text-xs text-[#8c887e]">
+            {error || `Unable to load profile for user '@${targetUsername}'.`}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard')}
+            className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-4 py-2 text-xs font-mono text-[#e6e2df] hover:border-[#e6e2df]"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const profileContent = (
     <div className="space-y-12 max-w-7xl mx-auto pb-12">
       {/* 1. Profile Header */}
@@ -230,26 +372,36 @@ export const ProfilePage: React.FC = () => {
         isOwner={isOwner}
         isFollowing={isFollowing}
         onToggleFollow={handleToggleFollow}
-        onOpenEditModal={() => setIsEditModalOpen(true)}
+        onEditBasicProfile={() => setIsBasicModalOpen(true)}
+        onEditAvatar={() => setIsAvatarModalOpen(true)}
+        onEditBanner={() => setIsBannerModalOpen(true)}
       />
 
-      {/* Main Grid Layout: Desktop 2-column (Spacious narrative left, compact support right) */}
+      {/* Main Grid Layout: Desktop 2-column */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 items-start">
         {/* Left Column (Main Narrative) */}
         <div className="lg:col-span-2 space-y-10">
           {/* About Section */}
-          <ProfileAbout user={profileData.user} />
+          <ProfileAbout
+            user={profileData.user}
+            isOwner={isOwner}
+            onEditBasicProfile={() => setIsBasicModalOpen(true)}
+          />
 
-          {/* Professional Identity Summary + Progressive Disclosure */}
-          <ProfessionalIdentitySection identity={profileData.professional} />
+          {/* Professional Identity Summary */}
+          <ProfessionalIdentitySection
+            identity={profileData.professional}
+            isOwner={isOwner}
+            onEditIdentity={() => setIsIdentityModalOpen(true)}
+          />
 
-          {/* Portfolio Showcase (Focused Cards + Detail Modal) */}
+          {/* Portfolio Showcase */}
           <PortfolioSection
             portfolio={profileData.portfolio}
             isOwner={isOwner}
-            onAddProject={handleAddProject}
-            onEditProject={handleEditProject}
-            onDeleteProject={handleDeleteProject}
+            onAddProject={handleAddPortfolio}
+            onEditProject={handleEditPortfolio}
+            onDeleteProject={handlePortfolioDeleted}
           />
 
           {/* Experience Timeline */}
@@ -258,7 +410,7 @@ export const ProfilePage: React.FC = () => {
             isOwner={isOwner}
             onAddExperience={handleAddExperience}
             onEditExperience={handleEditExperience}
-            onDeleteExperience={handleDeleteExperience}
+            onDeleteExperience={handleExperienceDeleted}
           />
 
           {/* Education */}
@@ -267,46 +419,106 @@ export const ProfilePage: React.FC = () => {
             isOwner={isOwner}
             onAddEducation={handleAddEducation}
             onEditEducation={handleEditEducation}
-            onDeleteEducation={handleDeleteEducation}
+            onDeleteEducation={handleEducationDeleted}
           />
         </div>
 
-        {/* Right Sidebar Column (Supporting information - compact & non-competing) */}
+        {/* Right Sidebar Column */}
         <div className="space-y-6 lg:sticky lg:top-24">
-          {/* Profile Completion (OWNER ONLY - Compact + Modal Checklist) */}
+          {/* Profile Completion (OWNER ONLY) */}
           {isOwner && (
             <ProfileCompletionCard
               stats={profileData.stats}
-              onOpenEditModal={() => setIsEditModalOpen(true)}
+              onOpenEditModal={() => setIsBasicModalOpen(true)}
             />
           )}
 
-          {/* Compact Resume Card */}
+          {/* Resume Section */}
           <ResumeSection
             resume={profileData.resume}
             isOwner={isOwner}
-            onReplaceResume={() => setIsEditModalOpen(true)}
-            onDeleteResume={() => setProfileData((prev) => ({ ...prev, resume: null }))}
+            onOpenResumeModal={() => setIsResumeModalOpen(true)}
+            onDeleteResume={handleDeleteResumeDirect}
             onToggleVisibility={handleToggleResumeVisibility}
           />
 
-          {/* Compact Links List */}
+          {/* External Links Section */}
           <LinksSection
             links={profileData.links}
             isOwner={isOwner}
             onAddLink={handleAddLink}
             onEditLink={handleEditLink}
-            onDeleteLink={handleDeleteLink}
+            onDeleteLink={handleLinkDeleted}
           />
         </div>
       </div>
 
-      {/* Full Edit Profile Modal */}
-      <EditProfileModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        profileData={profileData}
-        onSave={handleSaveModal}
+      {/* SECTION-OWNED EDIT MODALS */}
+      <AvatarEditModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatarUrl={profileData.user.avatarUrl}
+        onAvatarUpdated={handleAvatarUpdated}
+      />
+
+      <BannerEditModal
+        isOpen={isBannerModalOpen}
+        onClose={() => setIsBannerModalOpen(false)}
+        currentBannerUrl={profileData.user.bannerUrl}
+        onBannerUpdated={handleBannerUpdated}
+      />
+
+      <EditBasicProfileModal
+        isOpen={isBasicModalOpen}
+        onClose={() => setIsBasicModalOpen(false)}
+        user={profileData.user}
+        onUpdated={handleBasicProfileUpdated}
+      />
+
+      <EditIdentityModal
+        isOpen={isIdentityModalOpen}
+        onClose={() => setIsIdentityModalOpen(false)}
+        identity={profileData.professional}
+        onUpdated={handleIdentityUpdated}
+      />
+
+      <ExperienceModal
+        isOpen={isExpModalOpen}
+        onClose={() => setIsExpModalOpen(false)}
+        experienceToEdit={expToEdit}
+        onSaved={handleExperienceSaved}
+        onDeleted={handleExperienceDeleted}
+      />
+
+      <EducationModal
+        isOpen={isEduModalOpen}
+        onClose={() => setIsEduModalOpen(false)}
+        educationToEdit={eduToEdit}
+        onSaved={handleEducationSaved}
+        onDeleted={handleEducationDeleted}
+      />
+
+      <PortfolioModal
+        isOpen={isProjModalOpen}
+        onClose={() => setIsProjModalOpen(false)}
+        projectToEdit={projToEdit}
+        onSaved={handlePortfolioSaved}
+        onDeleted={handlePortfolioDeleted}
+      />
+
+      <ResumeModal
+        isOpen={isResumeModalOpen}
+        onClose={() => setIsResumeModalOpen(false)}
+        resume={profileData.resume}
+        onSaved={handleResumeSaved}
+      />
+
+      <LinkModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        linkToEdit={linkToEdit}
+        onSaved={handleLinkSaved}
+        onDeleted={handleLinkDeleted}
       />
     </div>
   );
@@ -320,7 +532,7 @@ export const ProfilePage: React.FC = () => {
     <div className="min-h-screen bg-[#141312] text-[#e6e2df] flex flex-col font-sans relative selection:bg-[#48473f]">
       <div className="absolute top-0 left-0 right-0 h-[800px] global-ambient-light pointer-events-none z-0" />
       <Navbar />
-      <main className="flex-1 relative z-10 py-10 px-4 sm:px-6 lg:px-8">
+      <main className="flex-1 relative z-10 py-10 px-4 sm:px-6 lg:px-8 font-sans">
         {profileContent}
       </main>
       <Footer />

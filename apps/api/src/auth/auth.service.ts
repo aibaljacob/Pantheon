@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -53,6 +54,8 @@ interface AccessTokenPayload {
 }
 @Injectable()
 export class AuthService implements OnModuleInit {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -339,10 +342,13 @@ export class AuthService implements OnModuleInit {
     return this.buildSessionResponse(user, true, 'Google sign-in successful.');
   }
   async me(accessToken: string | null): Promise<ApiResponse<AuthCurrentUser>> {
+    const meStart = performance.now();
     if (!accessToken) {
       throw new UnauthorizedException('No active session found.');
     }
     const session = await this.findValidSession(accessToken);
+    const meDuration = performance.now() - meStart;
+    this.logger.debug(`[PERF][AUTH] /auth/me total: ${meDuration.toFixed(2)} ms`);
     return {
       success: true,
       data: {
@@ -410,9 +416,12 @@ export class AuthService implements OnModuleInit {
       message,
     };
   }
-  private async findValidSession(
+  async findValidSession(
     accessToken: string,
   ): Promise<SessionWithUser> {
+    const totalStart = performance.now();
+
+    const jwtStart = performance.now();
     let payload: AccessTokenPayload;
     try {
       payload = await this.jwtService.verifyAsync<AccessTokenPayload>(
@@ -425,10 +434,17 @@ export class AuthService implements OnModuleInit {
     } catch {
       throw new UnauthorizedException('Session expired. Please sign in again.');
     }
+    const jwtDuration = performance.now() - jwtStart;
+    this.logger.debug(`[PERF][AUTH] JWT verification: ${jwtDuration.toFixed(2)} ms`);
+
+    const queryStart = performance.now();
     const session = await this.prisma.authSession.findUnique({
       where: { id: payload.sid },
       include: { user: { include: { profile: true } } },
     });
+    const queryDuration = performance.now() - queryStart;
+    this.logger.debug(`[PERF][AUTH] authSession query: ${queryDuration.toFixed(2)} ms`);
+
     if (
       !session ||
       session.accessToken !== accessToken ||
@@ -447,6 +463,10 @@ export class AuthService implements OnModuleInit {
         .catch(() => undefined);
       throw new UnauthorizedException('Session expired. Please sign in again.');
     }
+
+    const totalDuration = performance.now() - totalStart;
+    this.logger.debug(`[PERF][AUTH] findValidSession total: ${totalDuration.toFixed(2)} ms`);
+
     return session;
   }
   private async seedDemoUser(): Promise<void> {

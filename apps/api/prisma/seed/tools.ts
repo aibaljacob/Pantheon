@@ -1,0 +1,18 @@
+export const initialTools = [
+  { name: 'Git', description: 'Distributed version control system.' },
+  { name: 'GitHub', description: 'Cloud repository hosting and collaborative code reviews.' },
+  { name: 'Perforce (Helix Core)', description: 'Industry-standard version control for large binary asset pipelines.' },
+  { name: 'Blender', description: 'Open-source 3D creation suite for modeling, rigging, and animation.' },
+  { name: 'Autodesk Maya', description: 'Professional 3D animation, modeling, simulation, and rendering software.' },
+  { name: 'Autodesk 3ds Max', description: '3D modeling and rendering software for games and visualization.' },
+  { name: 'ZBrush', description: 'Digital sculpting tool for high-resolution 3D models.' },
+  { name: 'Substance 3D Painter', description: '3D texturing application for PBR material authoring.' },
+  { name: 'Substance 3D Designer', description: 'Node-based parametric material creation software.' },
+  { name: 'Adobe Photoshop', description: 'Raster graphics editor for concept art, textures, and UI assets.' },
+  { name: 'Visual Studio', description: 'IDE for C++ and C# game development.' },
+  { name: 'JetBrains Rider', description: 'Cross-platform IDE for Unity, Unreal Engine, and C#/C++.' },
+  { name: 'FMOD Studio', description: 'Interactive audio middleware integration suite.' },
+  { name: 'Audiokinetic Wwise', description: 'Advanced spatial audio engine and sound design integration tool.' },
+  { name: 'Jira', description: 'Issue tracking and project management software.' },
+  { name: 'RenderDoc', description: 'Standalone frame capturer and graphics debugging tool.' },
+];

@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, Briefcase, Edit3, ArrowRight } from 'lucide-react';
 import type { DashboardUser } from '../types';
+import { UserAvatar } from '../../auth/components/UserAvatar';
 
 interface UserProfileCardProps {
   user: DashboardUser;
@@ -28,14 +29,17 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ user }) => {
         </Link>
       </div>
 
-      {/* Headline & Bio */}
-      <div className="space-y-2">
-        <h3 className="font-headline text-base font-semibold text-[#ffffff]">
-          {user.fullName}
-        </h3>
-        <p className="text-xs font-mono text-[#8c887e]">
-          {user.skills && user.skills.length > 0 ? user.skills.join(' · ') : 'Gameplay Developer'}
-        </p>
+      {/* Headline, Avatar & Bio */}
+      <div className="flex items-center gap-4">
+        <UserAvatar user={user} size="lg" />
+        <div className="space-y-1">
+          <h3 className="font-headline text-base font-semibold text-[#ffffff]">
+            {user.fullName}
+          </h3>
+          <p className="text-xs font-mono text-[#8c887e]">
+            {user.skills && user.skills.length > 0 ? user.skills.join(' · ') : 'Gameplay Developer'}
+          </p>
+        </div>
       </div>
 
       {/* Database Fields Grid: location, timezone, experienceYears */}

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { AuthUser } from '../types';
+import { formatApiAssetUrl } from '../../profile/services/profileService';
 
 interface UserAvatarProps {
   user: AuthUser;
@@ -15,12 +16,14 @@ const sizeClassMap: Record<NonNullable<UserAvatarProps['size']>, string> = {
 };
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 'md', className = '' }) => {
-  const fallbackInitials = `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
+  const fallbackInitials = `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase() || 'U';
+  const rawAvatar = user.avatar || user.avatarUrl;
+  const avatarSrc = rawAvatar ? formatApiAssetUrl(rawAvatar) : null;
 
-  if (user.avatar) {
+  if (avatarSrc) {
     return (
       <img
-        src={user.avatar}
+        src={avatarSrc}
         alt={`${user.fullName} avatar`}
         className={`rounded-full object-cover ${sizeClassMap[size]} ${className}`}
       />

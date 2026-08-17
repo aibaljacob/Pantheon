@@ -10,7 +10,9 @@ interface ProfileHeaderProps {
   isOwner: boolean;
   isFollowing: boolean;
   onToggleFollow: () => void;
-  onOpenEditModal: () => void;
+  onEditBasicProfile: () => void;
+  onEditAvatar: () => void;
+  onEditBanner: () => void;
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
@@ -19,7 +21,9 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   isOwner,
   isFollowing,
   onToggleFollow,
-  onOpenEditModal,
+  onEditBasicProfile,
+  onEditAvatar,
+  onEditBanner,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -30,12 +34,20 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const fullName = user.displayName || `${user.firstName} ${user.lastName}`;
+  const fullName =
+    user.displayName ||
+    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+    user.username ||
+    'Developer';
+
+  const firstInitial = user.firstName ? user.firstName.charAt(0).toUpperCase() : '';
+  const lastInitial = user.lastName ? user.lastName.charAt(0).toUpperCase() : '';
+  const initials = firstInitial + lastInitial || user.username?.charAt(0).toUpperCase() || 'P';
 
   return (
     <div className="relative overflow-hidden rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl">
       {/* Banner / Cover Image with Atmospheric Vignette */}
-      <div className="relative h-48 w-full sm:h-60 md:h-72 overflow-hidden bg-[#201f1e]">
+      <div className="relative h-48 w-full sm:h-60 md:h-72 overflow-hidden bg-[#201f1e] group">
         {user.bannerUrl ? (
           <img
             src={user.bannerUrl}
@@ -49,6 +61,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         )}
         {/* Soft Volumetric Shadow gradient over bottom of banner */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#1c1b1a] via-[#1c1b1a]/40 to-transparent" />
+
+        {/* Owner Banner Edit Overlay Button */}
+        {isOwner && (
+          <button
+            type="button"
+            onClick={onEditBanner}
+            className="absolute top-4 right-4 z-10 flex items-center gap-1.5 rounded-xl border border-[#48473f] bg-[#141312]/80 px-3 py-1.5 text-xs font-mono text-[#e6e2df] backdrop-blur-md opacity-80 hover:opacity-100 hover:border-[#e6e2df] transition-all"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            <span>Edit Banner</span>
+          </button>
+        )}
       </div>
 
       {/* Header Content Container */}
@@ -65,9 +89,20 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-[#2b2a29] text-3xl sm:text-4xl font-headline font-bold text-[#e6e2df]">
-                  {user.firstName[0]}
-                  {user.lastName[0]}
+                  {initials}
                 </div>
+              )}
+
+              {/* Owner Avatar Overlay Edit Button */}
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={onEditAvatar}
+                  className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 text-xs font-mono text-[#ffffff] transition-opacity"
+                >
+                  <Edit3 className="h-5 w-5" />
+                  <span>Change Avatar</span>
+                </button>
               )}
             </div>
 
@@ -83,9 +118,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
                 )}
               </div>
               <p className="font-mono text-sm text-[#8c887e]">@{user.username}</p>
-              <p className="text-base text-[#e6e2df] font-medium leading-snug">
-                {user.headline}
-              </p>
+              {user.headline && (
+                <p className="text-base text-[#e6e2df] font-medium leading-snug">
+                  {user.headline}
+                </p>
+              )}
             </div>
           </div>
 
@@ -95,7 +132,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
               <Button
                 variant="primary"
                 size="md"
-                onClick={onOpenEditModal}
+                onClick={onEditBasicProfile}
                 icon={<Edit3 className="h-4 w-4" />}
                 iconPosition="left"
               >
@@ -136,25 +173,29 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
         {/* Metadata Row: Location, Availability & Follower Counts */}
         <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[#2b2a29] pt-6 text-sm text-[#cac6bc]">
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-2 text-xs font-mono">
-              <MapPin className="h-4 w-4 text-[#8c887e]" />
-              <span>{user.location}</span>
-            </div>
+            {user.location && (
+              <div className="flex items-center gap-2 text-xs font-mono">
+                <MapPin className="h-4 w-4 text-[#8c887e]" />
+                <span>{user.location}</span>
+              </div>
+            )}
 
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-mono text-[#e6e2df]">{user.availability}</span>
-            </div>
+            {user.availability && (
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-mono text-[#e6e2df]">{user.availability}</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-5 text-xs font-mono">
             <div>
-              <span className="font-bold text-[#ffffff]">{stats.followersCount.toLocaleString()}</span>{' '}
+              <span className="font-bold text-[#ffffff]">{stats?.followersCount?.toLocaleString() ?? 0}</span>{' '}
               <span className="text-[#8c887e]">Followers</span>
             </div>
             <div className="h-3 w-[1px] bg-[#363433]" />
             <div>
-              <span className="font-bold text-[#ffffff]">{stats.followingCount.toLocaleString()}</span>{' '}
+              <span className="font-bold text-[#ffffff]">{stats?.followingCount?.toLocaleString() ?? 0}</span>{' '}
               <span className="text-[#8c887e]">Following</span>
             </div>
           </div>

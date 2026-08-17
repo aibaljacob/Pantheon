@@ -5,7 +5,7 @@ import type { Resume } from '../types';
 interface ResumeSectionProps {
   resume: Resume | null;
   isOwner: boolean;
-  onReplaceResume?: () => void;
+  onOpenResumeModal?: () => void;
   onDeleteResume?: () => void;
   onToggleVisibility?: () => void;
 }
@@ -13,7 +13,7 @@ interface ResumeSectionProps {
 export const ResumeSection: React.FC<ResumeSectionProps> = ({
   resume,
   isOwner,
-  onReplaceResume,
+  onOpenResumeModal,
   onDeleteResume,
   onToggleVisibility,
 }) => {
@@ -24,11 +24,11 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
       <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/60 p-4 space-y-2">
         <div className="flex items-center justify-between text-xs font-mono">
           <span className="text-[#8c887e]">Resume / CV</span>
-          <span className="text-[#8c887e]">Missing</span>
+          <span className="text-[#8c887e]">No resume</span>
         </div>
         <button
           type="button"
-          onClick={onReplaceResume}
+          onClick={onOpenResumeModal}
           className="w-full py-2 border border-dashed border-[#363433] rounded-xl text-xs font-mono text-[#cac6bc] hover:border-[#e6e2df] hover:text-[#ffffff] transition-colors"
         >
           + Upload Resume (PDF)
@@ -77,30 +77,32 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
               {resume.fileName}
             </p>
             <p className="text-[10px] font-mono text-[#8c887e]">
-              PDF · {resume.fileSize} · Updated {resume.updatedAt}
+              PDF · {resume.fileSize} · Updated {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString() : ''}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          <a
-            href={resume.downloadUrl || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg border border-[#48473f] bg-[#201f1e] px-2.5 py-1 font-mono text-xs text-[#e6e2df] hover:border-[#e6e2df] transition-colors"
-          >
-            <Eye className="h-3 w-3" />
-            <span>View</span>
-          </a>
+          {resume.downloadUrl && (
+            <a
+              href={resume.downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-lg border border-[#48473f] bg-[#201f1e] px-2.5 py-1 font-mono text-xs text-[#e6e2df] hover:border-[#e6e2df] transition-colors"
+            >
+              <Eye className="h-3 w-3" />
+              <span>View</span>
+            </a>
+          )}
 
           {isOwner && (
             <>
-              {onReplaceResume && (
+              {onOpenResumeModal && (
                 <button
                   type="button"
-                  onClick={onReplaceResume}
+                  onClick={onOpenResumeModal}
                   className="p-1 text-[#8c887e] hover:text-[#e6e2df]"
-                  title="Replace Resume"
+                  title="Manage Resume"
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                 </button>

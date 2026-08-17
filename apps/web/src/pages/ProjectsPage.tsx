@@ -1,11 +1,11 @@
 import React from 'react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
-import { ProjectCarousel } from '../features/dashboard/components/ProjectCarousel';
+import { DashboardProjectsSection } from '../features/dashboard/components/DashboardProjectsSection';
 import { TaskSection } from '../features/dashboard/components/TaskSection';
 import { QuickActions } from '../features/dashboard/components/QuickActions';
 import { DiscoverSection } from '../features/dashboard/components/DiscoverSection';
-import { projects, tasks } from '../features/dashboard/mockDashboardData';
+import { tasks } from '../features/dashboard/mockDashboardData';
 
 export const ProjectsPage: React.FC = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
@@ -25,7 +25,7 @@ export const ProjectsPage: React.FC = () => {
           </p>
         </section>
 
-        <ProjectCarousel projects={projects} />
+        <DashboardProjectsSection />
         <TaskSection tasks={tasks} />
         <DiscoverSection />
         <QuickActions />

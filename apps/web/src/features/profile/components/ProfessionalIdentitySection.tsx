@@ -1,34 +1,56 @@
 import React, { useState } from 'react';
-import { ArrowRight, X, Sparkles } from 'lucide-react';
-import type { ProfessionalIdentity } from '../types';
+import { ArrowRight, X, Sparkles, Edit2 } from 'lucide-react';
+import type { ProfessionalIdentity, TaxonomyItem } from '../types';
 
 interface ProfessionalIdentitySectionProps {
-  identity: ProfessionalIdentity;
+  identity?: ProfessionalIdentity | null;
+  isOwner?: boolean;
+  onEditIdentity?: () => void;
 }
 
-export const ProfessionalIdentitySection: React.FC<ProfessionalIdentitySectionProps> = ({ identity }) => {
+export const ProfessionalIdentitySection: React.FC<ProfessionalIdentitySectionProps> = ({
+  identity,
+  isOwner,
+  onEditIdentity,
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Top summary strings
-  const rolesSummary = identity.roles.slice(0, 3).join(' · ');
-  const enginesSummary = identity.gameEngines.join(' · ');
-  const topSkills = identity.skills.slice(0, 4).join(' · ');
+  const getItemName = (item: TaxonomyItem | string): string => {
+    if (!item) return '';
+    return typeof item === 'string' ? item : item.name;
+  };
+
+  const getNamesList = (items: (TaxonomyItem | string)[] = []): string[] => {
+    if (!Array.isArray(items)) return [];
+    return items.map(getItemName).filter(Boolean);
+  };
+
+  const rolesNames = getNamesList(identity?.roles);
+  const enginesNames = getNamesList(identity?.gameEngines);
+  const skillsNames = getNamesList(identity?.skills);
+
+  const rolesSummary = rolesNames.slice(0, 3).join(' · ');
+  const enginesSummary = enginesNames.join(' · ');
+  const topSkills = skillsNames.slice(0, 4).join(' · ');
+
   const remainingCount =
-    (identity.skills.length > 4 ? identity.skills.length - 4 : 0) +
-    identity.specializations.length +
-    identity.tools.length +
-    identity.platforms.length +
-    identity.genres.length;
+    (skillsNames.length > 4 ? skillsNames.length - 4 : 0) +
+    getNamesList(identity?.specializations).length +
+    getNamesList(identity?.tools).length +
+    getNamesList(identity?.platforms).length +
+    getNamesList(identity?.genres).length;
 
   const categories = [
-    { title: 'Primary Roles', items: identity.roles },
-    { title: 'Specializations', items: identity.specializations },
-    { title: 'Game Engines', items: identity.gameEngines },
-    { title: 'Technical Skills', items: identity.skills },
-    { title: 'Tools & Software', items: identity.tools },
-    { title: 'Platform Experience', items: identity.platforms },
-    { title: 'Genres', items: identity.genres },
+    { title: 'Primary Roles', items: rolesNames },
+    { title: 'Specializations', items: getNamesList(identity?.specializations) },
+    { title: 'Game Engines', items: enginesNames },
+    { title: 'Technical Skills', items: skillsNames },
+    { title: 'Tools & Software', items: getNamesList(identity?.tools) },
+    { title: 'Platform Experience', items: getNamesList(identity?.platforms) },
+    { title: 'Genres', items: getNamesList(identity?.genres) },
   ];
+
+  const totalExpertiseCount = categories.reduce((sum, cat) => sum + cat.items.length, 0);
 
   return (
     <section className="space-y-4">
@@ -36,41 +58,64 @@ export const ProfessionalIdentitySection: React.FC<ProfessionalIdentitySectionPr
         <h2 className="font-headline text-xs font-mono uppercase tracking-[0.2em] text-[#8c887e]">
           Professional Identity & Expertise
         </h2>
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#cac6bc] hover:text-[#ffffff] transition-colors"
-        >
-          <span>View all expertise</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-3">
+          {totalExpertiseCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-1 font-mono text-xs font-medium text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+            >
+              <span>View all expertise</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+
+          {isOwner && onEditIdentity && (
+            <button
+              type="button"
+              onClick={onEditIdentity}
+              className="inline-flex items-center gap-1 font-mono text-xs text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+            >
+              <Edit2 className="h-3.5 w-3.5" />
+              <span>Edit Identity</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Default Concise View (Progressive Disclosure) */}
       <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/60 p-5 space-y-3">
-        {rolesSummary && (
-          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#ffffff]">
-            <span>{rolesSummary}</span>
-          </div>
-        )}
-
-        {enginesSummary && (
-          <div className="flex items-center gap-2 text-xs font-mono text-[#cac6bc]">
-            <span className="text-[#8c887e]">Engines:</span>
-            <span>{enginesSummary}</span>
-          </div>
-        )}
-
-        {topSkills && (
-          <div className="flex items-center gap-2 text-xs font-mono text-[#8c887e]">
-            <span className="text-[#8c887e]">Skills:</span>
-            <span className="text-[#e6e2df]">{topSkills}</span>
-            {remainingCount > 0 && (
-              <span className="rounded-full bg-[#2b2a29] px-2 py-0.5 text-[10px] text-[#cac6bc]">
-                +{remainingCount} more
-              </span>
+        {totalExpertiseCount === 0 ? (
+          <p className="text-xs text-[#8c887e] font-sans">
+            No professional identity items added yet. Click "Edit Profile" above to select your roles, skills, and game engines.
+          </p>
+        ) : (
+          <>
+            {rolesSummary && (
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#ffffff]">
+                <span>{rolesSummary}</span>
+              </div>
             )}
-          </div>
+
+            {enginesSummary && (
+              <div className="flex items-center gap-2 text-xs font-mono text-[#cac6bc]">
+                <span className="text-[#8c887e]">Engines:</span>
+                <span>{enginesSummary}</span>
+              </div>
+            )}
+
+            {topSkills && (
+              <div className="flex items-center gap-2 text-xs font-mono text-[#8c887e]">
+                <span className="text-[#8c887e]">Skills:</span>
+                <span className="text-[#e6e2df]">{topSkills}</span>
+                {remainingCount > 0 && (
+                  <span className="rounded-full bg-[#2b2a29] px-2 py-0.5 text-[10px] text-[#cac6bc]">
+                    +{remainingCount} more
+                  </span>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -104,12 +149,12 @@ export const ProfessionalIdentitySection: React.FC<ProfessionalIdentitySectionPr
                       {title} ({items.length})
                     </h4>
                     <div className="flex flex-wrap gap-2">
-                      {items.map((item, idx) => (
+                      {items.map((name, idx) => (
                         <span
                           key={`${title}-${idx}`}
                           className="rounded-lg border border-[#363433] bg-[#141312] px-3 py-1.5 font-mono text-xs text-[#e6e2df]"
                         >
-                          {item}
+                          {name}
                         </span>
                       ))}
                     </div>

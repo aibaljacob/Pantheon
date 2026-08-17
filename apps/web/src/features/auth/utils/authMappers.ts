@@ -1,5 +1,6 @@
 import type { AuthServerCurrentUser, AuthServerProfile, AuthServerSession, AuthServerUser, AuthSession, AuthUser } from '../types';
 import { createAvatarDataUrl } from './avatar';
+import { formatApiAssetUrl } from '../../profile/services/profileService';
 
 function buildDisplayName(firstName: string, lastName: string, fallback: string): string {
   const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
@@ -10,6 +11,7 @@ export function mapServerUserToAuthUser(user: AuthServerUser, profile: AuthServe
   const firstName = profile?.firstName?.trim() || user.username.split('.')[0] || user.username;
   const lastName = profile?.lastName?.trim() || '';
   const fullName = profile?.displayName?.trim() || buildDisplayName(firstName, lastName, user.username);
+  const formattedAvatarUrl = profile?.avatarUrl ? formatApiAssetUrl(profile.avatarUrl) : null;
 
   return {
     id: user.id,
@@ -18,8 +20,8 @@ export function mapServerUserToAuthUser(user: AuthServerUser, profile: AuthServe
     fullName,
     username: user.username,
     email: user.email,
-    avatar: profile?.avatarUrl ?? createAvatarDataUrl(firstName, lastName),
-    avatarUrl: profile?.avatarUrl ?? null,
+    avatar: formattedAvatarUrl ?? createAvatarDataUrl(firstName, lastName),
+    avatarUrl: formattedAvatarUrl,
     provider: user.provider,
     emailVerified: user.emailVerified,
     role: user.role === 'ADMINISTRATOR' ? 'Administrator' : 'User',

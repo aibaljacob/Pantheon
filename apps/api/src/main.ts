@@ -17,6 +17,10 @@ async function bootstrap() {
     credentials: true,
   });
 
+  const express = require('express');
+  const path = require('node:path');
+  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Pantheon API')
     .setDescription('Pantheon authentication and platform API')

@@ -15,14 +15,40 @@ export interface ProfileUser {
   isFounder?: boolean;
 }
 
+export interface TaxonomyItem {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface TaxonomyResponse {
+  data: TaxonomyItem[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface UpdateIdentityIdsPayload {
+  roleIds?: string[];
+  specializationIds?: string[];
+  skillIds?: string[];
+  toolIds?: string[];
+  gameEngineIds?: string[];
+  genreIds?: string[];
+  platformIds?: string[];
+}
+
 export interface ProfessionalIdentity {
-  roles: string[];
-  specializations: string[];
-  skills: string[];
-  tools: string[];
-  gameEngines: string[];
-  genres: string[];
-  platforms: string[];
+  roles: (TaxonomyItem | string)[];
+  specializations: (TaxonomyItem | string)[];
+  skills: (TaxonomyItem | string)[];
+  tools: (TaxonomyItem | string)[];
+  gameEngines: (TaxonomyItem | string)[];
+  genres: (TaxonomyItem | string)[];
+  platforms: (TaxonomyItem | string)[];
 }
 
 export interface ExperienceItem {

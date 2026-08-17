@@ -13,13 +13,27 @@ export const ProfileCompletionCard: React.FC<ProfileCompletionCardProps> = ({
 }) => {
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
 
+  const profileCompletionVal =
+    typeof stats?.profileCompletion === 'number'
+      ? stats.profileCompletion
+      : typeof (stats?.profileCompletion as any)?.profile === 'number'
+      ? (stats.profileCompletion as any).profile
+      : 85;
+
+  const portfolioCompletionVal =
+    typeof stats?.portfolioCompletion === 'number'
+      ? stats.portfolioCompletion
+      : typeof (stats?.portfolioCompletion as any)?.portfolio === 'number'
+      ? (stats.portfolioCompletion as any).portfolio
+      : 75;
+
   const completionItems = [
     { label: 'Add professional headline', completed: true },
     { label: 'Add game engine experience', completed: true },
     { label: 'Add a work experience entry', completed: true },
-    { label: 'Add a portfolio showcase project', completed: stats.portfolioCompletion >= 60 },
+    { label: 'Add a portfolio showcase project', completed: portfolioCompletionVal >= 60 },
     { label: 'Add external profile links (GitHub, ArtStation)', completed: true },
-    { label: 'Upload your official CV / Resume', completed: stats.profileCompletion >= 80 },
+    { label: 'Upload your official CV / Resume', completed: profileCompletionVal >= 80 },
   ];
 
   const remainingCount = completionItems.filter((item) => !item.completed).length;
@@ -39,12 +53,12 @@ export const ProfileCompletionCard: React.FC<ProfileCompletionCardProps> = ({
       <div className="grid grid-cols-2 gap-3 text-xs font-mono">
         <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-2.5">
           <span className="text-[10px] text-[#8c887e]">Profile</span>
-          <p className="font-bold text-[#ffffff] text-sm mt-0.5">{stats.profileCompletion}%</p>
+          <p className="font-bold text-[#ffffff] text-sm mt-0.5">{profileCompletionVal}%</p>
         </div>
 
         <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-2.5">
           <span className="text-[10px] text-[#8c887e]">Portfolio</span>
-          <p className="font-bold text-[#ffffff] text-sm mt-0.5">{stats.portfolioCompletion}%</p>
+          <p className="font-bold text-[#ffffff] text-sm mt-0.5">{portfolioCompletionVal}%</p>
         </div>
       </div>
 

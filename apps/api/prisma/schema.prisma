@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,6 +5,327 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                   @id @default(uuid())
+  username                String                   @unique
+  email                   String                   @unique
+  passwordHash            String?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  role                    Role                     @default(USER)
+  refreshTokenVersion     Int                      @default(1)
+  provider                AuthProvider             @default(LOCAL)
+  providerId              String?                  @unique
+  emailVerified           Boolean                  @default(false)
+  sessions                AuthSession[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  following               UserFollow[]             @relation("Following")
+  followers               UserFollow[]             @relation("Followers")
+  profile                 UserProfile?
+  foundedProjects         Project[]                @relation("FoundedProjects")
+  projectMemberships      ProjectMember[]
+}
+
+model UserProfile {
+  id              String                    @id @default(uuid())
+  userId          String                    @unique
+  firstName       String
+  lastName        String
+  displayName     String?
+  avatarUrl       String?
+  bannerUrl       String?
+  headline        String?
+  bio             String?
+  location        String?
+  timezone        String?
+  experienceYears Int?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  availability    String?                   @default("Available for collaboration")
+  education       UserEducation[]
+  experiences     UserExperience[]
+  links           UserLink[]
+  portfolio       UserPortfolioItem[]
+  identity        UserProfessionalIdentity?
+  user            User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resume          UserResume?
+}
+
+model ProfessionalRole {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  users       UserRole[]
+}
+
+model Specialization {
+  id          String               @id @default(uuid())
+  name        String               @unique
+  description String?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  users       UserSpecialization[]
+}
+
+model Skill {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  users       UserSkill[]
+}
+
+model Tool {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  users       UserTool[]
+}
+
+model GameEngine {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  users       UserGameEngine[]
+}
+
+model Genre {
+  id          String      @id @default(uuid())
+  name        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  users       UserGenre[]
+}
+
+model Platform {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  users       UserPlatform[]
+}
+
+model UserProfessionalIdentity {
+  id              String               @id @default(uuid())
+  profileId       String               @unique
+  gameEngines     UserGameEngine[]
+  genres          UserGenre[]
+  platforms       UserPlatform[]
+  profile         UserProfile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  roles           UserRole[]
+  skills          UserSkill[]
+  specializations UserSpecialization[]
+  tools           UserTool[]
+}
+
+model UserRole {
+  profileId String
+  roleId    String
+  profile   UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  role      ProfessionalRole         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, roleId])
+  @@index([roleId])
+}
+
+model UserSpecialization {
+  profileId        String
+  specializationId String
+  profile          UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  specialization   Specialization           @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, specializationId])
+  @@index([specializationId])
+}
+
+model UserSkill {
+  profileId String
+  skillId   String
+  profile   UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  skill     Skill                    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, skillId])
+  @@index([skillId])
+}
+
+model UserTool {
+  profileId String
+  toolId    String
+  profile   UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  tool      Tool                     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, toolId])
+  @@index([toolId])
+}
+
+model UserGameEngine {
+  profileId String
+  engineId  String
+  engine    GameEngine               @relation(fields: [engineId], references: [id], onDelete: Cascade)
+  profile   UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, engineId])
+  @@index([engineId])
+}
+
+model UserGenre {
+  profileId String
+  genreId   String
+  genre     Genre                    @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  profile   UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, genreId])
+  @@index([genreId])
+}
+
+model UserPlatform {
+  profileId  String
+  platformId String
+  platform   Platform                 @relation(fields: [platformId], references: [id], onDelete: Cascade)
+  profile    UserProfessionalIdentity @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@id([profileId, platformId])
+  @@index([platformId])
+}
+
+model UserExperience {
+  id           String      @id @default(uuid())
+  profileId    String
+  position     String
+  company      String
+  location     String?
+  startDate    String
+  endDate      String?
+  isCurrent    Boolean     @default(false)
+  description  String
+  technologies String[]
+  profile      UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model UserEducation {
+  id          String      @id @default(uuid())
+  profileId   String
+  institution String
+  degree      String
+  startDate   String
+  endDate     String?
+  description String?
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model UserPortfolioItem {
+  id           String      @id @default(uuid())
+  profileId    String
+  title        String
+  coverUrl     String?
+  description  String
+  role         String
+  technologies String[]
+  gameEngine   String
+  genre        String
+  platform     String
+  status       String      @default("Prototype")
+  projectUrl   String?
+  profile      UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model UserResume {
+  id          String      @id @default(uuid())
+  profileId   String      @unique
+  fileName    String
+  fileType    String
+  fileSize    String
+  downloadUrl String?
+  visibility  String      @default("Public")
+  updatedAt   DateTime    @updatedAt
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model UserLink {
+  id          String      @id @default(uuid())
+  profileId   String
+  platform    String
+  displayName String
+  url         String
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model UserFollow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+}
+
+model AuthSession {
+  id           String   @id @default(uuid())
+  accessToken  String   @unique
+  refreshToken String   @unique
+  rememberMe   Boolean  @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model EmailVerificationToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 enum Role {
@@ -22,152 +338,47 @@ enum AuthProvider {
   GOOGLE
 }
 
-//////////////////////////////////////////////////////////
-// AUTHENTICATION
-//////////////////////////////////////////////////////////
-
-model User {
-  id                    String   @id @default(uuid())
-
-  // Authentication
-  username              String   @unique
-  email                 String   @unique
-  passwordHash          String?
-
-  provider              AuthProvider @default(LOCAL)
-  providerId            String?  @unique
-
-  emailVerified         Boolean  @default(false)
-
-  role                  Role     @default(USER)
-
-  refreshTokenVersion   Int      @default(1)
-
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-
-  //////////////////////////////////////////////////////
-  // RELATIONS
-  //////////////////////////////////////////////////////
-
-  profile               UserProfile?
-
-  sessions              AuthSession[]
-
-  emailVerificationTokens EmailVerificationToken[]
-
-  passwordResetTokens   PasswordResetToken[]
+enum ProjectStatus {
+  PLANNING
+  PRE_PRODUCTION
+  PROTOTYPE
+  IN_DEVELOPMENT
+  ALPHA
+  BETA
+  COMPLETED
+  PAUSED
 }
 
-//////////////////////////////////////////////////////////
-// USER PROFILE
-//////////////////////////////////////////////////////////
+model Project {
+  id          String          @id @default(uuid())
+  name        String
+  slug        String          @unique
+  description String
+  coverUrl    String?
+  status      ProjectStatus   @default(IN_DEVELOPMENT)
+  genre       String?
+  platform    String?
+  gameEngine  String?
+  founderId   String
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  founder     User            @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Cascade)
+  members     ProjectMember[]
 
-model UserProfile {
-  id                     String   @id @default(uuid())
-
-  userId                 String   @unique
-
-  firstName              String
-  lastName               String
-
-  displayName            String?
-
-  avatarUrl              String?
-  bannerUrl              String?
-
-  headline               String?
-
-  bio                    String?
-
-  location               String?
-
-  timezone               String?
-
-  experienceYears        Int?
-
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
-
-  //////////////////////////////////////////////////////
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([founderId])
 }
 
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      String   @default("Member")
+  joinedAt  DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-//////////////////////////////////////////////////////////
-// AUTH SESSION
-//////////////////////////////////////////////////////////
-
-model AuthSession {
-  id             String   @id @default(uuid())
-
-  userId         String
-
-  accessToken    String   @unique
-
-  refreshToken   String   @unique
-
-  rememberMe     Boolean  @default(false)
-
-  expiresAt      DateTime
-
-  createdAt      DateTime @default(now())
-
-  //////////////////////////////////////////////////////
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  @@unique([projectId, userId])
+  @@index([projectId])
   @@index([userId])
-  @@index([expiresAt])
 }
 
-//////////////////////////////////////////////////////////
-// EMAIL VERIFICATION
-//////////////////////////////////////////////////////////
-
-model EmailVerificationToken {
-  id             String   @id @default(uuid())
-
-  userId         String
-
-  tokenHash      String
-
-  expiresAt      DateTime
-
-  verifiedAt     DateTime?
-
-  createdAt      DateTime @default(now())
-
-  //////////////////////////////////////////////////////
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-//////////////////////////////////////////////////////////
-// PASSWORD RESET
-//////////////////////////////////////////////////////////
-
-model PasswordResetToken {
-  id             String   @id @default(uuid())
-
-  userId         String
-
-  tokenHash      String
-
-  expiresAt      DateTime
-
-  usedAt         DateTime?
-
-  createdAt      DateTime @default(now())
-
-  //////////////////////////////////////////////////////
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-}
