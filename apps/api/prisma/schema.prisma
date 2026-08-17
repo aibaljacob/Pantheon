@@ -244,6 +244,7 @@ model UserPortfolioItem {
   description  String
   role         String
   technologies String[]
+  tools        String[]    @default([])
   gameEngine   String
   genre        String
   platform     String
@@ -349,23 +350,31 @@ enum ProjectStatus {
   PAUSED
 }
 
+enum ProjectModerationStatus {
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+}
+
 model Project {
-  id          String          @id @default(uuid())
-  name        String
-  slug        String          @unique
-  description String
-  coverUrl    String?
-  status      ProjectStatus   @default(IN_DEVELOPMENT)
-  genre       String?
-  platform    String?
-  gameEngine  String?
-  founderId   String
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  founder     User            @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Cascade)
-  members     ProjectMember[]
+  id               String                  @id @default(uuid())
+  name             String
+  slug             String                  @unique
+  description      String
+  coverUrl         String?
+  status           ProjectStatus           @default(IN_DEVELOPMENT)
+  moderationStatus ProjectModerationStatus @default(PENDING_REVIEW)
+  genre            String?
+  platform         String?
+  gameEngine       String?
+  founderId        String
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  founder          User                    @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Cascade)
+  members          ProjectMember[]
 
   @@index([founderId])
+  @@index([moderationStatus])
 }
 
 model ProjectMember {

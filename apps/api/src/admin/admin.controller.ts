@@ -61,6 +61,16 @@ export class AdminController {
     return this.adminService.getProjectAdminDetails(id);
   }
 
+  @Patch('projects/:id/approve')
+  approveProject(@Param('id') id: string): Promise<AdminProjectDetailDto> {
+    return this.adminService.approveProject(id);
+  }
+
+  @Patch('projects/:id/reject')
+  rejectProject(@Param('id') id: string): Promise<AdminProjectDetailDto> {
+    return this.adminService.rejectProject(id);
+  }
+
   // 4. Taxonomy Management
   @Get('taxonomy/:type')
   getTaxonomyEntries(

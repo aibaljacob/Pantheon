@@ -52,6 +52,25 @@ export function searchSpecializations(search?: string, limit: number = 20) {
   return fetchTaxonomyCategory('specializations', search, 1, limit);
 }
 
+const NON_TECH_SKILLS = new Set([
+  'Agile & Sprint Planning',
+  '3D Modeling',
+  'Digital Sculpting',
+  'Texturing & PBR Workflows',
+  'Rigging & Skinning',
+  'Level Design',
+  'Sound Design',
+]);
+
+export async function searchTechnologies(search?: string, limit: number = 20): Promise<TaxonomyResponse> {
+  const result = await fetchTaxonomyCategory('skills', search, 1, limit);
+  const filteredData = (result.data || []).filter((item) => !NON_TECH_SKILLS.has(item.name));
+  return {
+    ...result,
+    data: filteredData,
+  };
+}
+
 export function searchSkills(search?: string, limit: number = 20) {
   return fetchTaxonomyCategory('skills', search, 1, limit);
 }

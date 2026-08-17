@@ -9,11 +9,14 @@ import {
   Sparkles,
   Compass,
   ArrowRight,
+  Clock,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import type { DashboardProjectItem } from '../../projects/types';
 import { fetchUserDashboardProjects } from '../../projects/services/projectService';
+import { CreateProjectModal } from '../../profile/components/CreateProjectModal';
 import { useAuthStore } from '../../auth/store/authStore';
 
 function formatStatus(status: string): string {
@@ -44,6 +47,7 @@ export const DashboardProjectsSection: React.FC = () => {
   const [projects, setProjects] = useState<DashboardProjectItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
 
   const loadProjects = async () => {
     if (!accessToken) {
@@ -68,6 +72,10 @@ export const DashboardProjectsSection: React.FC = () => {
     loadProjects();
   }, [accessToken]);
 
+  const handleProjectCreated = (newProject: DashboardProjectItem) => {
+    setProjects((prev) => [newProject, ...prev]);
+  };
+
   return (
     <section className="space-y-4">
       {/* Section Header */}
@@ -84,15 +92,26 @@ export const DashboardProjectsSection: React.FC = () => {
           </h2>
         </div>
 
-        {projects.length > 0 && (
-          <Link
-            to="/projects"
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+        <div className="flex items-center gap-3">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => setIsCreateModalOpen(true)}
+            icon={<Crown className="h-3.5 w-3.5 text-amber-400" />}
           >
-            <span>View All ({projects.length})</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        )}
+            Become a Founder
+          </Button>
+
+          {projects.length > 0 && (
+            <Link
+              to="/projects"
+              className="inline-flex items-center gap-1.5 text-xs font-mono text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+            >
+              <span>View All ({projects.length})</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Loading Skeleton State */}
@@ -137,7 +156,7 @@ export const DashboardProjectsSection: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((project) => (
             <Link key={project.id} to={`/projects`}>
-              <Card className="h-full p-0 overflow-hidden hover:border-[#48473f] transition-all group">
+              <Card className="h-full p-0 overflow-hidden hover:border-[#48473f] transition-all group relative">
                 <div className="relative h-36 border-b border-[#2b2a29] bg-[#141312] overflow-hidden">
                   {project.coverUrl ? (
                     <img
@@ -179,6 +198,21 @@ export const DashboardProjectsSection: React.FC = () => {
                     </p>
                   </div>
 
+                  {/* Moderation Status Banner (For Founder Visibility) */}
+                  {project.moderationStatus === 'PENDING_REVIEW' && (
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-2.5 flex items-center gap-2 text-amber-300 text-[11px] font-mono">
+                      <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400 animate-pulse" />
+                      <span>Pending Administrator Review</span>
+                    </div>
+                  )}
+
+                  {project.moderationStatus === 'REJECTED' && (
+                    <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-2.5 flex items-center gap-2 text-red-300 text-[11px] font-mono">
+                      <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                      <span>Rejected by Administrator</span>
+                    </div>
+                  )}
+
                   {/* Metadata Chips */}
                   <div className="text-[11px] font-mono text-[#cac6bc] flex items-center gap-2 flex-wrap">
                     {project.genre && (
@@ -213,7 +247,7 @@ export const DashboardProjectsSection: React.FC = () => {
           ))}
 
           {/* Become a Founder Entry Point Card */}
-          <BecomeAFounderCard />
+          <BecomeAFounderCard onOpen={() => setIsCreateModalOpen(true)} />
         </div>
       )}
 
@@ -243,14 +277,21 @@ export const DashboardProjectsSection: React.FC = () => {
           </div>
 
           {/* Become a Founder Special Entry Point */}
-          <BecomeAFounderCard />
+          <BecomeAFounderCard onOpen={() => setIsCreateModalOpen(true)} />
         </div>
       )}
+
+      {/* Create Project Modal */}
+      <CreateProjectModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onCreated={handleProjectCreated}
+      />
     </section>
   );
 };
 
-export const BecomeAFounderCard: React.FC = () => {
+export const BecomeAFounderCard: React.FC<{ onOpen: () => void }> = ({ onOpen }) => {
   return (
     <div className="rounded-3xl border border-[#48473f]/60 bg-[#1c1b1a] p-5 sm:p-6 flex flex-col justify-between space-y-4 relative overflow-hidden group">
       <div className="flex items-center justify-between">
@@ -273,12 +314,10 @@ export const BecomeAFounderCard: React.FC = () => {
       <div className="pt-2 border-t border-[#2b2a29] flex items-center justify-between">
         <button
           type="button"
-          disabled
-          title="Founder creation workflow coming soon"
-          className="inline-flex items-center gap-2 rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2 text-xs font-mono text-[#8c887e] cursor-not-allowed opacity-80"
+          onClick={onOpen}
+          className="inline-flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-2 text-xs font-mono font-semibold text-amber-200 hover:bg-amber-900/40 hover:border-amber-400 transition-all"
         >
           <span>Become a Founder →</span>
-          <span className="text-[9px] text-amber-400 font-semibold">(Coming Soon)</span>
         </button>
       </div>
     </div>

@@ -81,6 +81,10 @@ export class AdminProjectsQueryDto {
   @IsOptional()
   @IsString()
   status?: string;
+
+  @IsOptional()
+  @IsString()
+  moderationStatus?: string;
 }
 
 export class AdminProjectItemDto {
@@ -90,6 +94,7 @@ export class AdminProjectItemDto {
   description: string;
   coverUrl?: string | null;
   status: string;
+  moderationStatus: string;
   genre?: string | null;
   platform?: string | null;
   gameEngine?: string | null;

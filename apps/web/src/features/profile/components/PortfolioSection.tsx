@@ -198,7 +198,7 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
               {selectedProject.technologies && selectedProject.technologies.length > 0 && (
                 <div className="border-t border-[#2b2a29] pt-4 space-y-2">
                   <h4 className="font-mono text-[10px] uppercase tracking-wider text-[#8c887e]">
-                    Technologies & Frameworks
+                    Technologies Used
                   </h4>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedProject.technologies.map((tech, idx) => (
@@ -207,6 +207,24 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
                         className="rounded-lg border border-[#363433] bg-[#141312] px-3 py-1 font-mono text-xs text-[#e6e2df]"
                       >
                         {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedProject.tools && selectedProject.tools.length > 0 && (
+                <div className="border-t border-[#2b2a29] pt-4 space-y-2">
+                  <h4 className="font-mono text-[10px] uppercase tracking-wider text-[#8c887e]">
+                    Tools Used
+                  </h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProject.tools.map((tool, idx) => (
+                      <span
+                        key={idx}
+                        className="rounded-lg border border-[#363433] bg-[#141312] px-3 py-1 font-mono text-xs text-[#e6e2df]"
+                      >
+                        {tool}
                       </span>
                     ))}
                   </div>

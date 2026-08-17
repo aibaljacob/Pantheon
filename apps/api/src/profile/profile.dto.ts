@@ -258,6 +258,11 @@ export class CreatePortfolioItemDto {
   @IsString({ each: true })
   technologies?: string[];
 
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tools?: string[];
+
   @IsNotEmpty()
   @IsString()
   @MaxLength(100)
@@ -307,6 +312,11 @@ export class UpdatePortfolioItemDto {
   @IsArray()
   @IsString({ each: true })
   technologies?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tools?: string[];
 
   @IsOptional()
   @IsString()

@@ -82,6 +82,7 @@ export interface PortfolioItem {
   description: string;
   role: string;
   technologies: string[];
+  tools?: string[];
   gameEngine: string;
   genre: string;
   platform: string;

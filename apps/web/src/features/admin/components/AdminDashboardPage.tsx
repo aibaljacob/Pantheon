@@ -28,6 +28,8 @@ import {
   fetchAdminDashboardMetrics,
   fetchAdminUsers,
   fetchAdminProjects,
+  approveAdminProject,
+  rejectAdminProject,
   fetchAdminTaxonomy,
   fetchAdminActivity,
   createAdminTaxonomyEntry,
@@ -79,6 +81,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
   const [projectsPage, setProjectsPage] = useState(1);
   const [projectsSearch, setProjectsSearch] = useState('');
   const [projectsStatusFilter, setProjectsStatusFilter] = useState('');
+  const [projectsModerationFilter, setProjectsModerationFilter] = useState('');
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<AdminProjectItem | null>(null);
 
@@ -148,6 +151,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
         limit: 10,
         search: projectsSearch,
         status: projectsStatusFilter,
+        moderationStatus: projectsModerationFilter,
       });
       setProjects(res.projects);
       setProjectsTotal(res.total);
@@ -155,6 +159,36 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
       console.error('Failed to load admin projects:', err);
     } finally {
       setProjectsLoading(false);
+    }
+  };
+
+  const handleApproveProject = async (projectId: string) => {
+    if (!accessToken) return;
+    try {
+      await approveAdminProject(accessToken, projectId);
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, moderationStatus: 'PUBLISHED' } : p)),
+      );
+      if (selectedProjectDetail?.id === projectId) {
+        setSelectedProjectDetail((prev) => (prev ? { ...prev, moderationStatus: 'PUBLISHED' } : null));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to approve project.');
+    }
+  };
+
+  const handleRejectProject = async (projectId: string) => {
+    if (!accessToken) return;
+    try {
+      await rejectAdminProject(accessToken, projectId);
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, moderationStatus: 'REJECTED' } : p)),
+      );
+      if (selectedProjectDetail?.id === projectId) {
+        setSelectedProjectDetail((prev) => (prev ? { ...prev, moderationStatus: 'REJECTED' } : null));
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to reject project.');
     }
   };
 
@@ -624,24 +658,40 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                 />
               </div>
 
-              <select
-                value={projectsStatusFilter}
-                onChange={(e) => {
-                  setProjectsStatusFilter(e.target.value);
-                  setProjectsPage(1);
-                }}
-                className="rounded-xl border border-[#363433] bg-[#141312] px-3 py-2 text-xs text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
-              >
-                <option value="">All Project Statuses</option>
-                <option value="PLANNING">Planning</option>
-                <option value="PRE_PRODUCTION">Pre-Production</option>
-                <option value="PROTOTYPE">Prototype</option>
-                <option value="IN_DEVELOPMENT">In Development</option>
-                <option value="ALPHA">Alpha</option>
-                <option value="BETA">Beta</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="PAUSED">Paused</option>
-              </select>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <select
+                  value={projectsModerationFilter}
+                  onChange={(e) => {
+                    setProjectsModerationFilter(e.target.value);
+                    setProjectsPage(1);
+                  }}
+                  className="rounded-xl border border-amber-500/40 bg-[#141312] px-3 py-2 text-xs text-amber-200 focus:border-amber-400 focus:outline-none"
+                >
+                  <option value="">All Moderation States</option>
+                  <option value="PENDING_REVIEW">Pending Review</option>
+                  <option value="PUBLISHED">Published</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+
+                <select
+                  value={projectsStatusFilter}
+                  onChange={(e) => {
+                    setProjectsStatusFilter(e.target.value);
+                    setProjectsPage(1);
+                  }}
+                  className="rounded-xl border border-[#363433] bg-[#141312] px-3 py-2 text-xs text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
+                >
+                  <option value="">All Dev Statuses</option>
+                  <option value="PLANNING">Planning</option>
+                  <option value="PRE_PRODUCTION">Pre-Production</option>
+                  <option value="PROTOTYPE">Prototype</option>
+                  <option value="IN_DEVELOPMENT">In Development</option>
+                  <option value="ALPHA">Alpha</option>
+                  <option value="BETA">Beta</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="PAUSED">Paused</option>
+                </select>
+              </div>
             </div>
 
             {/* Projects Table */}
@@ -651,10 +701,10 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                   <tr>
                     <th className="p-4 font-normal">Project</th>
                     <th className="p-4 font-normal">Founder</th>
-                    <th className="p-4 font-normal">Status</th>
+                    <th className="p-4 font-normal">Moderation</th>
+                    <th className="p-4 font-normal">Dev Status</th>
                     <th className="p-4 font-normal">Genre / Engine / Platform</th>
                     <th className="p-4 font-normal">Team</th>
-                    <th className="p-4 font-normal">Updated</th>
                     <th className="p-4 font-normal text-right">Actions</th>
                   </tr>
                 </thead>
@@ -688,6 +738,23 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                           <span className="block text-[10px] text-[#8c887e]">{p.founderDisplayName}</span>
                         </td>
                         <td className="p-4">
+                          {p.moderationStatus === 'PENDING_REVIEW' && (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] border border-amber-500/40 bg-amber-950/40 text-amber-300">
+                              ● Pending Review
+                            </span>
+                          )}
+                          {p.moderationStatus === 'PUBLISHED' && (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] border border-emerald-500/40 bg-emerald-950/40 text-emerald-300">
+                              ● Published
+                            </span>
+                          )}
+                          {p.moderationStatus === 'REJECTED' && (
+                            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] border border-red-500/40 bg-red-950/40 text-red-300">
+                              ● Rejected
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-4">
                           <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] border border-[#48473f] bg-[#201f1e] text-[#e6e2df]">
                             {p.status}
                           </span>
@@ -696,17 +763,34 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                           {p.genre || 'N/A'} · {p.gameEngine || 'N/A'} · {p.platform || 'N/A'}
                         </td>
                         <td className="p-4 text-[#e6e2df]">{p.memberCount} members</td>
-                        <td className="p-4 text-[#8c887e]">
-                          {new Date(p.updatedAt).toLocaleDateString()}
-                        </td>
                         <td className="p-4 text-right">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setSelectedProjectDetail(p)}
-                          >
-                            Inspect
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {p.moderationStatus === 'PENDING_REVIEW' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveProject(p.id)}
+                                  className="rounded-lg border border-emerald-500/40 bg-emerald-950/40 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-900/60 transition-colors"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRejectProject(p.id)}
+                                  className="rounded-lg border border-red-500/40 bg-red-950/40 px-2.5 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-900/60 transition-colors"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => setSelectedProjectDetail(p)}
+                            >
+                              Inspect
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -990,12 +1074,36 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                   <span className="block text-[10px] text-[#8c887e]">{selectedProjectDetail.founderEmail}</span>
                 </div>
                 <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-3">
-                  <span className="text-[10px] text-[#8c887e] block">Status</span>
+                  <span className="text-[10px] text-[#8c887e] block">Dev Status / Moderation</span>
                   <span className="font-bold text-[#ffffff]">{selectedProjectDetail.status}</span>
+                  <span className="block text-[10px] font-semibold text-amber-300 mt-0.5">
+                    ● {selectedProjectDetail.moderationStatus}
+                  </span>
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div className="pt-4 flex items-center justify-between border-t border-[#2b2a29]">
+                <div className="flex items-center gap-2">
+                  {selectedProjectDetail.moderationStatus !== 'PUBLISHED' && (
+                    <button
+                      type="button"
+                      onClick={() => handleApproveProject(selectedProjectDetail.id)}
+                      className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/60 transition-colors"
+                    >
+                      Approve & Publish
+                    </button>
+                  )}
+                  {selectedProjectDetail.moderationStatus !== 'REJECTED' && (
+                    <button
+                      type="button"
+                      onClick={() => handleRejectProject(selectedProjectDetail.id)}
+                      className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-900/60 transition-colors"
+                    >
+                      Reject
+                    </button>
+                  )}
+                </div>
+
                 <Button variant="secondary" size="sm" onClick={() => setSelectedProjectDetail(null)}>
                   Close Overview
                 </Button>

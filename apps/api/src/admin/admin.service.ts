@@ -21,7 +21,7 @@ import type {
   CreateTaxonomyEntryDto,
   UpdateTaxonomyEntryDto,
 } from './admin.dto';
-import { ProjectStatus, Role } from '@prisma/client';
+import { ProjectModerationStatus, ProjectStatus, Role } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -209,6 +209,10 @@ export class AdminService {
       where.status = query.status as ProjectStatus;
     }
 
+    if (query.moderationStatus && Object.values(ProjectModerationStatus).includes(query.moderationStatus as ProjectModerationStatus)) {
+      where.moderationStatus = query.moderationStatus as ProjectModerationStatus;
+    }
+
     if (query.search && query.search.trim()) {
       const s = query.search.trim();
       where.OR = [
@@ -263,6 +267,7 @@ export class AdminService {
         description: p.description,
         coverUrl: p.coverUrl,
         status: p.status,
+        moderationStatus: p.moderationStatus,
         genre: p.genre,
         platform: p.platform,
         gameEngine: p.gameEngine,
@@ -358,6 +363,7 @@ export class AdminService {
       description: p.description,
       coverUrl: p.coverUrl,
       status: p.status,
+      moderationStatus: p.moderationStatus,
       genre: p.genre,
       platform: p.platform,
       gameEngine: p.gameEngine,
@@ -370,6 +376,34 @@ export class AdminService {
       updatedAt: p.updatedAt.toISOString(),
       members: membersMapped,
     };
+  }
+
+  async approveProject(projectId: string): Promise<AdminProjectDetailDto> {
+    const existing = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!existing) {
+      throw new NotFoundException('Project record not found.');
+    }
+
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: { moderationStatus: ProjectModerationStatus.PUBLISHED },
+    });
+
+    return this.getProjectAdminDetails(projectId);
+  }
+
+  async rejectProject(projectId: string): Promise<AdminProjectDetailDto> {
+    const existing = await this.prisma.project.findUnique({ where: { id: projectId } });
+    if (!existing) {
+      throw new NotFoundException('Project record not found.');
+    }
+
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: { moderationStatus: ProjectModerationStatus.REJECTED },
+    });
+
+    return this.getProjectAdminDetails(projectId);
   }
 
   // 4. TAXONOMY MANAGEMENT

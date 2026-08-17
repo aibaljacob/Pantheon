@@ -15,7 +15,8 @@ import {
   searchGameEngines,
   searchGenres,
   searchPlatforms,
-  searchSkills,
+  searchTechnologies,
+  searchTools,
 } from '../services/taxonomyService';
 import { useAuthStore } from '../../auth/store/authStore';
 
@@ -45,6 +46,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
   const [description, setDescription] = useState('');
   const [role, setRole] = useState('');
   const [selectedTechItems, setSelectedTechItems] = useState<TaxonomyItem[]>([]);
+  const [selectedToolItems, setSelectedToolItems] = useState<TaxonomyItem[]>([]);
   const [gameEngine, setGameEngine] = useState('');
   const [genre, setGenre] = useState('');
   const [platform, setPlatform] = useState('');
@@ -67,6 +69,11 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
           ? projectToEdit.technologies.map((t) => ({ id: t, name: t }))
           : [],
       );
+      setSelectedToolItems(
+        projectToEdit.tools
+          ? projectToEdit.tools.map((t) => ({ id: t, name: t }))
+          : [],
+      );
       setGameEngine(projectToEdit.gameEngine || '');
       setGenre(projectToEdit.genre || '');
       setPlatform(projectToEdit.platform || '');
@@ -80,6 +87,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
       setDescription('');
       setRole('');
       setSelectedTechItems([]);
+      setSelectedToolItems([]);
       setGameEngine('');
       setGenre('');
       setPlatform('');
@@ -128,6 +136,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
       }
 
       const technologies = selectedTechItems.map((item) => item.name);
+      const tools = selectedToolItems.map((item) => item.name);
 
       const dto = {
         title,
@@ -135,6 +144,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
         description,
         role,
         technologies,
+        tools,
         gameEngine,
         genre,
         platform,
@@ -316,13 +326,24 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
             </div>
           </div>
 
+          {/* TECHNOLOGIES USED */}
           <TaxonomyMultiSelect
-            categoryLabel="Technologies & Frameworks"
-            placeholder="Search recognized skills and tools from taxonomy..."
+            categoryLabel="TECHNOLOGIES USED"
+            placeholder="Search recognized technologies..."
             selectedItems={selectedTechItems}
             onChange={setSelectedTechItems}
-            fetchSearch={searchSkills}
+            fetchSearch={searchTechnologies}
             maxLimit={15}
+          />
+
+          {/* TOOLS USED */}
+          <TaxonomyMultiSelect
+            categoryLabel="TOOLS USED"
+            placeholder="Search recognized tools..."
+            selectedItems={selectedToolItems}
+            onChange={setSelectedToolItems}
+            fetchSearch={searchTools}
+            maxLimit={10}
           />
 
           {/* Footer Actions */}

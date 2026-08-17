@@ -52,6 +52,7 @@ export interface AdminProjectItem {
   description: string;
   coverUrl?: string | null;
   status: string;
+  moderationStatus: 'PENDING_REVIEW' | 'PUBLISHED' | 'REJECTED';
   genre?: string | null;
   platform?: string | null;
   gameEngine?: string | null;
@@ -163,13 +164,14 @@ export async function fetchAdminUserDetails(accessToken: string, userId: string)
 // 3. Projects
 export async function fetchAdminProjects(
   accessToken: string,
-  params: { page?: number; limit?: number; search?: string; status?: string },
+  params: { page?: number; limit?: number; search?: string; status?: string; moderationStatus?: string },
 ): Promise<AdminPaginatedProjectsResponse> {
   const query = new URLSearchParams();
   if (params.page) query.append('page', String(params.page));
   if (params.limit) query.append('limit', String(params.limit));
   if (params.search) query.append('search', params.search);
   if (params.status) query.append('status', params.status);
+  if (params.moderationStatus) query.append('moderationStatus', params.moderationStatus);
 
   const res = await fetch(`${getApiBaseUrl()}/admin/projects?${query.toString()}`, {
     headers: getAuthHeaders(accessToken),
@@ -193,6 +195,42 @@ export async function fetchAdminProjectDetails(accessToken: string, projectId: s
     headers: getAuthHeaders(accessToken),
   });
   if (!res.ok) throw new Error('Failed to fetch project details.');
+
+  const data: AdminProjectDetail = await res.json();
+  return {
+    ...data,
+    coverUrl: formatApiAssetUrl(data.coverUrl),
+    members: data.members.map((m) => ({
+      ...m,
+      avatarUrl: formatApiAssetUrl(m.avatarUrl),
+    })),
+  };
+}
+
+export async function approveAdminProject(accessToken: string, projectId: string): Promise<AdminProjectDetail> {
+  const res = await fetch(`${getApiBaseUrl()}/admin/projects/${projectId}/approve`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error('Failed to approve project.');
+
+  const data: AdminProjectDetail = await res.json();
+  return {
+    ...data,
+    coverUrl: formatApiAssetUrl(data.coverUrl),
+    members: data.members.map((m) => ({
+      ...m,
+      avatarUrl: formatApiAssetUrl(m.avatarUrl),
+    })),
+  };
+}
+
+export async function rejectAdminProject(accessToken: string, projectId: string): Promise<AdminProjectDetail> {
+  const res = await fetch(`${getApiBaseUrl()}/admin/projects/${projectId}/reject`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(accessToken),
+  });
+  if (!res.ok) throw new Error('Failed to reject project.');
 
   const data: AdminProjectDetail = await res.json();
   return {
