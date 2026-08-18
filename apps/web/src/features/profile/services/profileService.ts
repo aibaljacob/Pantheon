@@ -52,8 +52,8 @@ export function mapServerProfileToFrontendProfile(raw: any): ProfileData {
     portfolioCompletion = raw.stats.portfolioCompletion;
   }
 
-  const user = raw.user || {};
-  const prof = raw.profile || {};
+  const user = raw.user || raw;
+  const prof = raw.profile || raw;
   const identity = prof.identity || raw.identity || {};
   const stats = raw.stats || {};
 
@@ -401,7 +401,11 @@ export async function createPortfolioItem(accessToken: string, dto: any): Promis
     throw new Error('Failed to create portfolio project.');
   }
 
-  return response.json();
+  const result = await response.json();
+  return {
+    ...result,
+    coverUrl: formatApiAssetUrl(result.coverUrl),
+  };
 }
 
 export async function uploadPortfolioCover(accessToken: string, file: File): Promise<any> {
@@ -436,7 +440,11 @@ export async function updatePortfolioItem(accessToken: string, id: string, dto: 
     throw new Error('Failed to update portfolio project.');
   }
 
-  return response.json();
+  const result = await response.json();
+  return {
+    ...result,
+    coverUrl: formatApiAssetUrl(result.coverUrl),
+  };
 }
 
 export async function deletePortfolioItem(accessToken: string, id: string): Promise<any> {

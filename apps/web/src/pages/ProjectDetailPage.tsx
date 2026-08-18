@@ -38,6 +38,7 @@ import {
 import { EditProjectModal } from '../features/profile/components/EditProjectModal';
 import { AddEditRoleModal } from '../features/profile/components/AddEditRoleModal';
 import { AiRoleRecommendationsDrawer } from '../features/profile/components/AiRoleRecommendationsDrawer';
+import { RecommendedTalentSection } from '../features/projects/components/RecommendedTalentSection';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -548,6 +549,13 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Founder / Admin Candidate Recommendation Section */}
+            {(project.isFounder || currentUser?.role === 'Administrator') && (
+              <div className="pt-2">
+                <RecommendedTalentSection project={project} roles={roles} />
+              </div>
+            )}
           </div>
 
           {/* Right Column: Founder Card & Team Roster */}

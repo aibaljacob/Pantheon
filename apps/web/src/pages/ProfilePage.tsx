@@ -37,6 +37,10 @@ import {
   unfollowUser,
   deleteResume,
   updateResumeVisibility,
+  deletePortfolioItem,
+  deleteExperience,
+  deleteEducation,
+  deleteLink,
 } from '../features/profile/services/profileService';
 import type {
   ProfileData,
@@ -217,12 +221,19 @@ export const ProfilePage: React.FC = () => {
       : [savedExp, ...profileData.experiences];
     setProfileData({ ...profileData, experiences: nextExperiences });
   };
-  const handleExperienceDeleted = (id: string) => {
+  const handleExperienceDeleted = async (id: string, skipApi = false) => {
     if (profileData) {
       setProfileData({
         ...profileData,
         experiences: profileData.experiences.filter((e) => e.id !== id),
       });
+    }
+    if (!skipApi && accessToken) {
+      try {
+        await deleteExperience(accessToken, id);
+      } catch (err) {
+        console.error('Failed to delete experience entry:', err);
+      }
     }
   };
 
@@ -243,12 +254,19 @@ export const ProfilePage: React.FC = () => {
       : [...profileData.education, savedEdu];
     setProfileData({ ...profileData, education: nextEducation });
   };
-  const handleEducationDeleted = (id: string) => {
+  const handleEducationDeleted = async (id: string, skipApi = false) => {
     if (profileData) {
       setProfileData({
         ...profileData,
         education: profileData.education.filter((e) => e.id !== id),
       });
+    }
+    if (!skipApi && accessToken) {
+      try {
+        await deleteEducation(accessToken, id);
+      } catch (err) {
+        console.error('Failed to delete education entry:', err);
+      }
     }
   };
 
@@ -269,12 +287,19 @@ export const ProfilePage: React.FC = () => {
       : [savedItem, ...profileData.portfolio];
     setProfileData({ ...profileData, portfolio: nextPortfolio });
   };
-  const handlePortfolioDeleted = (id: string) => {
+  const handlePortfolioDeleted = async (id: string, skipApi = false) => {
     if (profileData) {
       setProfileData({
         ...profileData,
         portfolio: profileData.portfolio.filter((p) => p.id !== id),
       });
+    }
+    if (!skipApi && accessToken) {
+      try {
+        await deletePortfolioItem(accessToken, id);
+      } catch (err) {
+        console.error('Failed to delete portfolio project:', err);
+      }
     }
   };
 
@@ -323,12 +348,19 @@ export const ProfilePage: React.FC = () => {
       : [...profileData.links, savedLink];
     setProfileData({ ...profileData, links: nextLinks });
   };
-  const handleLinkDeleted = (id: string) => {
+  const handleLinkDeleted = async (id: string, skipApi = false) => {
     if (profileData) {
       setProfileData({
         ...profileData,
         links: profileData.links.filter((l) => l.id !== id),
       });
+    }
+    if (!skipApi && accessToken) {
+      try {
+        await deleteLink(accessToken, id);
+      } catch (err) {
+        console.error('Failed to delete external link:', err);
+      }
     }
   };
 
@@ -521,7 +553,7 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsExpModalOpen(false)}
         experienceToEdit={expToEdit}
         onSaved={handleExperienceSaved}
-        onDeleted={handleExperienceDeleted}
+        onDeleted={(id) => handleExperienceDeleted(id, true)}
       />
 
       <EducationModal
@@ -529,7 +561,7 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsEduModalOpen(false)}
         educationToEdit={eduToEdit}
         onSaved={handleEducationSaved}
-        onDeleted={handleEducationDeleted}
+        onDeleted={(id) => handleEducationDeleted(id, true)}
       />
 
       <PortfolioModal
@@ -537,7 +569,7 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsProjModalOpen(false)}
         projectToEdit={projToEdit}
         onSaved={handlePortfolioSaved}
-        onDeleted={handlePortfolioDeleted}
+        onDeleted={(id) => handlePortfolioDeleted(id, true)}
       />
 
       <ResumeModal
@@ -552,7 +584,7 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsLinkModalOpen(false)}
         linkToEdit={linkToEdit}
         onSaved={handleLinkSaved}
-        onDeleted={handleLinkDeleted}
+        onDeleted={(id) => handleLinkDeleted(id, true)}
       />
     </div>
   );

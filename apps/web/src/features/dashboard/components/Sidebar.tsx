@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '../../../components/ui/Badge';
 import type { DashboardUser } from '../types';
 import pantheonlogo from '../../../assets/pantheon-logowhole.png';
-import { LayoutDashboard, FolderKanban, Compass, MessagesSquare, BellRing, BadgeHelp, CheckSquare, CalendarDays, Settings, ChevronRight, UserCog } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, BadgeHelp, Settings, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserAvatar } from '../../auth/components/UserAvatar';
 
@@ -21,21 +21,17 @@ interface NavItem {
 const userNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
-  { label: 'Discover', href: '/dashboard#discover', icon: Compass },
-  { label: 'Messages', href: '/dashboard#messages', icon: MessagesSquare },
-  { label: 'Notifications', href: '/dashboard#notifications', icon: BellRing },
+  // { label: 'Discover', href: '/dashboard#discover', icon: Compass },
+  // { label: 'Messages', href: '/dashboard#messages', icon: MessagesSquare },
+  // { label: 'Notifications', href: '/dashboard#notifications', icon: BellRing },
   { label: 'Profile & Portfolio', href: '/profile', icon: BadgeHelp },
-  { label: 'Tasks', href: '/dashboard#tasks', icon: CheckSquare },
-  { label: 'Calendar', href: '/dashboard#calendar', icon: CalendarDays, comingSoon: true },
+  // { label: 'Tasks', href: '/dashboard#tasks', icon: CheckSquare },
+  // { label: 'Calendar', href: '/dashboard#calendar', icon: CalendarDays, comingSoon: true },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
 const adminNavItems: NavItem[] = [
   { label: 'Dashboard Overview', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'User Management', href: '/dashboard#users', icon: UserCog },
-  { label: 'Platform Projects', href: '/dashboard#projects', icon: FolderKanban },
-  { label: 'Taxonomy Manager', href: '/dashboard#taxonomy', icon: Compass },
-  { label: 'Account Profile', href: '/profile', icon: BadgeHelp },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -69,7 +65,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onCloseMobile }) => {
             <UserAvatar user={user} size="lg" />
             <div className="min-w-0"><p className="truncate text-sm font-semibold text-[#ffffff]">{user.fullName}</p><p className="truncate text-xs text-[#8c887e]">{user.role}</p></div>
           </div>
-          <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#2b2a29] bg-[#141312] px-3 py-2"><div><p className="text-[10px] font-mono uppercase tracking-wider text-[#8c887e]">Quick settings</p><p className="text-xs text-[#cac6bc]">Personalize workspace</p></div><UserCog className="h-4 w-4 text-[#e6e2df]" /></div>
+          {/* <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#2b2a29] bg-[#141312] px-3 py-2"><div><p className="text-[10px] font-mono uppercase tracking-wider text-[#8c887e]">Quick settings</p><p className="text-xs text-[#cac6bc]">Personalize workspace</p></div><UserCog className="h-4 w-4 text-[#e6e2df]" /></div> */}
         </div>
       </div>
     </aside>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { User, AlertCircle, ArrowUpRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { User, AlertCircle, ArrowUpRight, Sparkles } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import type { DashboardUser } from '../types';
@@ -71,10 +71,10 @@ export const DashboardOverviewHero: React.FC<DashboardOverviewHeroProps> = ({ us
                 @{user.username}
               </span>
               <span>·</span>
-              <span className="flex items-center gap-1.5">
+              {/* <span className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
                 Auth Provider: {user.provider || 'LOCAL'}
-              </span>
+              </span> */}
             </div>
           </div>
 

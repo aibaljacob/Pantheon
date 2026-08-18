@@ -3,9 +3,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { ProjectsService } from './projects.service';
+import { TalentMatchingService } from './talent-matching.service';
 import {
+  CandidateQueryDto,
   CreateProjectDto,
   CreateProjectRoleDto,
+  RankedCandidatesResponseDto,
   UpdateProjectDto,
   UpdateProjectRoleDto,
 } from './projects.dto';
@@ -19,7 +22,10 @@ import type {
 
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly talentMatchingService: TalentMatchingService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
@@ -109,5 +115,22 @@ export class ProjectsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<AiRoleRecommendationsResponseDto> {
     return this.projectsService.generateAiRoleRecommendations(id, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/roles/:roleId/candidates')
+  getRankedCandidates(
+    @Param('id') id: string,
+    @Param('roleId') roleId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: CandidateQueryDto,
+  ): Promise<RankedCandidatesResponseDto> {
+    return this.talentMatchingService.getRankedCandidates(
+      id,
+      roleId,
+      user.id,
+      user.role,
+      query,
+    );
   }
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Mail, CheckCircle2, AlertCircle, Calendar, KeyRound } from 'lucide-react';
+import { Shield, Mail, CheckCircle2, AlertCircle, Calendar } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import type { DashboardUser } from '../types';
 
@@ -22,7 +22,7 @@ export const AccountStatusCard: React.FC<AccountStatusCardProps> = ({ user }) =>
             Account & Identity Status
           </h2>
           <p className="text-xs text-[#8c887e]">
-            Data mapped directly from <code className="font-mono text-[#e6e2df]">User</code> database table
+            Overview of your account settings and authentication status
           </p>
         </div>
         <Badge variant={user.role === 'Administrator' ? 'accent' : 'bronze'} className="normal-case">
@@ -62,14 +62,14 @@ export const AccountStatusCard: React.FC<AccountStatusCardProps> = ({ user }) =>
         </div>
 
         {/* Auth Provider */}
-        <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3.5 space-y-1">
+        {/* <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3.5 space-y-1">
           <div className="flex items-center gap-1.5 text-[#8c887e]">
             <KeyRound className="h-3.5 w-3.5" />
             <span>Auth Provider</span>
           </div>
           <p className="font-bold text-[#ffffff]">{user.provider || 'LOCAL'}</p>
           <p className="text-[10px] text-[#8c887e]">Authentication Type</p>
-        </div>
+        </div> */}
 
         {/* Joined Date */}
         <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3.5 space-y-1">
@@ -82,8 +82,7 @@ export const AccountStatusCard: React.FC<AccountStatusCardProps> = ({ user }) =>
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[#2b2a29] pt-4 text-xs font-mono">
-        <span className="text-[#8c887e]">Table: User (id: {user.id.slice(0, 8)}...)</span>
+      <div className="flex items-center justify-end border-t border-[#2b2a29] pt-4 text-xs font-mono">
         <Link to="/settings" className="text-[#e6e2df] hover:text-[#ffffff] underline">
           Account Settings →
         </Link>

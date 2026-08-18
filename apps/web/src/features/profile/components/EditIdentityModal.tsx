@@ -77,7 +77,7 @@ export const EditIdentityModal: React.FC<EditIdentityModalProps> = ({
     const extractIds = (items: (TaxonomyItem | string)[] = []) =>
       normalizeTaxonomyArray(items)
         .map((i) => i.id)
-        .filter((id) => Boolean(id) && id.length > 10);
+        .filter((id) => Boolean(id) && id.trim().length > 0);
 
     const payload = {
       roleIds: extractIds(formData.roles),

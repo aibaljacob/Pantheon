@@ -17,7 +17,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ user }) => {
             Developer Profile Details
           </h2>
           <p className="text-xs text-[#8c887e]">
-            Data mapped directly from <code className="font-mono text-[#e6e2df]">UserProfile</code> database table
+            Overview of your public developer profile and credentials
           </p>
         </div>
         <Link
@@ -75,8 +75,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ user }) => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[#2b2a29] pt-4 text-xs font-mono">
-        <span className="text-[#8c887e]">Table: UserProfile (userId: {user.id.slice(0, 8)}...)</span>
+      <div className="flex items-center justify-end border-t border-[#2b2a29] pt-4 text-xs font-mono">
         <Link
           to={`/u/${user.username}`}
           className="inline-flex items-center gap-1.5 text-[#e6e2df] hover:text-[#ffffff] transition-colors"

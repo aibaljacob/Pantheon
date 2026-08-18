@@ -343,7 +343,7 @@ export class ProfileService {
   async updateBasicProfile(userId: string, dto: UpdateProfileDto) {
     const profile = await this.ensureProfileExists(userId);
 
-    const updatedProfile = await this.prisma.userProfile.update({
+    await this.prisma.userProfile.update({
       where: { id: profile.id },
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName.trim() }),
@@ -358,7 +358,7 @@ export class ProfileService {
       },
     });
 
-    return updatedProfile;
+    return this.getOwnProfile(userId);
   }
 
   // ---------------------------------------------------------------------------

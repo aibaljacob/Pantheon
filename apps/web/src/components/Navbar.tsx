@@ -62,7 +62,7 @@ export const Navbar: React.FC = () => {
             How It Works
             <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[#e6e2df] transition-all duration-200 group-hover:w-full" />
           </a>
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <a
               href="#pricing"
               className="hover:text-[#e6e2df] transition-colors py-1 relative group focus:outline-none focus:text-[#e6e2df]"
@@ -72,7 +72,7 @@ export const Navbar: React.FC = () => {
             <Badge variant="bronze" className="text-[10px] py-0.5 px-1.5 font-mono">
               Coming Soon
             </Badge>
-          </div>
+          </div> */}
         </nav>
 
         {/* Actions */}

@@ -1,21 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Edit3, ArrowRight, CheckCircle2, Circle } from 'lucide-react';
 import type { DashboardUser } from '../types';
+import type { ProfileData } from '../../profile/types';
+import { fetchOwnProfile } from '../../profile/services/profileService';
+import { useAuthStore } from '../../auth/store/authStore';
 
 interface ProfileReadinessCardProps {
   user: DashboardUser;
 }
 
 export const ProfileReadinessCard: React.FC<ProfileReadinessCardProps> = ({ user }) => {
-  const profilePercent = user.profileCompletion || 85;
-  const portfolioPercent = user.portfolioCompletion || 75;
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  useEffect(() => {
+    if (accessToken) {
+      fetchOwnProfile(accessToken)
+        .then((data) => setProfileData(data))
+        .catch((err) => console.warn('Readiness profile fetch error:', err));
+    }
+  }, [accessToken]);
+
+  const profilePercent = profileData
+    ? profileData.stats.profileCompletion
+    : (user.profileCompletion || 0);
+
+  const portfolioPercent = profileData
+    ? profileData.stats.portfolioCompletion
+    : (user.portfolioCompletion || 0);
+
+  const isHeadlineBioSet = profileData
+    ? Boolean(profileData.user.headline?.trim() && profileData.user.bio?.trim())
+    : Boolean(user.fullName);
+
+  const isSkillsSet = profileData
+    ? Boolean((profileData.professional.skills?.length ?? 0) > 0 || (profileData.professional.gameEngines?.length ?? 0) > 0)
+    : Boolean(user.skills && user.skills.length > 0);
+
+  const isResumeSet = profileData
+    ? Boolean(profileData.resume)
+    : profilePercent >= 80;
+
+  const isPortfolioSet = profileData
+    ? Boolean(profileData.portfolio && profileData.portfolio.length > 0)
+    : portfolioPercent >= 60;
+
+  const isExperienceSet = profileData
+    ? Boolean((profileData.experiences?.length ?? 0) > 0 || (profileData.education?.length ?? 0) > 0)
+    : false;
 
   const checklistItems = [
-    { label: 'Set professional headline & bio', completed: Boolean(user.fullName) },
-    { label: 'Set game engines & technical skills', completed: user.skills && user.skills.length > 0 },
-    { label: 'Upload or link official resume (PDF)', completed: profilePercent >= 80 },
-    { label: 'Add portfolio showcase projects', completed: portfolioPercent >= 60 },
+    { label: 'Set professional headline & bio', completed: isHeadlineBioSet },
+    { label: 'Set game engines & technical skills', completed: isSkillsSet },
+    { label: 'Upload or link official resume (PDF)', completed: isResumeSet },
+    { label: 'Add portfolio showcase projects', completed: isPortfolioSet },
+    { label: 'Add work experience or education', completed: isExperienceSet },
   ];
 
   return (
@@ -26,7 +66,7 @@ export const ProfileReadinessCard: React.FC<ProfileReadinessCardProps> = ({ user
             Profile & Talent Readiness
           </h2>
           <p className="text-xs text-[#8c887e]">
-            Powered by UserProfile database model
+            Live recruitment readiness & profile completion score
           </p>
         </div>
         <Link
@@ -91,7 +131,7 @@ export const ProfileReadinessCard: React.FC<ProfileReadinessCardProps> = ({ user
           to={`/u/${user.username}`}
           className="inline-flex items-center gap-2 rounded-xl border border-[#48473f] bg-[#141312] px-4 py-2 font-mono text-xs text-[#e6e2df] hover:border-[#e6e2df] transition-colors"
         >
-          <span>Open Canonical Profile (/u/{user.username})</span>
+          <span>Manage Profile Details</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
