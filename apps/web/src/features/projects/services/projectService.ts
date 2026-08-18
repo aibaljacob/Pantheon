@@ -1,9 +1,13 @@
 import type {
+  AiRoleRecommendationsResponse,
   CreateProjectInput,
+  CreateProjectRoleInput,
   DashboardProjectItem,
   DashboardProjectsResponse,
   ProjectDetail,
+  ProjectRoleItem,
   UpdateProjectInput,
+  UpdateProjectRoleInput,
 } from '../types';
 import { formatApiAssetUrl } from '../../profile/services/profileService';
 
@@ -158,4 +162,119 @@ export async function updateProject(
       avatarUrl: formatApiAssetUrl(m.avatarUrl),
     })),
   };
+}
+
+export async function fetchProjectRoles(
+  projectId: string,
+  accessToken?: string | null,
+): Promise<ProjectRoleItem[]> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/roles`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to fetch project roles.');
+  }
+
+  return response.json();
+}
+
+export async function createProjectRole(
+  accessToken: string,
+  projectId: string,
+  payload: CreateProjectRoleInput,
+): Promise<ProjectRoleItem> {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/roles`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to create project role.');
+  }
+
+  return response.json();
+}
+
+export async function updateProjectRole(
+  accessToken: string,
+  projectId: string,
+  roleId: string,
+  payload: UpdateProjectRoleInput,
+): Promise<ProjectRoleItem> {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/roles/${roleId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to update project role.');
+  }
+
+  return response.json();
+}
+
+export async function deleteProjectRole(
+  accessToken: string,
+  projectId: string,
+  roleId: string,
+): Promise<boolean> {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/roles/${roleId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete project role.');
+  }
+
+  return true;
+}
+
+export async function fetchAiRoleRecommendations(
+  projectId: string,
+  accessToken: string,
+): Promise<AiRoleRecommendationsResponse> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/roles/ai-recommendations`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || 'Failed to generate AI role recommendations.',
+    );
+  }
+
+  return response.json();
 }

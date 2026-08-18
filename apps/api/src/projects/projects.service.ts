@@ -7,19 +7,34 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type {
+  AiRoleRecommendationsResponseDto,
   CreateProjectDto,
+  CreateProjectRoleDto,
   DashboardProjectDto,
   DashboardProjectsResponseDto,
   ProjectDetailResponseDto,
+  ProjectRoleResponseDto,
   UpdateProjectDto,
+  UpdateProjectRoleDto,
 } from './projects.dto';
-import { ProjectModerationStatus, ProjectStatus, Role } from '@prisma/client';
+import {
+  ProjectModerationStatus,
+  ProjectRoleCommitment,
+  ProjectRoleExperienceLevel,
+  ProjectRoleStatus,
+  ProjectStatus,
+  Role,
+} from '@prisma/client';
+import { AiRecommendationService } from '../ai/ai-recommendation.service';
 
 @Injectable()
 export class ProjectsService {
   private readonly logger = new Logger(ProjectsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiService: AiRecommendationService,
+  ) {}
 
   private generateSlug(name: string): string {
     const baseSlug = name
@@ -429,5 +444,348 @@ export class ProjectsService {
     });
 
     return this.getProjectDetails(projectId, userId);
+  }
+
+  async createProjectRole(
+    projectId: string,
+    userId: string,
+    dto: CreateProjectRoleDto,
+  ): Promise<ProjectRoleResponseDto> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    if (project.founderId !== userId) {
+      throw new ForbiddenException('Only the project founder can manage open roles.');
+    }
+
+    // Validate ProfessionalRole taxonomy ID
+    const professionalRole = await this.prisma.professionalRole.findFirst({
+      where: { id: dto.roleId, isActive: true },
+    });
+    if (!professionalRole) {
+      throw new BadRequestException(`Unrecognized or inactive ProfessionalRole ID: "${dto.roleId}"`);
+    }
+
+    // Validate Skill IDs if provided
+    const uniqueSkillIds = Array.from(new Set(dto.skillIds || []));
+    if (uniqueSkillIds.length > 0) {
+      const skillsCount = await this.prisma.skill.count({
+        where: { id: { in: uniqueSkillIds }, isActive: true },
+      });
+      if (skillsCount !== uniqueSkillIds.length) {
+        throw new BadRequestException('One or more skill IDs are invalid or inactive taxonomy entries.');
+      }
+    }
+
+    // Validate Tool IDs if provided
+    const uniqueToolIds = Array.from(new Set(dto.toolIds || []));
+    if (uniqueToolIds.length > 0) {
+      const toolsCount = await this.prisma.tool.count({
+        where: { id: { in: uniqueToolIds }, isActive: true },
+      });
+      if (toolsCount !== uniqueToolIds.length) {
+        throw new BadRequestException('One or more tool IDs are invalid or inactive taxonomy entries.');
+      }
+    }
+
+    // Transaction-backed creation with 15s timeout
+    const createdRole = await this.prisma.$transaction(
+      async (tx) => {
+        const roleRecord = await tx.projectRole.create({
+          data: {
+            projectId,
+            roleId: dto.roleId,
+            title: dto.title?.trim() || null,
+            description: dto.description?.trim() || null,
+            experienceLevel:
+              dto.experienceLevel || ProjectRoleExperienceLevel.MID,
+            commitment: dto.commitment || ProjectRoleCommitment.PART_TIME,
+            status: dto.status || ProjectRoleStatus.OPEN,
+            requiredSkills: {
+              create: uniqueSkillIds.map((skillId) => ({ skillId })),
+            },
+            requiredTools: {
+              create: uniqueToolIds.map((toolId) => ({ toolId })),
+            },
+          },
+          include: {
+            role: true,
+            requiredSkills: { include: { skill: true } },
+            requiredTools: { include: { tool: true } },
+          },
+        });
+
+        return roleRecord;
+      },
+      { timeout: 15000 },
+    );
+
+    return this.mapProjectRoleToDto(createdRole);
+  }
+
+  async getProjectRoles(
+    projectId: string,
+    currentUserId?: string,
+    currentUserRole?: string,
+  ): Promise<ProjectRoleResponseDto[]> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: { select: { userId: true } },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    const isFounder = Boolean(currentUserId && project.founderId === currentUserId);
+    const isMember = Boolean(
+      currentUserId && (isFounder || project.members.some((m) => m.userId === currentUserId)),
+    );
+    const isAdmin = currentUserRole === Role.ADMINISTRATOR;
+
+    // Authorization rule matching project details
+    if (project.moderationStatus !== ProjectModerationStatus.PUBLISHED) {
+      if (!isFounder && !isMember && !isAdmin) {
+        throw new NotFoundException('Project not found.');
+      }
+    }
+
+    const roles = await this.prisma.projectRole.findMany({
+      where: { projectId },
+      include: {
+        role: true,
+        requiredSkills: { include: { skill: true } },
+        requiredTools: { include: { tool: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return roles.map((r) => this.mapProjectRoleToDto(r));
+  }
+
+  async updateProjectRole(
+    projectId: string,
+    roleId: string,
+    userId: string,
+    dto: UpdateProjectRoleDto,
+  ): Promise<ProjectRoleResponseDto> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    if (project.founderId !== userId) {
+      throw new ForbiddenException('Only the project founder can manage open roles.');
+    }
+
+    const existingRole = await this.prisma.projectRole.findFirst({
+      where: { id: roleId, projectId },
+    });
+
+    if (!existingRole) {
+      throw new NotFoundException('Project role record not found.');
+    }
+
+    if (dto.roleId) {
+      const professionalRole = await this.prisma.professionalRole.findFirst({
+        where: { id: dto.roleId, isActive: true },
+      });
+      if (!professionalRole) {
+        throw new BadRequestException(`Unrecognized or inactive ProfessionalRole ID: "${dto.roleId}"`);
+      }
+    }
+
+    let uniqueSkillIds: string[] | undefined;
+    if (dto.skillIds !== undefined) {
+      uniqueSkillIds = Array.from(new Set(dto.skillIds));
+      if (uniqueSkillIds.length > 0) {
+        const skillsCount = await this.prisma.skill.count({
+          where: { id: { in: uniqueSkillIds }, isActive: true },
+        });
+        if (skillsCount !== uniqueSkillIds.length) {
+          throw new BadRequestException('One or more skill IDs are invalid or inactive taxonomy entries.');
+        }
+      }
+    }
+
+    let uniqueToolIds: string[] | undefined;
+    if (dto.toolIds !== undefined) {
+      uniqueToolIds = Array.from(new Set(dto.toolIds));
+      if (uniqueToolIds.length > 0) {
+        const toolsCount = await this.prisma.tool.count({
+          where: { id: { in: uniqueToolIds }, isActive: true },
+        });
+        if (toolsCount !== uniqueToolIds.length) {
+          throw new BadRequestException('One or more tool IDs are invalid or inactive taxonomy entries.');
+        }
+      }
+    }
+
+    // Transaction-backed update with diffing on skill/tool junction tables
+    const updatedRole = await this.prisma.$transaction(async (tx) => {
+      if (uniqueSkillIds !== undefined) {
+        await tx.projectRoleSkill.deleteMany({ where: { projectRoleId: roleId } });
+        if (uniqueSkillIds.length > 0) {
+          await tx.projectRoleSkill.createMany({
+            data: uniqueSkillIds.map((skillId) => ({ projectRoleId: roleId, skillId })),
+          });
+        }
+      }
+
+      if (uniqueToolIds !== undefined) {
+        await tx.projectRoleTool.deleteMany({ where: { projectRoleId: roleId } });
+        if (uniqueToolIds.length > 0) {
+          await tx.projectRoleTool.createMany({
+            data: uniqueToolIds.map((toolId) => ({ projectRoleId: roleId, toolId })),
+          });
+        }
+      }
+
+      const roleRecord = await tx.projectRole.update({
+        where: { id: roleId },
+        data: {
+          ...(dto.roleId && { roleId: dto.roleId }),
+          ...(dto.title !== undefined && { title: dto.title?.trim() || null }),
+          ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
+          ...(dto.experienceLevel && { experienceLevel: dto.experienceLevel }),
+          ...(dto.commitment && { commitment: dto.commitment }),
+          ...(dto.status && { status: dto.status }),
+        },
+        include: {
+          role: true,
+          requiredSkills: { include: { skill: true } },
+          requiredTools: { include: { tool: true } },
+        },
+      });
+
+      return roleRecord;
+    }, { timeout: 15000 });
+
+    return this.mapProjectRoleToDto(updatedRole);
+  }
+
+  async deleteProjectRole(
+    projectId: string,
+    roleId: string,
+    userId: string,
+  ): Promise<{ success: boolean }> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    if (project.founderId !== userId) {
+      throw new ForbiddenException('Only the project founder can manage open roles.');
+    }
+
+    const existingRole = await this.prisma.projectRole.findFirst({
+      where: { id: roleId, projectId },
+    });
+
+    if (!existingRole) {
+      throw new NotFoundException('Project role record not found.');
+    }
+
+    await this.prisma.projectRole.delete({
+      where: { id: roleId },
+    });
+
+    return { success: true };
+  }
+
+  private mapProjectRoleToDto(roleRecord: any): ProjectRoleResponseDto {
+    return {
+      id: roleRecord.id,
+      projectId: roleRecord.projectId,
+      roleId: roleRecord.roleId,
+      roleName: roleRecord.role.name,
+      title: roleRecord.title,
+      description: roleRecord.description,
+      experienceLevel: roleRecord.experienceLevel,
+      commitment: roleRecord.commitment,
+      status: roleRecord.status,
+      createdAt: roleRecord.createdAt.toISOString(),
+      updatedAt: roleRecord.updatedAt.toISOString(),
+      requiredSkills: (roleRecord.requiredSkills || []).map((s: any) => ({
+        id: s.skill.id,
+        name: s.skill.name,
+      })),
+      requiredTools: (roleRecord.requiredTools || []).map((t: any) => ({
+        id: t.tool.id,
+        name: t.tool.name,
+      })),
+    };
+  }
+
+  async generateAiRoleRecommendations(
+    projectId: string,
+    userId: string,
+  ): Promise<AiRoleRecommendationsResponseDto> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        openRoles: {
+          include: { role: true },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    if (project.founderId !== userId) {
+      throw new ForbiddenException(
+        'Only the project founder can request AI role recommendations.',
+      );
+    }
+
+    const [rolesTaxonomy, skillsTaxonomy, toolsTaxonomy] = await Promise.all([
+      this.prisma.professionalRole.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, description: true },
+      }),
+      this.prisma.skill.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, description: true },
+      }),
+      this.prisma.tool.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, description: true },
+      }),
+    ]);
+
+    const existingRoleNames = project.openRoles.map((r) => r.role.name);
+
+    // AI execution - PERFORMS ZERO DATABASE WRITES
+    const recommendedRoles = await this.aiService.generateRoleRecommendations(
+      {
+        name: project.name,
+        description: project.description,
+        genre: project.genre,
+        platform: project.platform,
+        gameEngine: project.gameEngine,
+        status: project.status,
+        existingRoleNames,
+      },
+      rolesTaxonomy,
+      skillsTaxonomy,
+      toolsTaxonomy,
+    );
+
+    return { recommendedRoles };
   }
 }

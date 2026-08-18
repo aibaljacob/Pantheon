@@ -4,9 +4,11 @@ packages:
   - 'docs'
   - 'infrastructure/*'
 allowBuilds:
+  '@google/genai': true
   '@prisma/client': true
   '@prisma/engines': true
   '@scarf/scarf': true
   bcrypt: set this to true or false
   prisma: true
+  protobufjs: true
   unrs-resolver: true

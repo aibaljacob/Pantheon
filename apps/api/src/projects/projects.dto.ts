@@ -1,5 +1,11 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { ProjectModerationStatus, ProjectStatus } from '@prisma/client';
+import { IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  ProjectModerationStatus,
+  ProjectRoleCommitment,
+  ProjectRoleExperienceLevel,
+  ProjectRoleStatus,
+  ProjectStatus,
+} from '@prisma/client';
 
 export class CreateProjectDto {
   @IsNotEmpty()
@@ -121,4 +127,119 @@ export class ProjectDetailResponseDto {
   memberCount: number;
   isFounder: boolean;
   isMember: boolean;
+}
+
+export class CreateProjectRoleDto {
+  @IsNotEmpty()
+  @IsString()
+  roleId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRoleExperienceLevel)
+  experienceLevel?: ProjectRoleExperienceLevel;
+
+  @IsOptional()
+  @IsEnum(ProjectRoleCommitment)
+  commitment?: ProjectRoleCommitment;
+
+  @IsOptional()
+  @IsEnum(ProjectRoleStatus)
+  status?: ProjectRoleStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skillIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  toolIds?: string[];
+}
+
+export class UpdateProjectRoleDto {
+  @IsOptional()
+  @IsString()
+  roleId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(ProjectRoleExperienceLevel)
+  experienceLevel?: ProjectRoleExperienceLevel;
+
+  @IsOptional()
+  @IsEnum(ProjectRoleCommitment)
+  commitment?: ProjectRoleCommitment;
+
+  @IsOptional()
+  @IsEnum(ProjectRoleStatus)
+  status?: ProjectRoleStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  skillIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  toolIds?: string[];
+}
+
+export class ProjectRoleTaxonomyItemDto {
+  id: string;
+  name: string;
+}
+
+export class ProjectRoleResponseDto {
+  id: string;
+  projectId: string;
+  roleId: string;
+  roleName: string;
+  title?: string | null;
+  description?: string | null;
+  experienceLevel: ProjectRoleExperienceLevel;
+  commitment: ProjectRoleCommitment;
+  status: ProjectRoleStatus;
+  createdAt: string;
+  updatedAt: string;
+  requiredSkills: ProjectRoleTaxonomyItemDto[];
+  requiredTools: ProjectRoleTaxonomyItemDto[];
+}
+
+export class DraftRoleRecommendationDto {
+  roleId: string;
+  roleName: string;
+  title?: string | null;
+  description?: string | null;
+  experienceLevel: ProjectRoleExperienceLevel;
+  commitment: ProjectRoleCommitment;
+  skillIds: string[];
+  toolIds: string[];
+  requiredSkills: ProjectRoleTaxonomyItemDto[];
+  requiredTools: ProjectRoleTaxonomyItemDto[];
+  reasoning: string;
+}
+
+export class AiRoleRecommendationsResponseDto {
+  recommendedRoles: DraftRoleRecommendationDto[];
 }

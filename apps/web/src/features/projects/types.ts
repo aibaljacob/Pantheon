@@ -75,3 +75,68 @@ export interface ProjectDetail {
   isFounder: boolean;
   isMember: boolean;
 }
+
+export type ProjectRoleStatus = 'OPEN' | 'IN_REVIEW' | 'FILLED' | 'CLOSED';
+export type ProjectRoleCommitment = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'REV_SHARE';
+export type ProjectRoleExperienceLevel = 'JUNIOR' | 'MID' | 'SENIOR' | 'LEAD';
+
+export interface ProjectRoleTaxonomyItem {
+  id: string;
+  name: string;
+}
+
+export interface ProjectRoleItem {
+  id: string;
+  projectId: string;
+  roleId: string;
+  roleName: string;
+  title?: string | null;
+  description?: string | null;
+  experienceLevel: ProjectRoleExperienceLevel;
+  commitment: ProjectRoleCommitment;
+  status: ProjectRoleStatus;
+  createdAt: string;
+  updatedAt: string;
+  requiredSkills: ProjectRoleTaxonomyItem[];
+  requiredTools: ProjectRoleTaxonomyItem[];
+}
+
+export interface CreateProjectRoleInput {
+  roleId: string;
+  title?: string;
+  description?: string;
+  experienceLevel?: ProjectRoleExperienceLevel;
+  commitment?: ProjectRoleCommitment;
+  status?: ProjectRoleStatus;
+  skillIds?: string[];
+  toolIds?: string[];
+}
+
+export interface UpdateProjectRoleInput {
+  roleId?: string;
+  title?: string;
+  description?: string;
+  experienceLevel?: ProjectRoleExperienceLevel;
+  commitment?: ProjectRoleCommitment;
+  status?: ProjectRoleStatus;
+  skillIds?: string[];
+  toolIds?: string[];
+}
+
+export interface DraftRoleRecommendation {
+  roleId: string;
+  roleName: string;
+  title?: string | null;
+  description?: string | null;
+  experienceLevel: ProjectRoleExperienceLevel;
+  commitment: ProjectRoleCommitment;
+  skillIds: string[];
+  toolIds: string[];
+  requiredSkills: ProjectRoleTaxonomyItem[];
+  requiredTools: ProjectRoleTaxonomyItem[];
+  reasoning: string;
+}
+
+export interface AiRoleRecommendationsResponse {
+  recommendedRoles: DraftRoleRecommendation[];
+}

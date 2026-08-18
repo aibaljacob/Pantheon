@@ -9,6 +9,7 @@ interface TaxonomySingleSelectProps {
   fetchSearch: (search?: string, limit?: number) => Promise<TaxonomyResponse>;
   placeholder?: string;
   required?: boolean;
+  valueBy?: 'id' | 'name';
 }
 
 export const TaxonomySingleSelect: React.FC<TaxonomySingleSelectProps> = ({
@@ -18,6 +19,7 @@ export const TaxonomySingleSelect: React.FC<TaxonomySingleSelectProps> = ({
   fetchSearch,
   placeholder = 'Select from taxonomy...',
   required = false,
+  valueBy = 'name',
 }) => {
   const [options, setOptions] = useState<TaxonomyItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -67,14 +69,17 @@ export const TaxonomySingleSelect: React.FC<TaxonomySingleSelectProps> = ({
           {isLoading ? 'Loading options from taxonomy...' : placeholder}
         </option>
 
-        {options.map((opt) => (
-          <option key={opt.id} value={opt.name}>
-            {opt.name}
-          </option>
-        ))}
+        {options.map((opt) => {
+          const optValue = valueBy === 'id' ? opt.id : opt.name;
+          return (
+            <option key={opt.id} value={optValue}>
+              {opt.name}
+            </option>
+          );
+        })}
 
         {/* If current value is not in fetched options yet (e.g. legacy/custom), preserve it as selected option */}
-        {value && !options.some((o) => o.name === value) && (
+        {value && !options.some((o) => (valueBy === 'id' ? o.id === value : o.name === value)) && (
           <option value={value}>{value}</option>
         )}
       </select>
