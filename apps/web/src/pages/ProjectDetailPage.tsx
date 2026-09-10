@@ -16,7 +16,7 @@ import {
   Briefcase,
   Plus,
   Trash2,
-  Sparkles,
+  UserCheck,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
@@ -37,7 +37,7 @@ import {
 } from '../features/projects/services/projectService';
 import { EditProjectModal } from '../features/profile/components/EditProjectModal';
 import { AddEditRoleModal } from '../features/profile/components/AddEditRoleModal';
-import { AiRoleRecommendationsDrawer } from '../features/profile/components/AiRoleRecommendationsDrawer';
+import { AiRoleRecommendationsSection } from '../features/projects/components/AiRoleRecommendationsSection';
 import { RecommendedTalentSection } from '../features/projects/components/RecommendedTalentSection';
 
 function formatStatus(status: string): string {
@@ -140,10 +140,22 @@ export const ProjectDetailPage: React.FC = () => {
 
   // AI Recommendation State
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
-  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState<boolean>(false);
   const [aiRecommendations, setAiRecommendations] = useState<
     DraftRoleRecommendation[]
   >([]);
+
+  const scanAiRecommendations = async (projectId: string, token?: string | null) => {
+    if (!token) return;
+    setIsGeneratingAi(true);
+    try {
+      const res = await fetchAiRoleRecommendations(projectId, token);
+      setAiRecommendations(res.recommendedRoles || []);
+    } catch (err: any) {
+      console.warn('AI role recommendations scan failed:', err.message);
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   const loadProject = async () => {
     if (!id) return;
@@ -157,6 +169,10 @@ export const ProjectDetailPage: React.FC = () => {
       ]);
       setProject(projectData);
       setRoles(rolesData);
+
+      if ((projectData.isFounder || currentUser?.role === 'Administrator') && accessToken) {
+        scanAiRecommendations(projectData.id, accessToken);
+      }
     } catch (err: any) {
       setError(err.message || 'Project not found or restricted access.');
     } finally {
@@ -192,6 +208,8 @@ export const ProjectDetailPage: React.FC = () => {
       }
       return [savedRole, ...prev];
     });
+
+    setAiRecommendations((prev) => prev.filter((r) => r.roleId !== savedRole.roleId));
   };
 
   const handleDeleteRole = async (roleId: string) => {
@@ -207,21 +225,6 @@ export const ProjectDetailPage: React.FC = () => {
     }
   };
 
-  const handleGenerateAiRoles = async () => {
-    if (!project || !accessToken) return;
-    setIsGeneratingAi(true);
-
-    try {
-      const res = await fetchAiRoleRecommendations(project.id, accessToken);
-      setAiRecommendations(res.recommendedRoles || []);
-      setIsAiDrawerOpen(true);
-    } catch (err: any) {
-      alert(err.message || 'Failed to generate AI role recommendations.');
-    } finally {
-      setIsGeneratingAi(false);
-    }
-  };
-
   const handleAcceptAiDraft = (draft: DraftRoleRecommendation) => {
     if (!project) return;
 
@@ -231,19 +234,18 @@ export const ProjectDetailPage: React.FC = () => {
       projectId: project.id,
       roleId: draft.roleId,
       roleName: draft.roleName,
-      title: draft.title,
+      title: draft.title || draft.roleName,
       description: draft.description,
       experienceLevel: draft.experienceLevel,
       commitment: draft.commitment,
       status: 'OPEN',
       createdAt: '',
       updatedAt: '',
-      requiredSkills: draft.requiredSkills,
-      requiredTools: draft.requiredTools,
+      requiredSkills: draft.requiredSkills || [],
+      requiredTools: draft.requiredTools || [],
     };
 
     setEditingRole(prefilledRole);
-    setIsAiDrawerOpen(false);
     setIsRoleModalOpen(true);
   };
 
@@ -401,154 +403,253 @@ export const ProjectDetailPage: React.FC = () => {
               </p>
             </div>
 
+            {/* AI ROLE & TALENT RECOMMENDATIONS (PERSISTENT IN-PAGE SECTION) */}
+            {(project.isFounder || currentUser?.role === 'Administrator') && (
+              <AiRoleRecommendationsSection
+                project={project}
+                recommendations={aiRecommendations}
+                isLoading={isGeneratingAi}
+                onAcceptRecommendation={handleAcceptAiDraft}
+                onRescan={() => scanAiRecommendations(project.id, accessToken)}
+              />
+            )}
+
             {/* OPEN ROLES RECRUITMENT SECTION */}
-            <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-[#2b2a29] pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#48473f] bg-[#201f1e] text-[#e6e2df]">
-                    <Briefcase className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-headline text-lg font-bold text-[#ffffff]">
-                      Open Roles
-                    </h3>
-                    <p className="text-xs font-mono text-[#8c887e]">
-                      {roles.length} {roles.length === 1 ? 'position' : 'positions'} available
-                    </p>
-                  </div>
-                </div>
+            {(() => {
+              const openRoles = roles.filter((r) => r.status === 'OPEN' || r.status === 'IN_REVIEW');
+              const filledRoles = roles.filter((r) => r.status === 'FILLED' || r.status === 'CLOSED');
 
-                {project.isFounder && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleGenerateAiRoles}
-                      disabled={isGeneratingAi}
-                      className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 py-1.5 font-mono text-xs font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-50"
-                    >
-                      {isGeneratingAi ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          <span>Generating AI Roles...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-                          <span>Recommend Roles with AI</span>
-                        </>
-                      )}
-                    </button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleOpenAddRole}
-                      icon={<Plus className="h-4 w-4" />}
-                    >
-                      Add Role
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {roles.length === 0 ? (
-                <div className="py-8 text-center space-y-2">
-                  <p className="text-xs font-mono text-[#8c887e]">
-                    No open recruitment roles published yet.
-                  </p>
-                  {project.isFounder && (
-                    <button
-                      type="button"
-                      onClick={handleOpenAddRole}
-                      className="inline-flex items-center gap-1.5 text-xs font-mono text-[#e6e2df] hover:text-[#ffffff] underline"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>Create the first open position</span>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {roles.map((role) => (
-                    <div
-                      key={role.id}
-                      className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 sm:p-5 space-y-3 transition-all hover:border-[#363433]"
-                    >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-headline text-base font-bold text-[#ffffff]">
-                              {role.title || role.roleName}
-                            </h4>
-                            {formatRoleStatusBadge(role.status)}
-                          </div>
-                          <p className="text-xs font-mono text-[#8c887e] mt-0.5">
-                            {role.roleName}
-                          </p>
+              return (
+                <>
+                  <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
+                    <div className="flex items-center justify-between border-b border-[#2b2a29] pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#48473f] bg-[#201f1e] text-[#e6e2df]">
+                          <Briefcase className="h-4 w-4" />
                         </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-[11px] font-mono text-[#cac6bc]">
-                            {formatExperience(role.experienceLevel)}
-                          </span>
-                          <span className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-[11px] font-mono text-[#cac6bc]">
-                            {formatCommitment(role.commitment)}
-                          </span>
-
-                          {project.isFounder && (
-                            <div className="flex items-center gap-1 ml-2">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditRole(role)}
-                                className="p-1.5 rounded-lg border border-[#363433] text-[#8c887e] hover:border-[#e6e2df] hover:text-[#ffffff] transition-colors"
-                                title="Edit Role"
-                              >
-                                <Edit3 className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteRole(role.id)}
-                                className="p-1.5 rounded-lg border border-red-950/40 text-red-400 hover:bg-red-950/50 hover:text-red-300 transition-colors"
-                                title="Delete Role"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          )}
+                        <div>
+                          <h3 className="font-headline text-lg font-bold text-[#ffffff]">
+                            Open Roles
+                          </h3>
+                          <p className="text-xs font-mono text-[#8c887e]">
+                            {openRoles.length} {openRoles.length === 1 ? 'position' : 'positions'} available
+                          </p>
                         </div>
                       </div>
 
-                      {role.description && (
-                        <p className="text-xs leading-relaxed text-[#cac6bc] font-sans">
-                          {role.description}
-                        </p>
-                      )}
-
-                      {/* Required Skills & Tools */}
-                      {(role.requiredSkills.length > 0 || role.requiredTools.length > 0) && (
-                        <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-[#201f1e]">
-                          {role.requiredSkills.map((s) => (
-                            <span
-                              key={s.id}
-                              className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-2 py-0.5 text-[10px] font-mono text-[#e6e2df]"
-                            >
-                              Skill: {s.name}
-                            </span>
-                          ))}
-                          {role.requiredTools.map((t) => (
-                            <span
-                              key={t.id}
-                              className="rounded-lg border border-[#363433] bg-[#201f1e] px-2 py-0.5 text-[10px] font-mono text-[#cac6bc]"
-                            >
-                              Tool: {t.name}
-                            </span>
-                          ))}
-                        </div>
+                      {project.isFounder && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleOpenAddRole}
+                          icon={<Plus className="h-4 w-4" />}
+                        >
+                          Add Role
+                        </Button>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
+                    {openRoles.length === 0 ? (
+                      <div className="py-8 text-center space-y-2">
+                        <p className="text-xs font-mono text-[#8c887e]">
+                          No open recruitment roles available at this time.
+                        </p>
+                        {project.isFounder && (
+                          <button
+                            type="button"
+                            onClick={handleOpenAddRole}
+                            className="inline-flex items-center gap-1.5 text-xs font-mono text-[#e6e2df] hover:text-[#ffffff] underline"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Create an open position</span>
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {openRoles.map((role) => (
+                          <div
+                            key={role.id}
+                            className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 sm:p-5 space-y-3 transition-all hover:border-[#363433]"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="font-headline text-base font-bold text-[#ffffff]">
+                                    {role.title || role.roleName}
+                                  </h4>
+                                  {formatRoleStatusBadge(role.status)}
+                                </div>
+                                <p className="text-xs font-mono text-[#8c887e] mt-0.5">
+                                  {role.roleName}
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-[11px] font-mono text-[#cac6bc]">
+                                  {formatExperience(role.experienceLevel)}
+                                </span>
+                                <span className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-[11px] font-mono text-[#cac6bc]">
+                                  {formatCommitment(role.commitment)}
+                                </span>
+
+                                {project.isFounder && (
+                                  <div className="flex items-center gap-1 ml-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditRole(role)}
+                                      className="p-1.5 rounded-lg border border-[#363433] text-[#8c887e] hover:border-[#e6e2df] hover:text-[#ffffff] transition-colors"
+                                      title="Edit Role"
+                                    >
+                                      <Edit3 className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteRole(role.id)}
+                                      className="p-1.5 rounded-lg border border-red-950/40 text-red-400 hover:bg-red-950/50 hover:text-red-300 transition-colors"
+                                      title="Delete Role"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {role.description && (
+                              <p className="text-xs leading-relaxed text-[#cac6bc] font-sans">
+                                {role.description}
+                              </p>
+                            )}
+
+                            {/* Required Skills & Tools */}
+                            {(role.requiredSkills.length > 0 || role.requiredTools.length > 0) && (
+                              <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-[#201f1e]">
+                                {role.requiredSkills.map((s) => (
+                                  <span
+                                    key={s.id}
+                                    className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-2 py-0.5 text-[10px] font-mono text-[#e6e2df]"
+                                  >
+                                    Skill: {s.name}
+                                  </span>
+                                ))}
+                                {role.requiredTools.map((t) => (
+                                  <span
+                                    key={t.id}
+                                    className="rounded-lg border border-[#363433] bg-[#201f1e] px-2 py-0.5 text-[10px] font-mono text-[#cac6bc]"
+                                  >
+                                    Tool: {t.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RECRUITMENT STATUS SECTION (FILLED ROLES VIEW) */}
+                  {filledRoles.length > 0 && (
+                    <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
+                      <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-950/20 text-emerald-400">
+                            <UserCheck className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <h4 className="font-headline text-base font-bold text-[#ffffff]">
+                              Recruitment Status
+                            </h4>
+                            <p className="text-xs font-mono text-[#8c887e]">
+                              {filledRoles.length} {filledRoles.length === 1 ? 'role' : 'roles'} successfully staffed
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-[11px] font-mono text-emerald-400">
+                          ● Active Team Formation
+                        </span>
+                      </div>
+
+                      <div className="space-y-3">
+                        {filledRoles.map((role) => {
+                          const roleNameLower = (role.title || role.roleName).toLowerCase();
+                          const taxonomyLower = role.roleName.toLowerCase();
+                          const filledByMember = project.members.find((m) => {
+                            const memberRoleLower = m.role.toLowerCase();
+                            return (
+                              memberRoleLower.includes(taxonomyLower) ||
+                              memberRoleLower.includes(roleNameLower) ||
+                              roleNameLower.includes(memberRoleLower)
+                            );
+                          });
+
+                          return (
+                            <div
+                              key={role.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 transition-all"
+                            >
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-headline text-sm font-bold text-[#ffffff]">
+                                    {role.title || role.roleName}
+                                  </span>
+                                  <span className="rounded-full border border-blue-500/40 bg-blue-950/30 px-2 py-0.5 text-[10px] font-mono font-semibold text-blue-300">
+                                    ● FILLED
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] font-mono text-[#8c887e]">
+                                  <span>{role.roleName}</span>
+                                  <span>·</span>
+                                  <span>{formatExperience(role.experienceLevel)}</span>
+                                  <span>·</span>
+                                  <span>{formatCommitment(role.commitment)}</span>
+                                </div>
+                              </div>
+
+                              {/* Filled by Member Info */}
+                              <div className="flex items-center gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#201f1e]">
+                                {filledByMember ? (
+                                  <Link
+                                    to={`/u/${filledByMember.username}`}
+                                    className="flex items-center gap-2.5 rounded-xl border border-[#2b2a29] bg-[#1c1b1a] px-3 py-1.5 hover:border-[#48473f] transition-colors"
+                                  >
+                                    {filledByMember.avatarUrl ? (
+                                      <img
+                                        src={filledByMember.avatarUrl}
+                                        alt={filledByMember.displayName}
+                                        className="h-7 w-7 rounded-full object-cover border border-[#48473f]"
+                                      />
+                                    ) : (
+                                      <div className="h-7 w-7 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#ffffff]">
+                                        {filledByMember.displayName.charAt(0).toUpperCase()}
+                                      </div>
+                                    )}
+                                    <div className="text-left">
+                                      <p className="text-xs font-semibold text-[#ffffff] hover:text-[#e6e2df]">
+                                        {filledByMember.displayName}
+                                      </p>
+                                      <p className="text-[10px] font-mono text-[#8c887e]">
+                                        Filled by @{filledByMember.username}
+                                      </p>
+                                    </div>
+                                  </Link>
+                                ) : (
+                                  <div className="flex items-center gap-2 rounded-xl border border-[#2b2a29] bg-[#1c1b1a] px-3 py-1.5 text-xs font-mono text-[#8c887e]">
+                                    <span className="text-[#cac6bc]">Staffed on Team</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Founder / Admin Candidate Recommendation Section */}
             {(project.isFounder || currentUser?.role === 'Administrator') && (
@@ -676,16 +777,6 @@ export const ProjectDetailPage: React.FC = () => {
             projectId={project.id}
             roleToEdit={editingRole}
             onRoleSaved={handleRoleSaved}
-          />
-        )}
-
-        {/* AI Recommendations Drawer for Founder */}
-        {project.isFounder && (
-          <AiRoleRecommendationsDrawer
-            isOpen={isAiDrawerOpen}
-            onClose={() => setIsAiDrawerOpen(false)}
-            recommendations={aiRecommendations}
-            onAcceptRecommendation={handleAcceptAiDraft}
           />
         )}
       </div>

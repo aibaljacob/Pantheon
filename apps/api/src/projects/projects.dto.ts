@@ -239,6 +239,7 @@ export class DraftRoleRecommendationDto {
   requiredSkills: ProjectRoleTaxonomyItemDto[];
   requiredTools: ProjectRoleTaxonomyItemDto[];
   reasoning: string;
+  topCandidates?: RecommendedCandidateDto[];
 }
 
 export class AiRoleRecommendationsResponseDto {
@@ -330,6 +331,7 @@ export class RecommendedCandidateDto {
   matchedTools: string[];
   missingTools: string[];
   explanation: string;
+  invitationStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
 }
 
 export class RankedCandidatesResponseDto {
@@ -341,4 +343,88 @@ export class RankedCandidatesResponseDto {
   limit: number;
   totalPages: number;
   candidates: RecommendedCandidateDto[];
+}
+
+export class SendInvitationDto {
+  @IsNotEmpty()
+  @IsString()
+  candidateId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  message?: string;
+}
+
+export class ProjectInvitationResponseDto {
+  id: string;
+  projectId: string;
+  projectRoleId: string;
+  inviterId: string;
+  inviteeId: string;
+  status: string;
+  message?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export enum RespondInvitationAction {
+  ACCEPT = 'ACCEPT',
+  REJECT = 'REJECT',
+}
+
+export class RespondInvitationDto {
+  @IsNotEmpty()
+  @IsEnum(RespondInvitationAction)
+  action: RespondInvitationAction;
+}
+
+export class UserInvitationProjectSummaryDto {
+  id: string;
+  name: string;
+  coverUrl?: string | null;
+  description: string;
+  genre?: string | null;
+  platform?: string | null;
+  gameEngine?: string | null;
+  founderId: string;
+}
+
+export class UserInvitationRoleSummaryDto {
+  id: string;
+  title: string;
+  commitment: string;
+  experienceLevel: string;
+  status: string;
+  roleName: string;
+}
+
+export class UserInvitationUserProfileSummaryDto {
+  id: string;
+  displayName: string;
+  username: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+}
+
+export class UserInvitationDetailDto {
+  id: string;
+  projectId: string;
+  projectRoleId: string;
+  inviterId: string;
+  inviteeId: string;
+  status: string;
+  message?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  project: UserInvitationProjectSummaryDto;
+  projectRole: UserInvitationRoleSummaryDto;
+  inviter: UserInvitationUserProfileSummaryDto;
+  invitee: UserInvitationUserProfileSummaryDto;
+}
+
+export class UserInvitationsResponseDto {
+  received: UserInvitationDetailDto[];
+  sent: UserInvitationDetailDto[];
+  pendingCount: number;
 }

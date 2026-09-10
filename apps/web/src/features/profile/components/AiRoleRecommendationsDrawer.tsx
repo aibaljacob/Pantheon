@@ -127,10 +127,10 @@ export const AiRoleRecommendationsDrawer: React.FC<
                   )}
 
                   {/* Required Skills & Tools Chips */}
-                  {(draft.requiredSkills.length > 0 ||
-                    draft.requiredTools.length > 0) && (
+                  {(((draft.requiredSkills || []).length > 0) ||
+                    ((draft.requiredTools || []).length > 0)) && (
                     <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-[#2b2a29]">
-                      {draft.requiredSkills.map((s) => (
+                      {(draft.requiredSkills || []).map((s) => (
                         <span
                           key={s.id}
                           className="rounded-lg border border-[#48473f] bg-[#141312] px-2.5 py-1 text-[10px] font-mono text-[#e6e2df]"
@@ -138,7 +138,7 @@ export const AiRoleRecommendationsDrawer: React.FC<
                           Skill: {s.name}
                         </span>
                       ))}
-                      {draft.requiredTools.map((t) => (
+                      {(draft.requiredTools || []).map((t) => (
                         <span
                           key={t.id}
                           className="rounded-lg border border-[#48473f] bg-[#201f1e] px-2.5 py-1 text-[10px] font-mono text-[#cac6bc]"

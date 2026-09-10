@@ -4,11 +4,14 @@ import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { ProjectsService } from './projects.service';
 import { TalentMatchingService } from './talent-matching.service';
+import { ProjectInvitationsService } from './project-invitations.service';
 import {
   CandidateQueryDto,
   CreateProjectDto,
   CreateProjectRoleDto,
+  ProjectInvitationResponseDto,
   RankedCandidatesResponseDto,
+  SendInvitationDto,
   UpdateProjectDto,
   UpdateProjectRoleDto,
 } from './projects.dto';
@@ -25,6 +28,7 @@ export class ProjectsController {
   constructor(
     private readonly projectsService: ProjectsService,
     private readonly talentMatchingService: TalentMatchingService,
+    private readonly projectInvitationsService: ProjectInvitationsService,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -131,6 +135,23 @@ export class ProjectsController {
       user.id,
       user.role,
       query,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/roles/:roleId/invitations')
+  sendInvitation(
+    @Param('id') id: string,
+    @Param('roleId') roleId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SendInvitationDto,
+  ): Promise<ProjectInvitationResponseDto> {
+    return this.projectInvitationsService.sendInvitation(
+      id,
+      roleId,
+      user.id,
+      user.role,
+      dto,
     );
   }
 }

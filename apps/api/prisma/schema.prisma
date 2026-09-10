@@ -27,6 +27,8 @@ model User {
   profile                 UserProfile?
   foundedProjects         Project[]                @relation("FoundedProjects")
   projectMemberships      ProjectMember[]
+  sentInvitations         ProjectInvitation[]      @relation("SentInvitations")
+  receivedInvitations     ProjectInvitation[]      @relation("ReceivedInvitations")
 }
 
 model UserProfile {
@@ -376,6 +378,7 @@ model Project {
   founder          User                    @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Cascade)
   members          ProjectMember[]
   openRoles        ProjectRole[]
+  invitations      ProjectInvitation[]
 
   @@index([founderId])
   @@index([moderationStatus])
@@ -432,6 +435,7 @@ model ProjectRole {
   role            ProfessionalRole             @relation(fields: [roleId], references: [id], onDelete: Cascade)
   requiredSkills  ProjectRoleSkill[]
   requiredTools   ProjectRoleTool[]
+  invitations     ProjectInvitation[]
 
   @@index([projectId])
   @@index([roleId])
@@ -458,5 +462,36 @@ model ProjectRoleTool {
 
   @@id([projectRoleId, toolId])
   @@index([toolId])
+}
+
+enum ProjectInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+model ProjectInvitation {
+  id            String                  @id @default(uuid())
+  projectId     String
+  projectRoleId String
+  inviterId     String
+  inviteeId     String
+  status        ProjectInvitationStatus @default(PENDING)
+  message       String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectRole ProjectRole @relation(fields: [projectRoleId], references: [id], onDelete: Cascade)
+  inviter     User        @relation("SentInvitations", fields: [inviterId], references: [id], onDelete: Cascade)
+  invitee     User        @relation("ReceivedInvitations", fields: [inviteeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([projectRoleId])
+  @@index([inviterId])
+  @@index([inviteeId])
+  @@index([status])
 }
 

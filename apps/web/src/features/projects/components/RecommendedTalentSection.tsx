@@ -12,13 +12,16 @@ import {
   AlertCircle,
   FileText,
   Search,
+  Send,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
+import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../auth/store/authStore';
 import { formatApiAssetUrl } from '../../profile/services/profileService';
 import type { ProjectDetail, ProjectRoleItem } from '../types';
 import { fetchRecommendedTalent } from '../services/talentMatchingService';
-import type { RankedCandidatesResponse } from '../services/talentMatchingService';
+import type { RankedCandidatesResponse, CandidateProfileSummary } from '../services/talentMatchingService';
+import { InviteCandidateModal } from './InviteCandidateModal';
 
 interface RecommendedTalentSectionProps {
   project: ProjectDetail;
@@ -35,6 +38,7 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<RankedCandidatesResponse | null>(null);
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(null);
+  const [inviteModalCandidate, setInviteModalCandidate] = useState<CandidateProfileSummary | null>(null);
   const [search, setSearch] = useState<string>('');
 
   const accessToken = useAuthStore((state) => state.accessToken);
@@ -82,6 +86,18 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
   }
 
   const selectedRole = openRoles.find((r) => r.id === selectedRoleId);
+
+  const handleInvitationSuccess = (candidateId: string) => {
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        candidates: prev.candidates.map((c) =>
+          c.candidate.id === candidateId ? { ...c, invitationStatus: 'PENDING' } : c,
+        ),
+      };
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -220,8 +236,8 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
                     </div>
                   </div>
 
-                  {/* Score Badges */}
-                  <div className="flex sm:flex-col items-end justify-between sm:justify-start gap-2 shrink-0">
+                  {/* Actions & Score Badges */}
+                  <div className="flex sm:flex-col items-end justify-between sm:justify-start gap-3 shrink-0">
                     <div className="flex items-center gap-2">
                       <div className="text-right font-mono">
                         <div className="text-lg font-bold text-[#ffffff]">{item.totalScore}%</div>
@@ -240,12 +256,30 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
                         {item.matchGrade.replace('_MATCH', '')}
                       </Badge>
                     </div>
-                    <Badge
-                      variant="default"
-                      className="text-[10px] font-mono uppercase text-[#8c887e]"
-                    >
-                      Confidence: {item.confidenceLevel}
-                    </Badge>
+
+                    {/* Invite Button / Status Badge */}
+                    <div>
+                      {item.invitationStatus === 'PENDING' ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 font-mono text-xs text-amber-400">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Invited (Pending)
+                          </span>
+                        </div>
+                      ) : item.invitationStatus === 'ACCEPTED' ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs text-emerald-400">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Accepted
+                        </span>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Send className="h-3.5 w-3.5" />}
+                          onClick={() => setInviteModalCandidate(candidate)}
+                        >
+                          Invite
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -367,6 +401,18 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
             );
           })}
         </div>
+      )}
+
+      {/* Invite Candidate Modal */}
+      {inviteModalCandidate && selectedRole && (
+        <InviteCandidateModal
+          isOpen={Boolean(inviteModalCandidate)}
+          onClose={() => setInviteModalCandidate(null)}
+          projectId={project.id}
+          role={selectedRole}
+          candidate={inviteModalCandidate}
+          onSuccess={() => handleInvitationSuccess(inviteModalCandidate.id)}
+        />
       )}
     </div>
   );

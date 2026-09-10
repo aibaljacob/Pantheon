@@ -5,11 +5,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { AiRecommendationService } from '../ai/ai-recommendation.service';
 import { TalentMatchingService } from './talent-matching.service';
+import { ProjectInvitationsService } from './project-invitations.service';
+import { ProjectInvitationsController, UserInvitationsController } from './project-invitations.controller';
 
 @Module({
   imports: [PrismaModule, AuthModule],
-  controllers: [ProjectsController],
-  providers: [ProjectsService, AiRecommendationService, TalentMatchingService],
-  exports: [ProjectsService, AiRecommendationService, TalentMatchingService],
+  controllers: [ProjectsController, ProjectInvitationsController, UserInvitationsController],
+  providers: [ProjectsService, AiRecommendationService, TalentMatchingService, ProjectInvitationsService],
+  exports: [ProjectsService, AiRecommendationService, TalentMatchingService, ProjectInvitationsService],
 })
 export class ProjectsModule {}

@@ -123,6 +123,8 @@ export interface UpdateProjectRoleInput {
   toolIds?: string[];
 }
 
+import type { RecommendedCandidate } from './services/talentMatchingService';
+
 export interface DraftRoleRecommendation {
   roleId: string;
   roleName: string;
@@ -135,8 +137,10 @@ export interface DraftRoleRecommendation {
   requiredSkills: ProjectRoleTaxonomyItem[];
   requiredTools: ProjectRoleTaxonomyItem[];
   reasoning: string;
+  topCandidates?: RecommendedCandidate[];
 }
 
 export interface AiRoleRecommendationsResponse {
   recommendedRoles: DraftRoleRecommendation[];
 }
+

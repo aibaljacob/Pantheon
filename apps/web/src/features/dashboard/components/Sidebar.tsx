@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '../../../components/ui/Badge';
 import type { DashboardUser } from '../types';
 import pantheonlogo from '../../../assets/pantheon-logowhole.png';
-import { LayoutDashboard, FolderKanban, BadgeHelp, Settings, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, BadgeHelp, Settings, ChevronRight, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserAvatar } from '../../auth/components/UserAvatar';
 
@@ -21,12 +21,8 @@ interface NavItem {
 const userNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
-  // { label: 'Discover', href: '/dashboard#discover', icon: Compass },
-  // { label: 'Messages', href: '/dashboard#messages', icon: MessagesSquare },
-  // { label: 'Notifications', href: '/dashboard#notifications', icon: BellRing },
+  { label: 'Invitations', href: '/dashboard#invitations', icon: Mail },
   { label: 'Profile & Portfolio', href: '/profile', icon: BadgeHelp },
-  // { label: 'Tasks', href: '/dashboard#tasks', icon: CheckSquare },
-  // { label: 'Calendar', href: '/dashboard#calendar', icon: CalendarDays, comingSoon: true },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];
 

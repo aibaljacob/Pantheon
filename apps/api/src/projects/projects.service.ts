@@ -26,6 +26,7 @@ import {
   Role,
 } from '@prisma/client';
 import { AiRecommendationService } from '../ai/ai-recommendation.service';
+import { TalentMatchingService } from './talent-matching.service';
 
 @Injectable()
 export class ProjectsService {
@@ -34,6 +35,7 @@ export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiRecommendationService,
+    private readonly talentMatchingService: TalentMatchingService,
   ) {}
 
   private generateSlug(name: string): string {
@@ -786,6 +788,36 @@ export class ProjectsService {
       toolsTaxonomy,
     );
 
-    return { recommendedRoles };
+    // Concurrently match candidate developers for each recommended role specification
+    const enhancedRecommendedRoles = await Promise.all(
+      recommendedRoles.map(async (draft) => {
+        try {
+          const topCandidates = await this.talentMatchingService.getRankedCandidatesForRoleSpec(
+            projectId,
+            {
+              roleId: draft.roleId,
+              roleName: draft.roleName,
+              experienceLevel: draft.experienceLevel,
+              commitment: draft.commitment,
+              requiredSkills: draft.requiredSkills || [],
+              requiredTools: draft.requiredTools || [],
+            },
+            3,
+          );
+          return {
+            ...draft,
+            topCandidates,
+          };
+        } catch (matchErr) {
+          this.logger.warn(`Failed to match candidates for role ${draft.roleName}:`, matchErr);
+          return {
+            ...draft,
+            topCandidates: [],
+          };
+        }
+      }),
+    );
+
+    return { recommendedRoles: enhancedRecommendedRoles };
   }
 }
