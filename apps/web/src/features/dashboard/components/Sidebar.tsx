@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '../../../components/ui/Badge';
 import type { DashboardUser } from '../types';
 import pantheonlogo from '../../../assets/pantheon-logowhole.png';
-import { LayoutDashboard, FolderKanban, BadgeHelp, Settings, ChevronRight, Mail } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, BadgeHelp, Settings, ChevronRight, Mail, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { UserAvatar } from '../../auth/components/UserAvatar';
 
@@ -22,6 +22,7 @@ const userNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Invitations', href: '/dashboard#invitations', icon: Mail },
+  { label: 'Applications', href: '/dashboard#applications', icon: Send },
   { label: 'Profile & Portfolio', href: '/profile', icon: BadgeHelp },
   { label: 'Settings', href: '/settings', icon: Settings },
 ];

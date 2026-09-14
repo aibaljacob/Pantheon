@@ -296,16 +296,33 @@ export class AdminService {
       include: {
         founder: {
           select: {
+            id: true,
             username: true,
             email: true,
             profile: {
-              select: {
-                displayName: true,
-                firstName: true,
-                lastName: true,
+              include: {
+                identity: {
+                  include: {
+                    roles: { include: { role: true } },
+                    skills: { include: { skill: true } },
+                    tools: { include: { tool: true } },
+                    gameEngines: { include: { engine: true } },
+                  },
+                },
+                portfolio: {
+                  select: { id: true },
+                },
               },
             },
           },
+        },
+        openRoles: {
+          include: {
+            role: true,
+            requiredSkills: { include: { skill: true } },
+            requiredTools: { include: { tool: true } },
+          },
+          orderBy: { createdAt: 'desc' },
         },
         members: {
           include: {
@@ -337,6 +354,42 @@ export class AdminService {
       p.founder.profile?.displayName ||
       `${p.founder.profile?.firstName || ''} ${p.founder.profile?.lastName || ''}`.trim() ||
       p.founder.username;
+
+    const founderProfile = p.founder.profile
+      ? {
+          id: p.founder.profile.id,
+          userId: p.founder.id,
+          username: p.founder.username,
+          email: p.founder.email,
+          displayName: founderDisplayName,
+          avatarUrl: p.founder.profile.avatarUrl,
+          headline: p.founder.profile.headline,
+          bio: p.founder.profile.bio,
+          location: p.founder.profile.location,
+          timezone: p.founder.profile.timezone,
+          experienceYears: p.founder.profile.experienceYears,
+          availability: p.founder.profile.availability,
+          roles: (p.founder.profile.identity?.roles || []).map((r) => r.role.name),
+          skills: (p.founder.profile.identity?.skills || []).map((s) => s.skill.name),
+          tools: (p.founder.profile.identity?.tools || []).map((t) => t.tool.name),
+          gameEngines: (p.founder.profile.identity?.gameEngines || []).map(
+            (e) => e.engine.name,
+          ),
+          portfolioCount: p.founder.profile.portfolio?.length || 0,
+        }
+      : undefined;
+
+    const openRoles = p.openRoles.map((r) => ({
+      id: r.id,
+      roleName: r.role.name,
+      title: r.title,
+      description: r.description,
+      experienceLevel: r.experienceLevel,
+      commitment: r.commitment,
+      status: r.status,
+      requiredSkills: (r.requiredSkills || []).map((s) => s.skill.name),
+      requiredTools: (r.requiredTools || []).map((t) => t.tool.name),
+    }));
 
     const membersMapped = p.members.map((m) => {
       const mDisplayName =
@@ -371,6 +424,9 @@ export class AdminService {
       founderUsername: p.founder.username,
       founderDisplayName,
       founderEmail: p.founder.email,
+      founderProfile,
+      openRoles,
+      savedAiRecommendations: (p as any).savedAiRecommendations || undefined,
       memberCount: p.members.length,
       createdAt: p.createdAt.toISOString(),
       updatedAt: p.updatedAt.toISOString(),

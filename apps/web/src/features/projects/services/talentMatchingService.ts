@@ -267,3 +267,71 @@ export async function cancelProjectInvitation(
 
   return response.json();
 }
+
+export async function fetchAiRoleRecommendations(
+  accessToken: string,
+  projectId: string,
+): Promise<{ recommendedRoles: import('../types').DraftRoleRecommendation[] }> {
+  const url = `${getApiBaseUrl()}/projects/${projectId}/roles/ai-recommendations`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || 'Failed to load AI role recommendations.');
+  }
+
+  return response.json();
+}
+
+export async function rescanAiRoleRecommendations(
+  accessToken: string,
+  projectId: string,
+): Promise<{ recommendedRoles: import('../types').DraftRoleRecommendation[] }> {
+  const url = `${getApiBaseUrl()}/projects/${projectId}/roles/ai-recommendations`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || 'Failed to rescan AI role recommendations.');
+  }
+
+  return response.json();
+}
+
+export async function rescanRecommendedTalent(
+  accessToken: string,
+  projectId: string,
+  projectRoleId: string,
+): Promise<RankedCandidatesResponse> {
+  const url = `${getApiBaseUrl()}/projects/${projectId}/roles/${projectRoleId}/candidates/rescan`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || 'Failed to rescan talent recommendations.');
+  }
+
+  const data: RankedCandidatesResponse = await response.json();
+  return data;
+}

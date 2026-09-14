@@ -73,7 +73,42 @@ export interface AdminPaginatedProjectsResponse {
   totalPages: number;
 }
 
+export interface AdminFounderProfile {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  timezone?: string | null;
+  experienceYears?: number | null;
+  availability?: string | null;
+  roles: string[];
+  skills: string[];
+  tools: string[];
+  gameEngines: string[];
+  portfolioCount: number;
+}
+
+export interface AdminProjectRole {
+  id: string;
+  roleName: string;
+  title?: string | null;
+  description?: string | null;
+  experienceLevel: string;
+  commitment: string;
+  status: string;
+  requiredSkills: string[];
+  requiredTools: string[];
+}
+
 export interface AdminProjectDetail extends AdminProjectItem {
+  founderProfile?: AdminFounderProfile;
+  openRoles?: AdminProjectRole[];
+  savedAiRecommendations?: any;
   members: {
     id: string;
     userId: string;

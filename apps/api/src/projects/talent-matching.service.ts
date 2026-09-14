@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,6 +35,8 @@ export interface RoleMatchSpecification {
 
 @Injectable()
 export class TalentMatchingService {
+  private readonly logger = new Logger(TalentMatchingService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   scoreCandidate(
@@ -383,6 +386,12 @@ export class TalentMatchingService {
       throw new NotFoundException('Project not found.');
     }
 
+    const forceRescan = (query as any)?.forceRescan === true;
+    const savedTalentMap = (project as any).savedTalentRecommendations;
+    if (!search && !forceRescan && savedTalentMap && savedTalentMap[projectRoleId]) {
+      return savedTalentMap[projectRoleId];
+    }
+
     const projectRole = await this.prisma.projectRole.findUnique({
       where: { id: projectRoleId },
       include: {
@@ -516,7 +525,7 @@ export class TalentMatchingService {
     const startIndex = (page - 1) * limit;
     const paginatedCandidates = filtered.slice(startIndex, startIndex + limit);
 
-    return {
+    const result: RankedCandidatesResponseDto = {
       projectRoleId,
       projectRoleTitle: projectRole.title || projectRole.role.name,
       totalCandidatesScored,
@@ -526,5 +535,35 @@ export class TalentMatchingService {
       totalPages,
       candidates: paginatedCandidates,
     };
+
+    if (!search) {
+      try {
+        const savedMap =
+          savedTalentMap && typeof savedTalentMap === 'object' ? { ...savedTalentMap } : {};
+        savedMap[projectRoleId] = result;
+        await (this.prisma.project as any).update({
+          where: { id: projectId },
+          data: { savedTalentRecommendations: savedMap },
+        });
+      } catch (saveErr) {
+        this.logger.warn(
+          `Failed to persist talent recommendations for role ${projectRoleId}:`,
+          saveErr,
+        );
+      }
+    }
+
+    return result;
+  }
+
+  async rescanRankedCandidates(
+    projectId: string,
+    projectRoleId: string,
+    userId: string,
+    userRole: string,
+  ): Promise<RankedCandidatesResponseDto> {
+    return this.getRankedCandidates(projectId, projectRoleId, userId, userRole, {
+      forceRescan: true,
+    } as any);
   }
 }

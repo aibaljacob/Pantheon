@@ -113,6 +113,15 @@ export class ProjectsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Get(':id/roles/ai-recommendations')
+  getAiRoleRecommendations(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<AiRoleRecommendationsResponseDto> {
+    return this.projectsService.getAiRoleRecommendations(id, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(':id/roles/ai-recommendations')
   generateAiRoleRecommendations(
     @Param('id') id: string,
@@ -135,6 +144,21 @@ export class ProjectsController {
       user.id,
       user.role,
       query,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/roles/:roleId/candidates/rescan')
+  rescanRankedCandidates(
+    @Param('id') id: string,
+    @Param('roleId') roleId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RankedCandidatesResponseDto> {
+    return this.talentMatchingService.rescanRankedCandidates(
+      id,
+      roleId,
+      user.id,
+      user.role,
     );
   }
 

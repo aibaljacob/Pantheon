@@ -261,6 +261,31 @@ export async function fetchAiRoleRecommendations(
   const response = await fetch(
     `${getApiBaseUrl()}/projects/${projectId}/roles/ai-recommendations`,
     {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || 'Failed to load AI role recommendations.',
+    );
+  }
+
+  return response.json();
+}
+
+export async function rescanAiRoleRecommendations(
+  projectId: string,
+  accessToken: string,
+): Promise<AiRoleRecommendationsResponse> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/roles/ai-recommendations`,
+    {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -272,7 +297,7 @@ export async function fetchAiRoleRecommendations(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
-      errorData.message || 'Failed to generate AI role recommendations.',
+      errorData.message || 'Failed to rescan AI role recommendations.',
     );
   }
 

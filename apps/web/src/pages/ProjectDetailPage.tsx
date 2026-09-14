@@ -17,6 +17,9 @@ import {
   Plus,
   Trash2,
   UserCheck,
+  FolderGit2,
+  LayoutDashboard,
+  Send,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
@@ -34,11 +37,15 @@ import {
   fetchProjectRoles,
   deleteProjectRole,
   fetchAiRoleRecommendations,
+  rescanAiRoleRecommendations,
 } from '../features/projects/services/projectService';
 import { EditProjectModal } from '../features/profile/components/EditProjectModal';
 import { AddEditRoleModal } from '../features/profile/components/AddEditRoleModal';
 import { AiRoleRecommendationsSection } from '../features/projects/components/AiRoleRecommendationsSection';
 import { RecommendedTalentSection } from '../features/projects/components/RecommendedTalentSection';
+import { ProjectRepoTab } from '../features/projects/components/repo/ProjectRepoTab';
+import { ApplyForRoleModal } from '../features/projects/components/ApplyForRoleModal';
+import { FounderApplicationsSection } from '../features/projects/components/FounderApplicationsSection';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -137,6 +144,8 @@ export const ProjectDetailPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [editingRole, setEditingRole] = useState<ProjectRoleItem | null>(null);
+  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'repo' | 'applications'>('overview');
+  const [applyingRole, setApplyingRole] = useState<ProjectRoleItem | null>(null);
 
   // AI Recommendation State
   const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
@@ -151,7 +160,20 @@ export const ProjectDetailPage: React.FC = () => {
       const res = await fetchAiRoleRecommendations(projectId, token);
       setAiRecommendations(res.recommendedRoles || []);
     } catch (err: any) {
-      console.warn('AI role recommendations scan failed:', err.message);
+      console.warn('AI role recommendations load failed:', err.message);
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
+
+  const handleRescanAiRecommendations = async () => {
+    if (!project || !accessToken) return;
+    setIsGeneratingAi(true);
+    try {
+      const res = await rescanAiRoleRecommendations(project.id, accessToken);
+      setAiRecommendations(res.recommendedRoles || []);
+    } catch (err: any) {
+      console.warn('AI role recommendations rescan failed:', err.message);
     } finally {
       setIsGeneratingAi(false);
     }
@@ -389,8 +411,56 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Main Grid: Overview & Team Roster */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Navigation Tabs (Overview vs Code & Repository) */}
+        <div className="flex items-center gap-2 border-b border-[#2b2a29] pb-3 text-xs font-mono">
+          <button
+            type="button"
+            onClick={() => setActiveProjectTab('overview')}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              activeProjectTab === 'overview'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <LayoutDashboard className="h-4 w-4 text-amber-400" />
+            <span>Production Overview</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveProjectTab('repo')}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              activeProjectTab === 'repo'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <FolderGit2 className="h-4 w-4 text-amber-400" />
+            <span>Code & Repository</span>
+            <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.2 text-[9px] font-bold">
+              Git
+            </span>
+          </button>
+
+          {project.isFounder && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('applications')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+                activeProjectTab === 'applications'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <Send className="h-4 w-4 text-amber-400" />
+              <span>Applications</span>
+            </button>
+          )}
+        </div>
+
+        {/* Tab 1: Main Grid (Overview & Team Roster) */}
+        {activeProjectTab === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left 2 Columns: Overview & Open Roles */}
           <div className="lg:col-span-2 space-y-6">
             {/* About Project */}
@@ -410,7 +480,7 @@ export const ProjectDetailPage: React.FC = () => {
                 recommendations={aiRecommendations}
                 isLoading={isGeneratingAi}
                 onAcceptRecommendation={handleAcceptAiDraft}
-                onRescan={() => scanAiRecommendations(project.id, accessToken)}
+                onRescan={handleRescanAiRecommendations}
               />
             )}
 
@@ -492,6 +562,18 @@ export const ProjectDetailPage: React.FC = () => {
                                 <span className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-[11px] font-mono text-[#cac6bc]">
                                   {formatCommitment(role.commitment)}
                                 </span>
+
+                                {!project.isFounder && !project.isMember && role.status === 'OPEN' && (
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="ml-2 !py-1 !px-3 text-xs"
+                                    icon={<Send className="h-3 w-3" />}
+                                    onClick={() => setApplyingRole(role)}
+                                  >
+                                    Apply
+                                  </Button>
+                                )}
 
                                 {project.isFounder && (
                                   <div className="flex items-center gap-1 ml-2">
@@ -758,6 +840,20 @@ export const ProjectDetailPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+        {/* Tab 2: Code & Repository Management */}
+        {activeProjectTab === 'repo' && (
+          <ProjectRepoTab projectId={project.id} accessToken={accessToken} />
+        )}
+
+        {/* Tab 3: Candidate Applications Review for Founder */}
+        {activeProjectTab === 'applications' && project.isFounder && (
+          <FounderApplicationsSection
+            projectId={project.id}
+            onMemberAdded={() => loadProject()}
+          />
+        )}
 
         {/* Edit Project Modal for Founder */}
         {project.isFounder && (
@@ -777,6 +873,20 @@ export const ProjectDetailPage: React.FC = () => {
             projectId={project.id}
             roleToEdit={editingRole}
             onRoleSaved={handleRoleSaved}
+          />
+        )}
+
+        {/* Apply for Role Modal for Candidates */}
+        {applyingRole && (
+          <ApplyForRoleModal
+            isOpen={!!applyingRole}
+            onClose={() => setApplyingRole(null)}
+            projectId={project.id}
+            projectName={project.name}
+            role={applyingRole}
+            onSuccess={() => {
+              loadProject();
+            }}
           />
         )}
       </div>

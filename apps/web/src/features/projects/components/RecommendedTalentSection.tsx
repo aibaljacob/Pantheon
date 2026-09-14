@@ -13,13 +13,15 @@ import {
   FileText,
   Search,
   Send,
+  RefreshCw,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
 import { useAuthStore } from '../../auth/store/authStore';
 import { formatApiAssetUrl } from '../../profile/services/profileService';
 import type { ProjectDetail, ProjectRoleItem } from '../types';
-import { fetchRecommendedTalent } from '../services/talentMatchingService';
+import { fetchRecommendedTalent, rescanRecommendedTalent } from '../services/talentMatchingService';
 import type { RankedCandidatesResponse, CandidateProfileSummary } from '../services/talentMatchingService';
 import { InviteCandidateModal } from './InviteCandidateModal';
 
@@ -40,6 +42,7 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
   const [expandedCandidateId, setExpandedCandidateId] = useState<string | null>(null);
   const [inviteModalCandidate, setInviteModalCandidate] = useState<CandidateProfileSummary | null>(null);
   const [search, setSearch] = useState<string>('');
+  const [isRescanning, setIsRescanning] = useState<boolean>(false);
 
   const accessToken = useAuthStore((state) => state.accessToken);
 
@@ -66,6 +69,20 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
       setLoading(false);
     }
   }, [accessToken, project.id, selectedRoleId, search]);
+
+  const handleRescanTalent = async () => {
+    if (!accessToken || !selectedRoleId || isRescanning) return;
+    setIsRescanning(true);
+    setError(null);
+    try {
+      const response = await rescanRecommendedTalent(accessToken, project.id, selectedRoleId);
+      setData(response);
+    } catch (err: any) {
+      setError(err.message || 'Unable to rescan candidate recommendations.');
+    } finally {
+      setIsRescanning(false);
+    }
+  };
 
   useEffect(() => {
     loadCandidates();
@@ -116,28 +133,40 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
           </p>
         </div>
 
-        {/* Role Selector Tabs */}
-        {openRoles.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#2b2a29] bg-[#141312] p-1.5">
-            {openRoles.map((roleItem) => (
-              <button
-                key={roleItem.id}
-                type="button"
-                onClick={() => {
-                  setSelectedRoleId(roleItem.id);
-                  setExpandedCandidateId(null);
-                }}
-                className={`rounded-xl px-3 py-1.5 font-mono text-xs transition-colors ${
-                  selectedRoleId === roleItem.id
-                    ? 'bg-[#201f1e] font-bold text-[#ffffff] shadow-md border border-[#363433]'
-                    : 'text-[#8c887e] hover:text-[#e6e2df]'
-                }`}
-              >
-                {roleItem.title || roleItem.roleName}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Action Controls: Role Tabs + Rescan Button */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRescanTalent}
+            disabled={isRescanning || loading}
+            icon={isRescanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          >
+            {isRescanning ? 'Rescanning...' : 'Rescan Candidates'}
+          </Button>
+
+          {openRoles.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#2b2a29] bg-[#141312] p-1.5">
+              {openRoles.map((roleItem) => (
+                <button
+                  key={roleItem.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedRoleId(roleItem.id);
+                    setExpandedCandidateId(null);
+                  }}
+                  className={`rounded-xl px-3 py-1.5 font-mono text-xs transition-colors ${
+                    selectedRoleId === roleItem.id
+                      ? 'bg-[#201f1e] font-bold text-[#ffffff] shadow-md border border-[#363433]'
+                      : 'text-[#8c887e] hover:text-[#e6e2df]'
+                  }`}
+                >
+                  {roleItem.title || roleItem.roleName}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Role Summary Banner */}

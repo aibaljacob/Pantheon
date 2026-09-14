@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   ShieldAlert,
   Users,
@@ -17,6 +18,15 @@ import {
   RotateCcw,
   UserCheck,
   X,
+  Crown,
+  ExternalLink,
+  Gamepad2,
+  Layers,
+  Briefcase,
+  Clock,
+  MapPin,
+  Sparkles,
+  User,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -28,6 +38,7 @@ import {
   fetchAdminDashboardMetrics,
   fetchAdminUsers,
   fetchAdminProjects,
+  fetchAdminProjectDetails,
   approveAdminProject,
   rejectAdminProject,
   fetchAdminTaxonomy,
@@ -38,6 +49,7 @@ import {
   type AdminDashboardMetrics,
   type AdminUserItem,
   type AdminProjectItem,
+  type AdminProjectDetail,
   type AdminTaxonomyItem,
   type AdminActivityItem,
 } from '../services/adminService';
@@ -83,7 +95,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
   const [projectsStatusFilter, setProjectsStatusFilter] = useState('');
   const [projectsModerationFilter, setProjectsModerationFilter] = useState('');
   const [projectsLoading, setProjectsLoading] = useState(false);
-  const [selectedProjectDetail, setSelectedProjectDetail] = useState<AdminProjectItem | null>(null);
+  const [selectedProjectDetail, setSelectedProjectDetail] = useState<AdminProjectDetail | null>(null);
+  const [isInspectingProjectLoading, setIsInspectingProjectLoading] = useState(false);
 
   // Taxonomy Tab State
   const [activeTaxonomyType, setActiveTaxonomyType] = useState('roles');
@@ -189,6 +202,19 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
       }
     } catch (err: any) {
       alert(err.message || 'Failed to reject project.');
+    }
+  };
+
+  const handleInspectProject = async (projectId: string) => {
+    if (!accessToken) return;
+    setIsInspectingProjectLoading(true);
+    try {
+      const details = await fetchAdminProjectDetails(accessToken, projectId);
+      setSelectedProjectDetail(details);
+    } catch (err: any) {
+      alert(err.message || 'Failed to load project details.');
+    } finally {
+      setIsInspectingProjectLoading(false);
     }
   };
 
@@ -786,7 +812,8 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                             <Button
                               variant="secondary"
                               size="sm"
-                              onClick={() => setSelectedProjectDetail(p)}
+                              disabled={isInspectingProjectLoading}
+                              onClick={() => handleInspectProject(p.id)}
                             >
                               Inspect
                             </Button>
@@ -1043,71 +1070,449 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
         </div>
       )}
 
-      {/* Project Detail Slide-over Modal */}
+      {/* Game Foundation Dossier & Moderation Modal */}
       {selectedProjectDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="relative w-full max-w-xl rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
-              <h3 className="font-headline text-lg font-bold text-[#ffffff]">
-                Project Overview (Admin Inspection)
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 animate-fadeIn">
+          <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl overflow-hidden">
+            {/* Modal Header */}
+            <div className="shrink-0 flex items-center justify-between border-b border-[#2b2a29] px-6 py-4 bg-[#141312]">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-2 text-amber-400">
+                  <Gamepad2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-headline text-lg font-bold text-[#ffffff] flex items-center gap-2">
+                    Game Foundation Dossier
+                    <span
+                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono ${
+                        selectedProjectDetail.moderationStatus === 'PENDING_REVIEW'
+                          ? 'border border-amber-500/40 bg-amber-950/40 text-amber-300'
+                          : selectedProjectDetail.moderationStatus === 'PUBLISHED'
+                          ? 'border border-emerald-500/40 bg-emerald-950/40 text-emerald-300'
+                          : 'border border-red-500/40 bg-red-950/40 text-red-300'
+                      }`}
+                    >
+                      ● {selectedProjectDetail.moderationStatus}
+                    </span>
+                  </h3>
+                  <p className="text-xs font-mono text-[#8c887e]">
+                    Detailed evaluation & intelligence for studio launch approval
+                  </p>
+                </div>
+              </div>
+
               <button
                 type="button"
                 onClick={() => setSelectedProjectDetail(null)}
-                className="rounded-xl border border-[#363433] bg-[#141312] p-1.5 text-[#8c887e] hover:text-[#ffffff]"
+                className="rounded-xl border border-[#363433] bg-[#141312] p-2 text-[#8c887e] hover:text-[#ffffff] transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-3 text-xs font-mono">
-              <div className="space-y-1">
-                <h4 className="text-base font-bold text-[#ffffff]">{selectedProjectDetail.name}</h4>
-                <p className="text-[#8c887e]">/{selectedProjectDetail.slug}</p>
-                <p className="text-[#cac6bc] mt-1">{selectedProjectDetail.description}</p>
+            {/* Modal Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs font-mono custom-scrollbar">
+              {/* Cover Banner & Project Header */}
+              <div className="space-y-4">
+                {selectedProjectDetail.coverUrl && (
+                  <div className="relative h-48 w-full rounded-2xl overflow-hidden border border-[#2b2a29]">
+                    <img
+                      src={selectedProjectDetail.coverUrl}
+                      alt={selectedProjectDetail.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#141312] via-transparent to-transparent" />
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#141312] border border-[#2b2a29] rounded-2xl p-4">
+                  <div>
+                    <h4 className="text-xl font-bold font-headline text-[#ffffff]">
+                      {selectedProjectDetail.name}
+                    </h4>
+                    <span className="text-xs text-[#8c887e]">/{selectedProjectDetail.slug}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-lg border border-[#48473f] bg-[#201f1e] text-[#e6e2df]">
+                      Phase: <strong>{selectedProjectDetail.status}</strong>
+                    </span>
+                    {selectedProjectDetail.genre && (
+                      <span className="px-2.5 py-1 rounded-lg border border-[#48473f] bg-[#201f1e] text-[#cac6bc]">
+                        {selectedProjectDetail.genre}
+                      </span>
+                    )}
+                    {selectedProjectDetail.gameEngine && (
+                      <span className="px-2.5 py-1 rounded-lg border border-[#48473f] bg-[#201f1e] text-[#cac6bc]">
+                        {selectedProjectDetail.gameEngine}
+                      </span>
+                    )}
+                    {selectedProjectDetail.platform && (
+                      <span className="px-2.5 py-1 rounded-lg border border-[#48473f] bg-[#201f1e] text-[#cac6bc]">
+                        {selectedProjectDetail.platform}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Concept & Vision */}
+                <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 space-y-2">
+                  <span className="text-[10px] text-[#8c887e] tracking-wider uppercase font-semibold">
+                    Game Concept & Production Vision
+                  </span>
+                  <p className="text-sm text-[#e6e2df] leading-relaxed font-sans whitespace-pre-wrap">
+                    {selectedProjectDetail.description}
+                  </p>
+                  <div className="pt-2 flex items-center gap-4 text-[11px] text-[#8c887e]">
+                    <span>Submitted: {new Date(selectedProjectDetail.createdAt).toLocaleDateString()}</span>
+                    <span>Last Updated: {new Date(selectedProjectDetail.updatedAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-3">
-                  <span className="text-[10px] text-[#8c887e] block">Founder</span>
-                  <span className="font-bold text-[#ffffff]">@{selectedProjectDetail.founderUsername}</span>
-                  <span className="block text-[10px] text-[#8c887e]">{selectedProjectDetail.founderEmail}</span>
+              {/* Founder Credibility Dossier */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-[#ffffff] font-headline">
+                  <Crown className="h-4 w-4 text-amber-400" />
+                  <span>Founder Profile & Verification Dossier</span>
                 </div>
-                <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-3">
-                  <span className="text-[10px] text-[#8c887e] block">Dev Status / Moderation</span>
-                  <span className="font-bold text-[#ffffff]">{selectedProjectDetail.status}</span>
-                  <span className="block text-[10px] font-semibold text-amber-300 mt-0.5">
-                    ● {selectedProjectDetail.moderationStatus}
+
+                <div className="rounded-2xl border border-[#363433] bg-[#141312] p-5 space-y-4">
+                  {/* Founder Top Row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2b2a29] pb-4">
+                    <div className="flex items-center gap-3">
+                      {selectedProjectDetail.founderProfile?.avatarUrl ? (
+                        <img
+                          src={selectedProjectDetail.founderProfile.avatarUrl}
+                          alt={selectedProjectDetail.founderUsername}
+                          className="h-12 w-12 rounded-full object-cover border border-[#48473f]"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-base text-[#e6e2df]">
+                          {selectedProjectDetail.founderUsername.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-[#ffffff]">
+                            {selectedProjectDetail.founderDisplayName || selectedProjectDetail.founderUsername}
+                          </span>
+                          <span className="text-xs text-[#8c887e]">@{selectedProjectDetail.founderUsername}</span>
+                        </div>
+                        <span className="text-xs text-[#cac6bc]">{selectedProjectDetail.founderEmail}</span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/profile/${selectedProjectDetail.founderUsername}`}
+                      target="_blank"
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-[#48473f] bg-[#201f1e] px-3 py-1.5 text-xs text-[#e6e2df] hover:text-[#ffffff] hover:border-[#cac6bc] transition-colors self-start sm:self-auto"
+                    >
+                      <User className="h-3.5 w-3.5" />
+                      <span>View Full Profile</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </Link>
+                  </div>
+
+                  {/* Headline & Bio */}
+                  {selectedProjectDetail.founderProfile?.headline && (
+                    <div>
+                      <span className="text-[10px] text-[#8c887e] uppercase">Headline</span>
+                      <p className="text-xs font-semibold text-[#ffffff]">
+                        {selectedProjectDetail.founderProfile.headline}
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedProjectDetail.founderProfile?.bio && (
+                    <div>
+                      <span className="text-[10px] text-[#8c887e] uppercase">Founder Bio</span>
+                      <p className="text-xs text-[#cac6bc] font-sans leading-relaxed">
+                        {selectedProjectDetail.founderProfile.bio}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Founder Key Metrics Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+                    <div className="rounded-xl border border-[#2b2a29] bg-[#1c1b1a] p-3">
+                      <span className="text-[10px] text-[#8c887e] block flex items-center gap-1">
+                        <Briefcase className="h-3 w-3" /> Experience
+                      </span>
+                      <span className="text-sm font-bold text-[#ffffff]">
+                        {selectedProjectDetail.founderProfile?.experienceYears ?? 0} yrs
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-[#2b2a29] bg-[#1c1b1a] p-3">
+                      <span className="text-[10px] text-[#8c887e] block flex items-center gap-1">
+                        <Clock className="h-3 w-3" /> Availability
+                      </span>
+                      <span className="text-xs font-bold text-[#ffffff] truncate block">
+                        {selectedProjectDetail.founderProfile?.availability || 'Not Specified'}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-[#2b2a29] bg-[#1c1b1a] p-3">
+                      <span className="text-[10px] text-[#8c887e] block flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> Location
+                      </span>
+                      <span className="text-xs font-bold text-[#ffffff] truncate block">
+                        {selectedProjectDetail.founderProfile?.location || 'Not Specified'}
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-[#2b2a29] bg-[#1c1b1a] p-3">
+                      <span className="text-[10px] text-[#8c887e] block flex items-center gap-1">
+                        <Layers className="h-3 w-3" /> Portfolio
+                      </span>
+                      <span className="text-sm font-bold text-[#ffffff]">
+                        {selectedProjectDetail.founderProfile?.portfolioCount ?? 0} items
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Taxonomy Tags */}
+                  <div className="space-y-2 pt-2 border-t border-[#2b2a29]">
+                    {selectedProjectDetail.founderProfile?.roles && selectedProjectDetail.founderProfile.roles.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#8c887e] mr-1">Roles:</span>
+                        {selectedProjectDetail.founderProfile.roles.map((r) => (
+                          <span
+                            key={r}
+                            className="rounded-md border border-amber-500/30 bg-amber-950/20 px-2 py-0.5 text-[10px] text-amber-300"
+                          >
+                            {r}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedProjectDetail.founderProfile?.gameEngines && selectedProjectDetail.founderProfile.gameEngines.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#8c887e] mr-1">Engines:</span>
+                        {selectedProjectDetail.founderProfile.gameEngines.map((e) => (
+                          <span
+                            key={e}
+                            className="rounded-md border border-[#48473f] bg-[#201f1e] px-2 py-0.5 text-[10px] text-[#e6e2df]"
+                          >
+                            {e}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedProjectDetail.founderProfile?.skills && selectedProjectDetail.founderProfile.skills.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#8c887e] mr-1">Skills:</span>
+                        {selectedProjectDetail.founderProfile.skills.map((s) => (
+                          <span
+                            key={s}
+                            className="rounded-md border border-[#363433] bg-[#1c1b1a] px-2 py-0.5 text-[10px] text-[#cac6bc]"
+                          >
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {selectedProjectDetail.founderProfile?.tools && selectedProjectDetail.founderProfile.tools.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#8c887e] mr-1">Tools:</span>
+                        {selectedProjectDetail.founderProfile.tools.map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-md border border-[#363433] bg-[#1c1b1a] px-2 py-0.5 text-[10px] text-[#cac6bc]"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Staffing Requirements & Open Roles */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-[#ffffff] font-headline">
+                  <Users className="h-4 w-4 text-[#e6e2df]" />
+                  <span>
+                    Staffing Blueprint ({selectedProjectDetail.openRoles?.length || 0} Open Positions)
                   </span>
                 </div>
+
+                {selectedProjectDetail.openRoles && selectedProjectDetail.openRoles.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedProjectDetail.openRoles.map((role) => (
+                      <div
+                        key={role.id}
+                        className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <h5 className="font-bold text-sm text-[#ffffff]">{role.title || role.roleName}</h5>
+                          {role.experienceLevel && (
+                            <span className="rounded-md border border-[#48473f] bg-[#201f1e] px-2 py-0.5 text-[10px] text-amber-300">
+                              {role.experienceLevel}
+                            </span>
+                          )}
+                        </div>
+                        {role.description && (
+                          <p className="text-xs text-[#cac6bc] font-sans line-clamp-2">
+                            {role.description}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-1 pt-1">
+                          {role.requiredSkills?.map((s: string) => (
+                            <span
+                              key={s}
+                              className="rounded-md border border-[#363433] bg-[#1c1b1a] px-1.5 py-0.5 text-[9px] text-[#8c887e]"
+                            >
+                              {s}
+                            </span>
+                          ))}
+                          {role.requiredTools?.map((t: string) => (
+                            <span
+                              key={t}
+                              className="rounded-md border border-[#363433] bg-[#1c1b1a] px-1.5 py-0.5 text-[9px] text-[#8c887e]"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 text-center text-[#8c887e]">
+                    No open positions created yet.
+                  </div>
+                )}
               </div>
 
-              <div className="pt-4 flex items-center justify-between border-t border-[#2b2a29]">
-                <div className="flex items-center gap-2">
-                  {selectedProjectDetail.moderationStatus !== 'PUBLISHED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleApproveProject(selectedProjectDetail.id)}
-                      className="rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/60 transition-colors"
-                    >
-                      Approve & Publish
-                    </button>
-                  )}
-                  {selectedProjectDetail.moderationStatus !== 'REJECTED' && (
-                    <button
-                      type="button"
-                      onClick={() => handleRejectProject(selectedProjectDetail.id)}
-                      className="rounded-xl border border-red-500/40 bg-red-950/40 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-900/60 transition-colors"
-                    >
-                      Reject
-                    </button>
-                  )}
+              {/* Active Team Roster */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-[#ffffff] font-headline">
+                  <Activity className="h-4 w-4 text-[#e6e2df]" />
+                  <span>Active Roster ({selectedProjectDetail.members?.length || 0} Members)</span>
                 </div>
 
-                <Button variant="secondary" size="sm" onClick={() => setSelectedProjectDetail(null)}>
-                  Close Overview
-                </Button>
+                {selectedProjectDetail.members && selectedProjectDetail.members.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {selectedProjectDetail.members.map((m) => (
+                      <div
+                        key={m.userId}
+                        className="flex items-center gap-3 rounded-2xl border border-[#2b2a29] bg-[#141312] p-3"
+                      >
+                        {m.avatarUrl ? (
+                          <img
+                            src={m.avatarUrl}
+                            alt={m.username}
+                            className="h-9 w-9 rounded-full object-cover border border-[#48473f]"
+                          />
+                        ) : (
+                          <div className="h-9 w-9 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#e6e2df]">
+                            {m.username.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="overflow-hidden">
+                          <p className="font-semibold text-xs text-[#ffffff] truncate">
+                            {m.displayName || m.username}
+                          </p>
+                          <span className="text-[10px] text-[#8c887e] block">@{m.username}</span>
+                          <span className="text-[9px] text-amber-400 font-semibold">{m.role}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 text-center text-[#8c887e]">
+                    No members joined yet.
+                  </div>
+                )}
               </div>
+
+              {/* AI Staffing Assessment (if present) */}
+              {selectedProjectDetail.savedAiRecommendations &&
+                selectedProjectDetail.savedAiRecommendations.recommendations &&
+                selectedProjectDetail.savedAiRecommendations.recommendations.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-bold text-amber-300 font-headline">
+                      <Sparkles className="h-4 w-4" />
+                      <span>AI Staffing & Feasibility Assessment</span>
+                    </div>
+
+                    <div className="rounded-2xl border border-amber-500/30 bg-amber-950/10 p-4 space-y-3">
+                      {selectedProjectDetail.savedAiRecommendations.projectSummary && (
+                        <p className="text-xs text-amber-100 font-sans italic">
+                          "{selectedProjectDetail.savedAiRecommendations.projectSummary}"
+                        </p>
+                      )}
+
+                      <div className="space-y-2">
+                        {selectedProjectDetail.savedAiRecommendations.recommendations.map(
+                          (rec: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="rounded-xl border border-amber-500/20 bg-[#141312]/80 p-3 space-y-1"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-bold text-xs text-amber-200">
+                                  {rec.title}
+                                </span>
+                                <span className="text-[10px] text-[#8c887e]">
+                                  {rec.experienceLevel} · {rec.urgency || 'Priority'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#cac6bc] font-sans">{rec.rationale}</p>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-t border-[#2b2a29] px-6 py-4 bg-[#141312]">
+              <div className="flex items-center gap-2">
+                {selectedProjectDetail.moderationStatus !== 'PUBLISHED' && (
+                  <button
+                    type="button"
+                    onClick={() => handleApproveProject(selectedProjectDetail.id)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/50 bg-emerald-950/60 px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/80 transition-colors shadow-lg shadow-emerald-950/50"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Approve & Publish
+                  </button>
+                )}
+                {selectedProjectDetail.moderationStatus !== 'REJECTED' && (
+                  <button
+                    type="button"
+                    onClick={() => handleRejectProject(selectedProjectDetail.id)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/50 bg-red-950/60 px-4 py-2 text-xs font-semibold text-red-300 hover:bg-red-900/80 transition-colors"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Reject Request
+                  </button>
+                )}
+                <Link
+                  to={`/projects/${selectedProjectDetail.slug}`}
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-[#363433] bg-[#201f1e] px-4 py-2 text-xs font-semibold text-[#e6e2df] hover:text-[#ffffff] hover:border-[#48473f] transition-colors"
+                >
+                  <span>Open Live Page</span>
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSelectedProjectDetail(null)}
+              >
+                Close Dossier
+              </Button>
             </div>
           </div>
         </div>

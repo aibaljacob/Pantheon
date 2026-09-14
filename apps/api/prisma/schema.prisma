@@ -29,6 +29,11 @@ model User {
   projectMemberships      ProjectMember[]
   sentInvitations         ProjectInvitation[]      @relation("SentInvitations")
   receivedInvitations     ProjectInvitation[]      @relation("ReceivedInvitations")
+  repoCommits             RepoCommit[]
+  authoredPullRequests    RepoPullRequest[]        @relation("PrAuthor")
+  mergedPullRequests      RepoPullRequest[]        @relation("PrMergedBy")
+  repoReleases            RepoRelease[]
+  applications            ProjectApplication[]     @relation("ProjectApplications")
 }
 
 model UserProfile {
@@ -373,12 +378,17 @@ model Project {
   platform         String?
   gameEngine       String?
   founderId        String
+  savedAiRecommendations Json?
+  savedTalentRecommendations Json?
+  repositoryData         Json?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   founder          User                    @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Cascade)
   members          ProjectMember[]
   openRoles        ProjectRole[]
   invitations      ProjectInvitation[]
+  repository       ProjectRepository?
+  applications     ProjectApplication[]
 
   @@index([founderId])
   @@index([moderationStatus])
@@ -436,6 +446,7 @@ model ProjectRole {
   requiredSkills  ProjectRoleSkill[]
   requiredTools   ProjectRoleTool[]
   invitations     ProjectInvitation[]
+  applications    ProjectApplication[]
 
   @@index([projectId])
   @@index([roleId])
@@ -494,4 +505,154 @@ model ProjectInvitation {
   @@index([inviteeId])
   @@index([status])
 }
+
+model ProjectRepository {
+  id            String              @id @default(uuid())
+  projectId     String              @unique
+  defaultBranch String              @default("main")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  branches      RepoBranch[]
+  commits       RepoCommit[]
+  files         RepoFile[]
+  pullRequests  RepoPullRequest[]
+  releases      RepoRelease[]
+
+  @@index([projectId])
+}
+
+model RepoBranch {
+  id           String            @id @default(uuid())
+  repositoryId String
+  name         String
+  isDefault    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  repository   ProjectRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  files        RepoFile[]
+
+  @@unique([repositoryId, name])
+  @@index([repositoryId])
+}
+
+model RepoCommit {
+  id           String            @id @default(uuid())
+  repositoryId String
+  hash         String            @unique
+  message      String
+  branchName   String
+  authorId     String
+  changedFiles String[]          @default([])
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  repository   ProjectRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  files        RepoFile[]
+
+  @@index([repositoryId])
+  @@index([authorId])
+  @@index([hash])
+  @@index([branchName])
+}
+
+model RepoFile {
+  id           String            @id @default(uuid())
+  repositoryId String
+  branchId     String
+  path         String
+  content      String            @db.Text
+  size         Int
+  linesCount   Int
+  lastCommitId String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  repository   ProjectRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  branch       RepoBranch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  lastCommit   RepoCommit?       @relation(fields: [lastCommitId], references: [id], onDelete: SetNull)
+
+  @@unique([branchId, path])
+  @@index([repositoryId])
+  @@index([branchId])
+  @@index([path])
+}
+
+enum RepoPullRequestStatus {
+  OPEN
+  MERGED
+  CLOSED
+}
+
+model RepoPullRequest {
+  id           String                @id @default(uuid())
+  repositoryId String
+  number       Int
+  title        String
+  description  String?
+  sourceBranch String
+  targetBranch String
+  status       RepoPullRequestStatus @default(OPEN)
+  authorId     String
+  mergedById   String?
+  mergedAt     DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  repository   ProjectRepository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  author       User                  @relation("PrAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  mergedBy     User?                 @relation("PrMergedBy", fields: [mergedById], references: [id], onDelete: SetNull)
+
+  @@unique([repositoryId, number])
+  @@index([repositoryId])
+  @@index([authorId])
+  @@index([status])
+}
+
+model RepoRelease {
+  id           String            @id @default(uuid())
+  repositoryId String
+  tagName      String
+  title        String
+  description  String?
+  targetBranch String            @default("main")
+  authorId     String
+  assets       Json?             @default("[]")
+  publishedAt  DateTime          @default(now())
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  repository   ProjectRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, tagName])
+  @@index([repositoryId])
+  @@index([authorId])
+}
+
+enum ProjectApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+model ProjectApplication {
+  id            String                   @id @default(uuid())
+  projectId     String
+  projectRoleId String
+  applicantId   String
+  message       String?
+  status        ProjectApplicationStatus @default(PENDING)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectRole ProjectRole @relation(fields: [projectRoleId], references: [id], onDelete: Cascade)
+  applicant   User        @relation("ProjectApplications", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([projectRoleId])
+  @@index([applicantId])
+  @@index([status])
+  @@index([applicantId, projectRoleId, status])
+}
+
 

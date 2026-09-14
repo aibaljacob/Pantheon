@@ -115,7 +115,42 @@ export class AdminPaginatedProjectsResponseDto {
   totalPages: number;
 }
 
+export class AdminFounderProfileDto {
+  id: string;
+  userId: string;
+  username: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  timezone?: string | null;
+  experienceYears?: number | null;
+  availability?: string | null;
+  roles: string[];
+  skills: string[];
+  tools: string[];
+  gameEngines: string[];
+  portfolioCount: number;
+}
+
+export class AdminProjectRoleDto {
+  id: string;
+  roleName: string;
+  title?: string | null;
+  description?: string | null;
+  experienceLevel: string;
+  commitment: string;
+  status: string;
+  requiredSkills: string[];
+  requiredTools: string[];
+}
+
 export class AdminProjectDetailDto extends AdminProjectItemDto {
+  founderProfile?: AdminFounderProfileDto;
+  openRoles: AdminProjectRoleDto[];
+  savedAiRecommendations?: any;
   members: {
     id: string;
     userId: string;

@@ -527,6 +527,19 @@ export class ProjectsService {
       { timeout: 15000 },
     );
 
+    // Sync saved AI recommendations to remove the created role if it was recommended
+    if ((project as any).savedAiRecommendations && Array.isArray((project as any).savedAiRecommendations)) {
+      const remaining = ((project as any).savedAiRecommendations as any[]).filter(
+        (r) => r.roleId !== dto.roleId && r.roleName !== professionalRole.name,
+      );
+      await (this.prisma.project as any)
+        .update({
+          where: { id: projectId },
+          data: { savedAiRecommendations: remaining },
+        })
+        .catch(() => {});
+    }
+
     return this.mapProjectRoleToDto(createdRole);
   }
 
@@ -732,6 +745,33 @@ export class ProjectsService {
     };
   }
 
+  async getAiRoleRecommendations(
+    projectId: string,
+    userId: string,
+  ): Promise<AiRoleRecommendationsResponseDto> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    if (project.founderId !== userId) {
+      throw new ForbiddenException(
+        'Only the project founder can view AI role recommendations.',
+      );
+    }
+
+    const saved = (project as any).savedAiRecommendations;
+    if (saved && Array.isArray(saved) && saved.length > 0) {
+      return { recommendedRoles: saved };
+    }
+
+    // If no saved recommendations exist yet, run initial scan and persist
+    return this.generateAiRoleRecommendations(projectId, userId);
+  }
+
   async generateAiRoleRecommendations(
     projectId: string,
     userId: string,
@@ -772,7 +812,7 @@ export class ProjectsService {
 
     const existingRoleNames = project.openRoles.map((r) => r.role.name);
 
-    // AI execution - PERFORMS ZERO DATABASE WRITES
+    // AI execution
     const recommendedRoles = await this.aiService.generateRoleRecommendations(
       {
         name: project.name,
@@ -817,6 +857,18 @@ export class ProjectsService {
         }
       }),
     );
+
+    // Persist saved recommendations to DB so they stay there whenever the project opens
+    try {
+      await (this.prisma.project as any).update({
+        where: { id: projectId },
+        data: {
+          savedAiRecommendations: enhancedRecommendedRoles,
+        },
+      });
+    } catch (saveErr) {
+      this.logger.warn(`Failed to persist AI role recommendations for project ${projectId}:`, saveErr);
+    }
 
     return { recommendedRoles: enhancedRecommendedRoles };
   }
