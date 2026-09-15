@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText, Eye, RefreshCw, Trash2, Lock } from 'lucide-react';
 import type { Resume } from '../types';
+import { formatApiAssetUrl } from '../services/profileService';
 
 interface ResumeSectionProps {
   resume: Resume | null;
@@ -49,6 +50,8 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
     );
   }
 
+  const fileUrl = formatApiAssetUrl(resume.downloadUrl);
+
   return (
     <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a]/60 p-4 space-y-3">
       <div className="flex items-center justify-between text-xs font-mono">
@@ -83,9 +86,9 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          {resume.downloadUrl && (
+          {fileUrl && (
             <a
-              href={resume.downloadUrl}
+              href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-lg border border-[#48473f] bg-[#201f1e] px-2.5 py-1 font-mono text-xs text-[#e6e2df] hover:border-[#e6e2df] transition-colors"

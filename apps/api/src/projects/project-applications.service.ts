@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import {
   ProjectApplicationStatus,
+  ProjectMemberStatus,
   ProjectModerationStatus,
   ProjectRoleStatus,
   Role,
@@ -97,7 +98,10 @@ export class ProjectApplicationsService {
       },
     });
 
-    if (existingMembership) {
+    if (
+      existingMembership &&
+      (!existingMembership.status || existingMembership.status === ProjectMemberStatus.ACTIVE)
+    ) {
       throw new BadRequestException('You are already a team member of this project.');
     }
 
@@ -425,17 +429,35 @@ export class ProjectApplicationsService {
         },
       });
 
-      if (existingMember) {
+      if (
+        existingMember &&
+        (!existingMember.status || existingMember.status === ProjectMemberStatus.ACTIVE)
+      ) {
         throw new BadRequestException('Applicant is already a team member of this project.');
       }
 
-      await tx.projectMember.create({
-        data: {
-          projectId: currentApp.projectId,
-          userId: currentApp.applicantId,
-          role: currentRole.title || currentRole.role.name || 'Member',
-        },
-      });
+      if (existingMember) {
+        await tx.projectMember.update({
+          where: { id: existingMember.id },
+          data: {
+            status: ProjectMemberStatus.ACTIVE,
+            role: 'Member',
+            projectRoleId: currentApp.projectRoleId,
+            joinedAt: new Date(),
+            leftAt: null,
+          },
+        });
+      } else {
+        await tx.projectMember.create({
+          data: {
+            projectId: currentApp.projectId,
+            userId: currentApp.applicantId,
+            role: 'Member',
+            projectRoleId: currentApp.projectRoleId,
+            status: ProjectMemberStatus.ACTIVE,
+          },
+        });
+      }
 
       const accepted = await tx.projectApplication.update({
         where: { id: applicationId },

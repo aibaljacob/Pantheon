@@ -1,6 +1,7 @@
 import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import {
+  ProjectMemberStatus,
   ProjectModerationStatus,
   ProjectRoleCommitment,
   ProjectRoleExperienceLevel,
@@ -84,7 +85,7 @@ export class DashboardProjectDto {
   platform?: string | null;
   gameEngine?: string | null;
   memberCount: number;
-  userRole: string; // e.g. "Founder" or "Gameplay Programmer · Member"
+  userRole?: string;
   isFounder: boolean;
   updatedAt: string;
 }
@@ -106,8 +107,95 @@ export class ProjectMemberDetailDto {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+  headline?: string | null;
   role: string;
+  projectRoleId?: string | null;
+  projectRoleTitle?: string | null;
+  projectRoleName?: string | null;
+  status?: ProjectMemberStatus;
   joinedAt: string;
+  leftAt?: string | null;
+}
+
+export class AssignedProjectRoleDto {
+  id: string;
+  roleId: string;
+  roleName: string;
+  title?: string | null;
+  experienceLevel: ProjectRoleExperienceLevel;
+  commitment: ProjectRoleCommitment;
+  status: ProjectRoleStatus;
+}
+
+export class ProjectActiveTeamMemberDto {
+  id: string;
+  membershipId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+  role: string;
+  isFounder: boolean;
+  projectRoleId?: string | null;
+  projectRoleTitle?: string | null;
+  projectRoleName?: string | null;
+  assignedRoles: AssignedProjectRoleDto[];
+  joinedAt: string;
+}
+
+export class ProjectFormerTeamMemberDto {
+  id: string;
+  membershipId: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+  role: string;
+  isFounder: boolean;
+  projectRoleId?: string | null;
+  projectRoleTitle?: string | null;
+  projectRoleName?: string | null;
+  assignedRoles: AssignedProjectRoleDto[];
+  status: ProjectMemberStatus;
+  joinedAt: string;
+  leftAt?: string | null;
+}
+
+export class ProjectTeamResponseDto {
+  projectId: string;
+  activeCount: number;
+  activeMembers: ProjectActiveTeamMemberDto[];
+  formerMembers: ProjectFormerTeamMemberDto[];
+}
+
+export class ChangeProjectMemberRoleDto {
+  @IsOptional()
+  @IsString()
+  projectRoleId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roleIds?: string[];
+}
+
+export class AssignProjectMemberRolesDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  roleIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  projectRoleId?: string | null;
+}
+
+export class AssignRoleToUserDto {
+  @IsNotEmpty()
+  @IsString()
+  userId: string;
 }
 
 export class ProjectDetailResponseDto {
@@ -332,6 +420,8 @@ export class RecommendedCandidateDto {
   missingTools: string[];
   explanation: string;
   invitationStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+  isTeamMember?: boolean;
+  isAssignedToThisRole?: boolean;
 }
 
 export class RankedCandidatesResponseDto {

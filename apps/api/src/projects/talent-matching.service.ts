@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, ProjectRoleStatus, ProjectRoleExperienceLevel, ProjectRoleCommitment } from '@prisma/client';
+import { Role, ProjectRoleStatus, ProjectRoleExperienceLevel, ProjectRoleCommitment, ProjectMemberStatus } from '@prisma/client';
 import {
   CandidateQueryDto,
   CandidateProfileSummaryDto,
@@ -305,19 +305,30 @@ export class TalentMatchingService {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
-        members: { select: { userId: true } },
+        members: {
+          select: {
+            userId: true,
+            status: true,
+            projectRoleId: true,
+            assignedRoles: { select: { id: true } },
+          },
+        },
       },
     });
 
     if (!project) return [];
 
-    const existingMemberUserIds = new Set(project.members.map((m) => m.userId));
-    existingMemberUserIds.add(project.founderId);
+    const activeMembersMap = new Map<string, any>();
+    for (const m of project.members) {
+      if (m.status === ProjectMemberStatus.ACTIVE || !m.status) {
+        activeMembersMap.set(m.userId, m);
+      }
+    }
 
     const candidates = await this.prisma.user.findMany({
       where: {
         role: Role.USER,
-        id: { notIn: Array.from(existingMemberUserIds) },
+        id: { not: project.founderId },
         profile: { isNot: null },
       },
       include: {
@@ -345,7 +356,15 @@ export class TalentMatchingService {
     const scoredCandidates: RecommendedCandidateDto[] = [];
     for (const cand of candidates) {
       if (!cand.profile) continue;
-      scoredCandidates.push(this.scoreCandidate(cand, project, roleSpec, 'NONE'));
+      const scored = this.scoreCandidate(cand, project, roleSpec, 'NONE');
+      const activeMember = activeMembersMap.get(cand.id);
+      scored.isTeamMember = Boolean(activeMember);
+      scored.isAssignedToThisRole = Boolean(
+        activeMember &&
+          (activeMember.projectRoleId === (roleSpec as any)?.id ||
+            activeMember.assignedRoles?.some((r: any) => r.id === (roleSpec as any)?.id)),
+      );
+      scoredCandidates.push(scored);
     }
 
     const confidenceRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
@@ -378,7 +397,14 @@ export class TalentMatchingService {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
-        members: { select: { userId: true } },
+        members: {
+          select: {
+            userId: true,
+            status: true,
+            projectRoleId: true,
+            assignedRoles: { select: { id: true } },
+          },
+        },
       },
     });
 
@@ -417,9 +443,13 @@ export class TalentMatchingService {
       throw new BadRequestException('Candidate recommendations are only available for OPEN or IN_REVIEW project roles.');
     }
 
-    // 2. Identify excluded User IDs (founder + existing team members)
-    const existingMemberUserIds = new Set(project.members.map((m) => m.userId));
-    existingMemberUserIds.add(project.founderId);
+    // 2. Identify active team members and query invitations
+    const activeMembersMap = new Map<string, any>();
+    for (const m of project.members) {
+      if ((m as any).status === ProjectMemberStatus.ACTIVE || !(m as any).status) {
+        activeMembersMap.set(m.userId, m);
+      }
+    }
 
     // Query existing invitations for this role
     const existingInvitations = this.prisma.projectInvitation
@@ -440,11 +470,11 @@ export class TalentMatchingService {
       invitationMap.set(inv.inviteeId, inv.status as RecommendedCandidateDto['invitationStatus']);
     }
 
-    // 3. Query all eligible USER accounts (excluding ADMINs, founder, and existing members)
+    // 3. Query all eligible USER accounts (excluding ADMINs and founder, including active team members)
     const candidates = await this.prisma.user.findMany({
       where: {
         role: Role.USER,
-        id: { notIn: Array.from(existingMemberUserIds) },
+        id: { not: project.founderId },
         profile: { isNot: null },
       },
       include: {
@@ -490,7 +520,17 @@ export class TalentMatchingService {
     for (const candidateUser of candidates) {
       if (!candidateUser.profile) continue;
       const invStatus = invitationMap.get(candidateUser.id) || 'NONE';
-      scoredCandidates.push(this.scoreCandidate(candidateUser, project, roleSpec, invStatus));
+      const scored = this.scoreCandidate(candidateUser, project, roleSpec, invStatus);
+
+      const activeMember = activeMembersMap.get(candidateUser.id);
+      scored.isTeamMember = Boolean(activeMember);
+      scored.isAssignedToThisRole = Boolean(
+        activeMember &&
+          (activeMember.projectRoleId === projectRoleId ||
+            activeMember.assignedRoles?.some((r: any) => r.id === projectRoleId)),
+      );
+
+      scoredCandidates.push(scored);
     }
 
     // 5. Filtering by minScore and optional search text

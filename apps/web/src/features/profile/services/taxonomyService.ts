@@ -79,6 +79,34 @@ export function searchTools(search?: string, limit: number = 20) {
   return fetchTaxonomyCategory('tools', search, 1, limit);
 }
 
+export async function searchSkillsAndTools(search?: string, limit: number = 20): Promise<TaxonomyResponse> {
+  const [skillsRes, toolsRes] = await Promise.all([
+    fetchTaxonomyCategory('skills', search, 1, limit),
+    fetchTaxonomyCategory('tools', search, 1, limit),
+  ]);
+
+  const combinedMap = new Map<string, any>();
+
+  (skillsRes.data || []).forEach((item) => {
+    combinedMap.set(item.id, item);
+  });
+  (toolsRes.data || []).forEach((item) => {
+    combinedMap.set(item.id, item);
+  });
+
+  const combinedData = Array.from(combinedMap.values()).slice(0, limit);
+
+  return {
+    data: combinedData,
+    meta: {
+      total: (skillsRes.meta?.total || 0) + (toolsRes.meta?.total || 0),
+      page: 1,
+      limit,
+      totalPages: Math.ceil(((skillsRes.meta?.total || 0) + (toolsRes.meta?.total || 0)) / limit),
+    },
+  };
+}
+
 export function searchGameEngines(search?: string, limit: number = 20) {
   return fetchTaxonomyCategory('game-engines', search, 1, limit);
 }

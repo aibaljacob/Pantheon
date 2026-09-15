@@ -5,8 +5,9 @@ import type { ExperienceItem, TaxonomyItem } from '../types';
 import { createExperience, updateExperience, deleteExperience } from '../services/profileService';
 import { TaxonomySingleSelect } from './TaxonomySingleSelect';
 import { TaxonomyMultiSelect } from './TaxonomyMultiSelect';
-import { searchRoles, searchSkills } from '../services/taxonomyService';
+import { searchRoles, searchSkillsAndTools } from '../services/taxonomyService';
 import { useAuthStore } from '../../auth/store/authStore';
+import { formatDateForMonthInput } from '../utils/dateUtils';
 
 interface ExperienceModalProps {
   isOpen: boolean;
@@ -43,8 +44,8 @@ export const ExperienceModal: React.FC<ExperienceModalProps> = ({
       setPosition(experienceToEdit.position || '');
       setCompany(experienceToEdit.company || '');
       setLocation(experienceToEdit.location || '');
-      setStartDate(experienceToEdit.startDate || '');
-      setEndDate(experienceToEdit.endDate || '');
+      setStartDate(formatDateForMonthInput(experienceToEdit.startDate));
+      setEndDate(formatDateForMonthInput(experienceToEdit.endDate));
       setIsCurrent(Boolean(experienceToEdit.isCurrent));
       setDescription(experienceToEdit.description || '');
       setSelectedTechItems(
@@ -185,22 +186,20 @@ export const ExperienceModal: React.FC<ExperienceModalProps> = ({
             <div>
               <label className="block text-xs font-mono text-[#8c887e] mb-1">Start Date *</label>
               <input
-                type="text"
+                type="month"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                placeholder="e.g. Jan 2022"
                 className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
               />
             </div>
             <div>
               <label className="block text-xs font-mono text-[#8c887e] mb-1">End Date</label>
               <input
-                type="text"
+                type="month"
                 disabled={isCurrent}
-                value={isCurrent ? 'Present' : endDate}
+                value={isCurrent ? '' : endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                placeholder="e.g. Dec 2024"
                 className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none disabled:opacity-50"
               />
             </div>
@@ -236,7 +235,7 @@ export const ExperienceModal: React.FC<ExperienceModalProps> = ({
             placeholder="Search recognized skills and tools from taxonomy..."
             selectedItems={selectedTechItems}
             onChange={setSelectedTechItems}
-            fetchSearch={searchSkills}
+            fetchSearch={searchSkillsAndTools}
             maxLimit={15}
           />
 

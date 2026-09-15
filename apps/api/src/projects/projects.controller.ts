@@ -5,11 +5,18 @@ import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decora
 import { ProjectsService } from './projects.service';
 import { TalentMatchingService } from './talent-matching.service';
 import { ProjectInvitationsService } from './project-invitations.service';
+import { ProjectMembersService } from './project-members.service';
 import {
+  AssignProjectMemberRolesDto,
+  AssignRoleToUserDto,
   CandidateQueryDto,
+  ChangeProjectMemberRoleDto,
   CreateProjectDto,
   CreateProjectRoleDto,
+  ProjectActiveTeamMemberDto,
+  ProjectFormerTeamMemberDto,
   ProjectInvitationResponseDto,
+  ProjectTeamResponseDto,
   RankedCandidatesResponseDto,
   SendInvitationDto,
   UpdateProjectDto,
@@ -29,6 +36,7 @@ export class ProjectsController {
     private readonly projectsService: ProjectsService,
     private readonly talentMatchingService: TalentMatchingService,
     private readonly projectInvitationsService: ProjectInvitationsService,
+    private readonly projectMembersService: ProjectMembersService,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -176,6 +184,82 @@ export class ProjectsController {
       user.id,
       user.role,
       dto,
+    );
+  }
+
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get(':id/members')
+  getProjectTeamMembers(
+    @Param('id') id: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ): Promise<ProjectTeamResponseDto> {
+    return this.projectMembersService.getTeamMembers(id, user?.id, user?.role);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/members/me')
+  leaveProject(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.projectMembersService.leaveProject(id, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id/members/:memberId')
+  removeProjectMember(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<ProjectFormerTeamMemberDto> {
+    return this.projectMembersService.removeMember(id, memberId, user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/members/:memberId/role')
+  changeProjectMemberRole(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AssignProjectMemberRolesDto,
+  ): Promise<ProjectActiveTeamMemberDto> {
+    return this.projectMembersService.assignMemberRoles(
+      id,
+      memberId,
+      user.id,
+      dto,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/members/:memberId/roles')
+  assignProjectMemberRoles(
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AssignProjectMemberRolesDto,
+  ): Promise<ProjectActiveTeamMemberDto> {
+    return this.projectMembersService.assignMemberRoles(
+      id,
+      memberId,
+      user.id,
+      dto,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/roles/:projectRoleId/assign')
+  assignRoleToUser(
+    @Param('id') id: string,
+    @Param('projectRoleId') projectRoleId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AssignRoleToUserDto,
+  ): Promise<ProjectActiveTeamMemberDto> {
+    return this.projectMembersService.assignRoleToUser(
+      id,
+      projectRoleId,
+      dto.userId,
+      user.id,
     );
   }
 }

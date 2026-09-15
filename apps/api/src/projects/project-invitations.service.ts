@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, ProjectRoleStatus, ProjectInvitationStatus } from '@prisma/client';
+import {
+  ProjectInvitationStatus,
+  ProjectMemberStatus,
+  ProjectModerationStatus,
+  ProjectRoleStatus,
+  Role,
+} from '@prisma/client';
 import {
   ProjectInvitationResponseDto,
   RespondInvitationAction,
@@ -72,7 +78,7 @@ export class ProjectInvitationsService {
       throw new BadRequestException('Cannot send an invitation to the project founder.');
     }
 
-    // 4. Validate candidate is not already a member
+    // 4. Validate candidate is not already an active member
     const existingMembership = await this.prisma.projectMember.findUnique({
       where: {
         projectId_userId: {
@@ -82,8 +88,11 @@ export class ProjectInvitationsService {
       },
     });
 
-    if (existingMembership) {
-      throw new BadRequestException('Candidate is already a team member of this project.');
+    if (
+      existingMembership &&
+      (!existingMembership.status || existingMembership.status === ProjectMemberStatus.ACTIVE)
+    ) {
+      throw new BadRequestException('Candidate is already an active team member of this project.');
     }
 
     // 5. Prevent duplicate pending invitations for the same project role and candidate
@@ -234,7 +243,7 @@ export class ProjectInvitationsService {
         throw new BadRequestException('Project role is no longer open.');
       }
 
-      // 3. Verify user is not already a member
+      // 3. Verify user is not already an active member
       const existingMembership = await tx.projectMember.findUnique({
         where: {
           projectId_userId: {
@@ -244,18 +253,36 @@ export class ProjectInvitationsService {
         },
       });
 
-      if (existingMembership) {
-        throw new BadRequestException('Candidate is already a team member of this project.');
+      if (
+        existingMembership &&
+        (!existingMembership.status || existingMembership.status === ProjectMemberStatus.ACTIVE)
+      ) {
+        throw new BadRequestException('Candidate is already an active team member of this project.');
       }
 
-      // 4. Create ProjectMember
-      await tx.projectMember.create({
-        data: {
-          projectId: currentInv.projectId,
-          userId,
-          role: currentRole.title || invitation.projectRole.role.name || 'Member',
-        },
-      });
+      // 4. Create or Reactivate ProjectMember
+      if (existingMembership) {
+        await tx.projectMember.update({
+          where: { id: existingMembership.id },
+          data: {
+            status: ProjectMemberStatus.ACTIVE,
+            role: 'Member',
+            projectRoleId: currentInv.projectRoleId,
+            joinedAt: new Date(),
+            leftAt: null,
+          },
+        });
+      } else {
+        await tx.projectMember.create({
+          data: {
+            projectId: currentInv.projectId,
+            userId,
+            role: 'Member',
+            projectRoleId: currentInv.projectRoleId,
+            status: ProjectMemberStatus.ACTIVE,
+          },
+        });
+      }
 
       // 5. Update ProjectInvitation status to ACCEPTED
       const updatedInvitation = await tx.projectInvitation.update({

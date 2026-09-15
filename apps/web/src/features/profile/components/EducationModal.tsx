@@ -4,6 +4,7 @@ import { Button } from '../../../components/ui/Button';
 import type { EducationItem } from '../types';
 import { createEducation, updateEducation, deleteEducation } from '../services/profileService';
 import { useAuthStore } from '../../auth/store/authStore';
+import { formatDateForMonthInput } from '../utils/dateUtils';
 
 interface EducationModalProps {
   isOpen: boolean;
@@ -36,8 +37,8 @@ export const EducationModal: React.FC<EducationModalProps> = ({
     if (educationToEdit) {
       setInstitution(educationToEdit.institution || '');
       setDegree(educationToEdit.degree || '');
-      setStartDate(educationToEdit.startDate || '');
-      setEndDate(educationToEdit.endDate || '');
+      setStartDate(formatDateForMonthInput(educationToEdit.startDate));
+      setEndDate(formatDateForMonthInput(educationToEdit.endDate));
       setDescription(educationToEdit.description || '');
     } else {
       setInstitution('');
@@ -155,21 +156,19 @@ export const EducationModal: React.FC<EducationModalProps> = ({
             <div>
               <label className="block text-xs font-mono text-[#8c887e] mb-1">Start Date *</label>
               <input
-                type="text"
+                type="month"
                 required
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                placeholder="e.g. 2020"
                 className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-[#8c887e] mb-1">End Date</label>
+              <label className="block text-xs font-mono text-[#8c887e] mb-1">End Date / Expected</label>
               <input
-                type="text"
+                type="month"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                placeholder="e.g. 2024 (or Present)"
                 className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3.5 py-2.5 text-sm text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
               />
             </div>

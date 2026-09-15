@@ -365,7 +365,7 @@ describe('TalentMatchingService', () => {
     expect(cand.matchBreakdown.projectContextMatch).toBe(10); // Engine 4 + Genre 3 + Platform 3
   });
 
-  it('8. Excludes founder and existing team members from candidate queries', async () => {
+  it('8. Excludes founder but includes team members in candidate queries', async () => {
     prisma.project.findUnique.mockResolvedValue(mockProject);
     prisma.projectRole.findUnique.mockResolvedValue(mockProjectRole);
     prisma.user.findMany.mockResolvedValue([]);
@@ -381,7 +381,7 @@ describe('TalentMatchingService', () => {
     expect(prisma.user.findMany).toHaveBeenCalledWith({
       where: {
         role: Role.USER,
-        id: { notIn: expect.arrayContaining([mockFounderId, 'existing-member-uuid-1']) },
+        id: { not: mockFounderId },
         profile: { isNot: null },
       },
       include: expect.any(Object),

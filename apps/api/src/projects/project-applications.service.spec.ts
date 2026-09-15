@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TalentMatchingService } from './talent-matching.service';
 import {
   ProjectApplicationStatus,
+  ProjectMemberStatus,
   ProjectModerationStatus,
   ProjectRoleStatus,
   Role,
@@ -368,7 +369,9 @@ describe('ProjectApplicationsService', () => {
         data: {
           projectId: 'proj-1',
           userId: 'user-2',
-          role: 'Senior Audio Designer',
+          role: 'Member',
+          projectRoleId: 'role-1',
+          status: ProjectMemberStatus.ACTIVE,
         },
       });
       expect(txMock.projectRole.update).toHaveBeenCalledWith({

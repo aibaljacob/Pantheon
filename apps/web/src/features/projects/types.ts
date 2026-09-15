@@ -144,3 +144,58 @@ export interface AiRoleRecommendationsResponse {
   recommendedRoles: DraftRoleRecommendation[];
 }
 
+export type ProjectMemberStatus = 'ACTIVE' | 'LEFT' | 'REMOVED';
+
+export interface AssignedProjectRole {
+  id: string;
+  roleId: string;
+  roleName: string;
+  title?: string | null;
+  experienceLevel?: string;
+  commitment?: string;
+  status?: string;
+}
+
+export interface ProjectActiveTeamMember {
+  id: string;
+  membershipId?: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+  role: string;
+  projectRoleId?: string | null;
+  projectRoleTitle?: string | null;
+  projectRoleName?: string | null;
+  assignedRoles?: AssignedProjectRole[];
+  joinedAt: string;
+  isFounder: boolean;
+}
+
+export interface ProjectFormerTeamMember {
+  id: string;
+  membershipId?: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  headline?: string | null;
+  role: string;
+  projectRoleId?: string | null;
+  projectRoleTitle?: string | null;
+  projectRoleName?: string | null;
+  assignedRoles?: AssignedProjectRole[];
+  status: 'LEFT' | 'REMOVED';
+  joinedAt: string;
+  leftAt: string;
+  isFounder?: boolean;
+}
+
+export interface ProjectTeamResponse {
+  projectId?: string;
+  activeCount?: number;
+  activeMembers: ProjectActiveTeamMember[];
+  formerMembers: ProjectFormerTeamMember[];
+}
+

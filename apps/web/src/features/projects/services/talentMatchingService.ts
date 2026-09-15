@@ -69,6 +69,8 @@ export interface RecommendedCandidate {
   missingTools: string[];
   explanation: string;
   invitationStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+  isTeamMember?: boolean;
+  isAssignedToThisRole?: boolean;
 }
 
 export interface RankedCandidatesResponse {

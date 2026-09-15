@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { X, FileText, Upload, Trash2, Loader2, AlertCircle } from 'lucide-react';
+import { X, FileText, Upload, Trash2, Loader2, AlertCircle, Eye } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import type { Resume } from '../types';
-import { uploadResume, updateResumeVisibility, deleteResume } from '../services/profileService';
+import { uploadResume, updateResumeVisibility, deleteResume, formatApiAssetUrl } from '../services/profileService';
 import { useAuthStore } from '../../auth/store/authStore';
 
 interface ResumeModalProps {
@@ -105,6 +105,8 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({
     }
   };
 
+  const fileUrl = resume?.downloadUrl ? formatApiAssetUrl(resume.downloadUrl) : '';
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
       <div className="relative w-full max-w-md rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 shadow-2xl space-y-6">
@@ -146,11 +148,22 @@ export const ResumeModal: React.FC<ResumeModalProps> = ({
               <div className="min-w-0">
                 <p className="truncate font-mono text-xs font-semibold text-[#ffffff]">{resume.fileName}</p>
                 <p className="text-[10px] font-mono text-[#8c887e]">
-                  {resume.fileSize} · Updated {resume.updatedAt}
+                  {resume.fileSize} · Updated {resume.updatedAt ? new Date(resume.updatedAt).toLocaleDateString() : ''}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
+                {fileUrl && (
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#48473f] bg-[#201f1e] px-2.5 py-1 text-xs font-mono text-[#e6e2df] hover:border-[#e6e2df] transition-colors"
+                  >
+                    <Eye className="h-3 w-3" />
+                    <span>View</span>
+                  </a>
+                )}
                 <button
                   type="button"
                   onClick={handleToggleVisibility}

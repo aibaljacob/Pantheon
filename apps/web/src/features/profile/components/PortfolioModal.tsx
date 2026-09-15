@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Layers, Trash2, Loader2, AlertCircle, Upload } from 'lucide-react';
+import { X, Layers, Trash2, Loader2, AlertCircle, Upload, Crop } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import type { PortfolioItem, TaxonomyItem } from '../types';
 import {
@@ -19,6 +19,7 @@ import {
   searchTools,
 } from '../services/taxonomyService';
 import { useAuthStore } from '../../auth/store/authStore';
+import { ImageCropModal } from './ImageCropModal';
 
 interface PortfolioModalProps {
   isOpen: boolean;
@@ -42,13 +43,15 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
   const [coverUrl, setCoverUrl] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [rawCropImageSrc, setRawCropImageSrc] = useState<string | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState<boolean>(false);
 
   const [description, setDescription] = useState('');
   const [role, setRole] = useState('');
   const [selectedTechItems, setSelectedTechItems] = useState<TaxonomyItem[]>([]);
   const [selectedToolItems, setSelectedToolItems] = useState<TaxonomyItem[]>([]);
+  const [selectedGenreItems, setSelectedGenreItems] = useState<TaxonomyItem[]>([]);
   const [gameEngine, setGameEngine] = useState('');
-  const [genre, setGenre] = useState('');
   const [platform, setPlatform] = useState('');
   const [status, setStatus] = useState<PortfolioItem['status']>('Prototype');
   const [projectUrl, setProjectUrl] = useState('');
@@ -62,6 +65,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
       setCoverUrl(projectToEdit.coverUrl || '');
       setCoverFile(null);
       setCoverPreviewUrl(null);
+      setRawCropImageSrc(null);
       setDescription(projectToEdit.description || '');
       setRole(projectToEdit.role || '');
       setSelectedTechItems(
@@ -74,8 +78,16 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
           ? projectToEdit.tools.map((t) => ({ id: t, name: t }))
           : [],
       );
+      setSelectedGenreItems(
+        projectToEdit.genre
+          ? projectToEdit.genre
+              .split(/[,/]+/)
+              .map((g) => g.trim())
+              .filter(Boolean)
+              .map((g) => ({ id: g, name: g }))
+          : [],
+      );
       setGameEngine(projectToEdit.gameEngine || '');
-      setGenre(projectToEdit.genre || '');
       setPlatform(projectToEdit.platform || '');
       setStatus(projectToEdit.status || 'Prototype');
       setProjectUrl(projectToEdit.projectUrl || '');
@@ -84,12 +96,13 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
       setCoverUrl('');
       setCoverFile(null);
       setCoverPreviewUrl(null);
+      setRawCropImageSrc(null);
       setDescription('');
       setRole('');
       setSelectedTechItems([]);
       setSelectedToolItems([]);
+      setSelectedGenreItems([]);
       setGameEngine('');
-      setGenre('');
       setPlatform('');
       setStatus('Prototype');
       setProjectUrl('');
@@ -115,8 +128,16 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
       return;
     }
 
-    setCoverFile(file);
-    setCoverPreviewUrl(URL.createObjectURL(file));
+    const objectUrl = URL.createObjectURL(file);
+    setRawCropImageSrc(objectUrl);
+    setIsCropOpen(true);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = (croppedFile: File, croppedPreviewUrl: string) => {
+    setCoverFile(croppedFile);
+    setCoverPreviewUrl(croppedPreviewUrl);
+    setIsCropOpen(false);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -137,6 +158,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
 
       const technologies = selectedTechItems.map((item) => item.name);
       const tools = selectedToolItems.map((item) => item.name);
+      const genre = selectedGenreItems.map((item) => item.name).join(', ');
 
       const dto = {
         title,
@@ -252,11 +274,24 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
                 )}
               </div>
 
-              <label className="cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[#48473f] bg-[#201f1e] px-4 py-2 text-xs font-mono text-[#e6e2df] hover:border-[#e6e2df] transition-colors">
-                <Upload className="h-4 w-4" />
-                <span>{coverFile ? coverFile.name : 'Choose Cover Image'}</span>
-                <input type="file" accept="image/*" onChange={handleCoverFileChange} className="hidden" />
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="cursor-pointer inline-flex items-center gap-2 rounded-xl border border-[#48473f] bg-[#201f1e] px-4 py-2 text-xs font-mono text-[#e6e2df] hover:border-[#e6e2df] transition-colors">
+                  <Upload className="h-4 w-4" />
+                  <span>{coverFile ? coverFile.name : 'Choose Cover Image'}</span>
+                  <input type="file" accept="image/*" onChange={handleCoverFileChange} className="hidden" />
+                </label>
+
+                {rawCropImageSrc && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCropOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#48473f] bg-[#141312] px-3 py-2 text-xs font-mono text-amber-300 hover:border-amber-400 transition-colors"
+                  >
+                    <Crop className="h-4 w-4" />
+                    <span>Crop</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -272,7 +307,7 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <TaxonomySingleSelect
               label="Game Engine"
               required
@@ -280,14 +315,6 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
               onChange={setGameEngine}
               fetchSearch={searchGameEngines}
               placeholder="Select engine..."
-            />
-            <TaxonomySingleSelect
-              label="Genre"
-              required
-              value={genre}
-              onChange={setGenre}
-              fetchSearch={searchGenres}
-              placeholder="Select genre..."
             />
             <TaxonomySingleSelect
               label="Platform"
@@ -298,6 +325,16 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
               placeholder="Select platform..."
             />
           </div>
+
+          {/* GENRES */}
+          <TaxonomyMultiSelect
+            categoryLabel="GENRES"
+            placeholder="Search recognized genres (e.g. Action RPG, Tactical Multiplayer)..."
+            selectedItems={selectedGenreItems}
+            onChange={setSelectedGenreItems}
+            fetchSearch={searchGenres}
+            maxLimit={10}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -379,6 +416,18 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Interactive Crop Modal */}
+      {rawCropImageSrc && (
+        <ImageCropModal
+          isOpen={isCropOpen}
+          onClose={() => setIsCropOpen(false)}
+          imageSrc={rawCropImageSrc}
+          aspectRatio={16 / 9}
+          cropShape="rect"
+          onCropComplete={handleCropComplete}
+        />
+      )}
     </div>
   );
 };

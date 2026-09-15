@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Sparkles, ArrowRight, X, CheckCircle2, Circle } from 'lucide-react';
-import type { ProfileStats } from '../types';
+import type { ProfileStats, ProfileData } from '../types';
 
 interface ProfileCompletionCardProps {
   stats: ProfileStats;
+  profileData?: ProfileData | null;
   onOpenEditModal: () => void;
 }
 
 export const ProfileCompletionCard: React.FC<ProfileCompletionCardProps> = ({
   stats,
+  profileData,
   onOpenEditModal,
 }) => {
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
@@ -18,22 +20,35 @@ export const ProfileCompletionCard: React.FC<ProfileCompletionCardProps> = ({
       ? stats.profileCompletion
       : typeof (stats?.profileCompletion as any)?.profile === 'number'
       ? (stats.profileCompletion as any).profile
-      : 85;
+      : 0;
 
   const portfolioCompletionVal =
     typeof stats?.portfolioCompletion === 'number'
       ? stats.portfolioCompletion
       : typeof (stats?.portfolioCompletion as any)?.portfolio === 'number'
       ? (stats.portfolioCompletion as any).portfolio
-      : 75;
+      : 0;
+
+  const hasHeadlineBio = Boolean(profileData?.user.headline?.trim() && profileData?.user.bio?.trim());
+  const hasGameEngineOrSkills = Boolean(
+    (profileData?.professional.gameEngines?.length ?? 0) > 0 ||
+    (profileData?.professional.skills?.length ?? 0) > 0
+  );
+  const hasExpOrEdu = Boolean(
+    (profileData?.experiences?.length ?? 0) > 0 ||
+    (profileData?.education?.length ?? 0) > 0
+  );
+  const hasPortfolio = Boolean((profileData?.portfolio?.length ?? 0) > 0);
+  const hasLinks = Boolean((profileData?.links?.length ?? 0) > 0);
+  const hasResume = Boolean(profileData?.resume);
 
   const completionItems = [
-    { label: 'Add professional headline', completed: true },
-    { label: 'Add game engine experience', completed: true },
-    { label: 'Add a work experience entry', completed: true },
-    { label: 'Add a portfolio showcase project', completed: portfolioCompletionVal >= 60 },
-    { label: 'Add external profile links (GitHub, ArtStation)', completed: true },
-    { label: 'Upload your official CV / Resume', completed: profileCompletionVal >= 80 },
+    { label: 'Set headline & bio', completed: profileData ? hasHeadlineBio : profileCompletionVal >= 30 },
+    { label: 'Set game engines & skills', completed: profileData ? hasGameEngineOrSkills : profileCompletionVal >= 50 },
+    { label: 'Add work experience or education', completed: profileData ? hasExpOrEdu : profileCompletionVal >= 65 },
+    { label: 'Add a portfolio showcase project', completed: profileData ? hasPortfolio : portfolioCompletionVal >= 50 },
+    { label: 'Add external profile links', completed: profileData ? hasLinks : profileCompletionVal >= 90 },
+    { label: 'Upload your official CV / Resume (PDF)', completed: profileData ? hasResume : profileCompletionVal >= 80 },
   ];
 
   const remainingCount = completionItems.filter((item) => !item.completed).length;

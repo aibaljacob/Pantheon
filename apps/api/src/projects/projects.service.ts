@@ -18,6 +18,7 @@ import type {
   UpdateProjectRoleDto,
 } from './projects.dto';
 import {
+  ProjectMemberStatus,
   ProjectModerationStatus,
   ProjectRoleCommitment,
   ProjectRoleExperienceLevel,
@@ -143,19 +144,21 @@ export class ProjectsService {
       where: {
         OR: [
           { founderId: userId },
-          { members: { some: { userId } } },
+          { members: { some: { userId, status: ProjectMemberStatus.ACTIVE } } },
         ],
       },
       include: {
         members: {
+          where: { status: ProjectMemberStatus.ACTIVE },
           select: {
             userId: true,
             role: true,
-          },
-        },
-        _count: {
-          select: {
-            members: true,
+            status: true,
+            projectRole: {
+              include: {
+                role: true,
+              },
+            },
           },
         },
       },
@@ -173,12 +176,12 @@ export class ProjectsService {
       } else {
         const memberRecord = p.members.find((m) => m.userId === userId);
         if (memberRecord) {
-          userRole = memberRecord.role ? `${memberRecord.role} · Member` : 'Member';
+          const roleTitle = memberRecord.projectRole?.title || memberRecord.projectRole?.role?.name || memberRecord.role;
+          userRole = roleTitle ? `${roleTitle} · Member` : 'Member';
         }
       }
 
-      const hasFounderInMembers = p.members.some((m) => m.userId === p.founderId);
-      const totalTeamCount = hasFounderInMembers ? p._count.members : p._count.members + 1;
+      const activeMemberCount = p.members.length;
 
       return {
         id: p.id,
@@ -191,7 +194,7 @@ export class ProjectsService {
         genre: p.genre,
         platform: p.platform,
         gameEngine: p.gameEngine,
-        memberCount: totalTeamCount,
+        memberCount: activeMemberCount,
         userRole,
         isFounder,
         updatedAt: p.updatedAt.toISOString(),
@@ -286,6 +289,7 @@ export class ProjectsService {
           },
         },
         members: {
+          where: { status: ProjectMemberStatus.ACTIVE },
           include: {
             user: {
               select: {
@@ -297,8 +301,14 @@ export class ProjectsService {
                     firstName: true,
                     lastName: true,
                     avatarUrl: true,
+                    headline: true,
                   },
                 },
+              },
+            },
+            projectRole: {
+              include: {
+                role: true,
               },
             },
           },
@@ -313,7 +323,11 @@ export class ProjectsService {
 
     const isFounder = Boolean(currentUserId && project.founderId === currentUserId);
     const isMember = Boolean(
-      currentUserId && (isFounder || project.members.some((m) => m.userId === currentUserId)),
+      currentUserId &&
+        (isFounder ||
+          project.members.some(
+            (m) => m.userId === currentUserId && m.status === ProjectMemberStatus.ACTIVE,
+          )),
     );
     const isAdmin = currentUserRole === Role.ADMINISTRATOR;
 
@@ -341,8 +355,14 @@ export class ProjectsService {
         username: m.user.username,
         displayName,
         avatarUrl: m.user.profile?.avatarUrl || null,
+        headline: m.user.profile?.headline || null,
         role: m.role,
+        projectRoleId: m.projectRoleId || null,
+        projectRoleTitle: m.projectRole?.title || null,
+        projectRoleName: m.projectRole?.role?.name || null,
+        status: m.status,
         joinedAt: m.joinedAt.toISOString(),
+        leftAt: m.leftAt ? m.leftAt.toISOString() : null,
       };
     });
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '../../../components/ui/Button';
 import { Plus, Trash2, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { EducationItem } from '../types';
+import { formatDateForDisplay, sortTimelineItemsDescending } from '../utils/dateUtils';
 
 interface EducationSectionProps {
   education: EducationItem[];
@@ -24,6 +25,8 @@ export const EducationSection: React.FC<EducationSectionProps> = ({
     setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const sortedEducation = sortTimelineItemsDescending(education);
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
@@ -43,12 +46,14 @@ export const EducationSection: React.FC<EducationSectionProps> = ({
         )}
       </div>
 
-      {education.length === 0 ? (
+      {sortedEducation.length === 0 ? (
         <p className="text-xs font-mono text-[#8c887e]">No education details added.</p>
       ) : (
         <div className="space-y-3">
-          {education.map((edu) => {
+          {sortedEducation.map((edu) => {
             const isExpanded = Boolean(expandedIds[edu.id]);
+            const displayStart = formatDateForDisplay(edu.startDate);
+            const displayEnd = formatDateForDisplay(edu.endDate) || 'Present';
 
             return (
               <div
@@ -65,7 +70,7 @@ export const EducationSection: React.FC<EducationSectionProps> = ({
 
                   <div className="flex items-center gap-2 font-mono text-xs text-[#8c887e]">
                     <span>
-                      {edu.startDate} — {edu.endDate || 'Present'}
+                      {displayStart} — {displayEnd}
                     </span>
                     {isOwner && (
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-1">

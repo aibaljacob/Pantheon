@@ -1227,25 +1227,46 @@ export class ProfileService {
 
   private calculateCompletion(profile: any) {
     let score = 0;
-    let max = 100;
 
-    if (profile.firstName && profile.lastName) score += 15;
-    if (profile.avatarUrl) score += 15;
-    if (profile.bannerUrl) score += 10;
-    if (profile.headline) score += 15;
-    if (profile.bio) score += 15;
-    if (profile.location) score += 10;
+    // 1. Basic Details (50 points)
+    const hasName = Boolean(profile.displayName || (profile.firstName && profile.lastName));
+    if (hasName) score += 10;
+    if (profile.headline && profile.headline.trim().length > 0) score += 10;
+    if (profile.bio && profile.bio.trim().length > 0) score += 10;
+    if (profile.avatarUrl) score += 10;
+    if (profile.location && profile.location.trim().length > 0) score += 5;
+    if (profile.bannerUrl) score += 5;
 
-    const hasSkills =
-      profile.identity?.skills && profile.identity.skills.length > 0;
-    if (hasSkills) score += 10;
+    // 2. Professional Identity (15 points)
+    const identity = profile.identity;
+    const hasRoles = Boolean(identity?.roles && identity.roles.length > 0);
+    const hasSkills = Boolean(identity?.skills && identity.skills.length > 0);
+    const hasEnginesOrTools = Boolean(
+      (identity?.gameEngines && identity.gameEngines.length > 0) ||
+      (identity?.tools && identity.tools.length > 0)
+    );
+    if (hasRoles) score += 5;
+    if (hasSkills) score += 5;
+    if (hasEnginesOrTools) score += 5;
+
+    // 3. Work Experience / Education (15 points)
+    const hasExp = Boolean(profile.experiences && profile.experiences.length > 0);
+    const hasEdu = Boolean(profile.education && profile.education.length > 0);
+    if (hasExp || hasEdu) score += 15;
+
+    // 4. Official Resume (10 points)
     if (profile.resume) score += 10;
 
-    const profilePercent = Math.min(100, Math.round((score / max) * 100));
+    // 5. External Links (10 points)
+    const hasLinks = Boolean(profile.links && profile.links.length > 0);
+    if (hasLinks) score += 10;
 
+    const profilePercent = Math.min(100, Math.max(0, Math.round(score)));
+
+    // Portfolio score: 0 for 0 projects, 50% for 1 project, 100% for 2+ projects
     let portfolioScore = 0;
     if (profile.portfolio && profile.portfolio.length > 0) {
-      portfolioScore = Math.min(100, profile.portfolio.length * 34);
+      portfolioScore = Math.min(100, profile.portfolio.length * 50);
     }
 
     return {

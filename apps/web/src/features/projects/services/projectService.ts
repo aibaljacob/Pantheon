@@ -6,6 +6,8 @@ import type {
   DashboardProjectsResponse,
   ProjectDetail,
   ProjectRoleItem,
+  ProjectActiveTeamMember,
+  ProjectTeamResponse,
   UpdateProjectInput,
   UpdateProjectRoleInput,
 } from '../types';
@@ -299,6 +301,162 @@ export async function rescanAiRoleRecommendations(
     throw new Error(
       errorData.message || 'Failed to rescan AI role recommendations.',
     );
+  }
+
+  return response.json();
+}
+
+export async function fetchProjectTeam(
+  projectId: string,
+  accessToken?: string | null,
+): Promise<ProjectTeamResponse> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (accessToken) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/members`, {
+    method: 'GET',
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to fetch project team members.');
+  }
+
+  const data: ProjectTeamResponse = await response.json();
+
+  return {
+    activeMembers: (data.activeMembers || []).map((m) => ({
+      ...m,
+      avatarUrl: formatApiAssetUrl(m.avatarUrl),
+    })),
+    formerMembers: (data.formerMembers || []).map((m) => ({
+      ...m,
+      avatarUrl: formatApiAssetUrl(m.avatarUrl),
+    })),
+  };
+}
+
+export async function assignProjectMemberRoles(
+  projectId: string,
+  memberId: string,
+  roleIds: string[],
+  accessToken: string,
+): Promise<ProjectActiveTeamMember> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/members/${memberId}/roles`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ roleIds }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to update member role assignments.');
+  }
+
+  const data = await response.json();
+  return {
+    ...data,
+    avatarUrl: formatApiAssetUrl(data.avatarUrl),
+  };
+}
+
+export async function changeProjectMemberRole(
+  projectId: string,
+  memberId: string,
+  projectRoleId: string | null,
+  accessToken: string,
+): Promise<ProjectActiveTeamMember> {
+  return assignProjectMemberRoles(
+    projectId,
+    memberId,
+    projectRoleId ? [projectRoleId] : [],
+    accessToken,
+  );
+}
+
+export async function assignRoleToUser(
+  projectId: string,
+  projectRoleId: string,
+  userId: string,
+  accessToken: string,
+): Promise<ProjectActiveTeamMember> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/roles/${projectRoleId}/assign`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ userId }),
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to assign role to user.');
+  }
+
+  const data = await response.json();
+  return {
+    ...data,
+    avatarUrl: formatApiAssetUrl(data.avatarUrl),
+  };
+}
+
+export async function removeProjectMember(
+  projectId: string,
+  memberId: string,
+  accessToken: string,
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/members/${memberId}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to remove member from project.');
+  }
+
+  return response.json();
+}
+
+export async function leaveProject(
+  projectId: string,
+  accessToken: string,
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/members/me`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to leave project.');
   }
 
   return response.json();

@@ -3,6 +3,7 @@ import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Plus, Trash2, Edit2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { ExperienceItem } from '../types';
+import { formatDateForDisplay, sortTimelineItemsDescending } from '../utils/dateUtils';
 
 interface ExperienceSectionProps {
   experiences: ExperienceItem[];
@@ -25,6 +26,8 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
     setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const sortedExperiences = sortTimelineItemsDescending(experiences);
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
@@ -44,14 +47,17 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
         )}
       </div>
 
-      {experiences.length === 0 ? (
+      {sortedExperiences.length === 0 ? (
         <p className="text-xs font-mono text-[#8c887e]">No work experience added yet.</p>
       ) : (
         <div className="relative space-y-4 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1px] before:bg-[#2b2a29]">
-          {experiences.map((exp) => {
+          {sortedExperiences.map((exp) => {
             const isExpanded = Boolean(expandedIds[exp.id]);
             const topTech = exp.technologies ? exp.technologies.slice(0, 2).join(' · ') : '';
             const remainingTechCount = exp.technologies && exp.technologies.length > 2 ? exp.technologies.length - 2 : 0;
+
+            const displayStart = formatDateForDisplay(exp.startDate);
+            const displayEnd = exp.isCurrent ? 'Present' : formatDateForDisplay(exp.endDate) || 'Present';
 
             return (
               <div key={exp.id} className="group relative flex items-start gap-4 pl-6">
@@ -71,7 +77,7 @@ export const ExperienceSection: React.FC<ExperienceSectionProps> = ({
 
                     <div className="flex items-center gap-2 text-xs font-mono text-[#8c887e]">
                       <span>
-                        {exp.startDate} — {exp.isCurrent ? 'Present' : exp.endDate}
+                        {displayStart} — {displayEnd}
                       </span>
                       {exp.isCurrent && <Badge variant="accent">Present</Badge>}
                       {isOwner && (

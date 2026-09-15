@@ -12,6 +12,14 @@ import { ProjectRepositoryService } from './project-repository.service';
 import { ProjectRepositoryRepository } from './project-repository.repository';
 import { ProjectApplicationsController } from './project-applications.controller';
 import { ProjectApplicationsService } from './project-applications.service';
+import { ProjectMembersService } from './project-members.service';
+import { CooccurrenceService } from './graph-team-formation/cooccurrence.service';
+import { GraphBuilderService } from './graph-team-formation/graph-builder';
+import { RWRSolver } from './graph-team-formation/rwr-solver';
+import { AssignmentSolver } from './graph-team-formation/assignment-solver';
+import { TeamEvaluator } from './graph-team-formation/team-evaluator';
+import { BaselineComparisonService } from './graph-team-formation/baseline-comparison.service';
+import { ResearchExperimentRunner } from './graph-team-formation/research-experiment-runner';
 
 @Module({
   imports: [PrismaModule, AuthModule],
@@ -24,21 +32,37 @@ import { ProjectApplicationsService } from './project-applications.service';
   ],
   providers: [
     ProjectsService,
+    ProjectMembersService,
     AiRecommendationService,
     TalentMatchingService,
     ProjectInvitationsService,
     ProjectRepositoryService,
     ProjectRepositoryRepository,
     ProjectApplicationsService,
+    CooccurrenceService,
+    GraphBuilderService,
+    RWRSolver,
+    AssignmentSolver,
+    TeamEvaluator,
+    BaselineComparisonService,
+    ResearchExperimentRunner,
   ],
   exports: [
     ProjectsService,
+    ProjectMembersService,
     AiRecommendationService,
     TalentMatchingService,
     ProjectInvitationsService,
     ProjectRepositoryService,
     ProjectRepositoryRepository,
     ProjectApplicationsService,
+    CooccurrenceService,
+    GraphBuilderService,
+    RWRSolver,
+    AssignmentSolver,
+    TeamEvaluator,
+    BaselineComparisonService,
+    ResearchExperimentRunner,
   ],
 })
 export class ProjectsModule {}

@@ -41,6 +41,7 @@ import {
   deleteExperience,
   deleteEducation,
   deleteLink,
+  computeProfileCompletionStats,
 } from '../features/profile/services/profileService';
 import type {
   ProfileData,
@@ -167,41 +168,55 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  const updateProfileDataState = useCallback((prev: ProfileData, partial: Partial<ProfileData>): ProfileData => {
+    const updatedUser = partial.user ?? prev.user;
+    const updatedProf = partial.professional ?? prev.professional;
+    const updatedExp = partial.experiences ?? prev.experiences;
+    const updatedEdu = partial.education ?? prev.education;
+    const updatedPort = partial.portfolio ?? prev.portfolio;
+    const updatedResume = partial.resume !== undefined ? partial.resume : prev.resume;
+    const updatedLinks = partial.links ?? prev.links;
+
+    const nextStats = computeProfileCompletionStats(
+      updatedUser,
+      updatedProf,
+      updatedExp,
+      updatedEdu,
+      updatedPort,
+      updatedResume,
+      updatedLinks,
+      prev.stats,
+    );
+
+    return {
+      ...prev,
+      ...partial,
+      user: updatedUser,
+      professional: updatedProf,
+      experiences: updatedExp,
+      education: updatedEdu,
+      portfolio: updatedPort,
+      resume: updatedResume,
+      links: updatedLinks,
+      stats: nextStats,
+    };
+  }, []);
+
   // Section Update Handlers (Local state updating — NO /profile/me refetches)
   const handleAvatarUpdated = (newAvatarUrl: string | undefined) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        user: { ...profileData.user, avatarUrl: newAvatarUrl },
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { user: { ...prev.user, avatarUrl: newAvatarUrl } }) : prev));
   };
 
   const handleBannerUpdated = (newBannerUrl: string | undefined) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        user: { ...profileData.user, bannerUrl: newBannerUrl },
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { user: { ...prev.user, bannerUrl: newBannerUrl } }) : prev));
   };
 
   const handleBasicProfileUpdated = (updatedUser: ProfileUser) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        user: { ...profileData.user, ...updatedUser },
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { user: { ...prev.user, ...updatedUser } }) : prev));
   };
 
   const handleIdentityUpdated = (updatedIdentity: ProfessionalIdentity) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        professional: updatedIdentity,
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { professional: updatedIdentity }) : prev));
   };
 
   // Experience Handlers
@@ -214,20 +229,17 @@ export const ProfilePage: React.FC = () => {
     setIsExpModalOpen(true);
   };
   const handleExperienceSaved = (savedExp: ExperienceItem) => {
-    if (!profileData) return;
-    const exists = profileData.experiences.some((e) => e.id === savedExp.id);
-    const nextExperiences = exists
-      ? profileData.experiences.map((e) => (e.id === savedExp.id ? savedExp : e))
-      : [savedExp, ...profileData.experiences];
-    setProfileData({ ...profileData, experiences: nextExperiences });
+    setProfileData((prev) => {
+      if (!prev) return prev;
+      const exists = prev.experiences.some((e) => e.id === savedExp.id);
+      const nextExperiences = exists
+        ? prev.experiences.map((e) => (e.id === savedExp.id ? savedExp : e))
+        : [savedExp, ...prev.experiences];
+      return updateProfileDataState(prev, { experiences: nextExperiences });
+    });
   };
   const handleExperienceDeleted = async (id: string, skipApi = false) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        experiences: profileData.experiences.filter((e) => e.id !== id),
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { experiences: prev.experiences.filter((e) => e.id !== id) }) : prev));
     if (!skipApi && accessToken) {
       try {
         await deleteExperience(accessToken, id);
@@ -247,20 +259,17 @@ export const ProfilePage: React.FC = () => {
     setIsEduModalOpen(true);
   };
   const handleEducationSaved = (savedEdu: EducationItem) => {
-    if (!profileData) return;
-    const exists = profileData.education.some((e) => e.id === savedEdu.id);
-    const nextEducation = exists
-      ? profileData.education.map((e) => (e.id === savedEdu.id ? savedEdu : e))
-      : [...profileData.education, savedEdu];
-    setProfileData({ ...profileData, education: nextEducation });
+    setProfileData((prev) => {
+      if (!prev) return prev;
+      const exists = prev.education.some((e) => e.id === savedEdu.id);
+      const nextEducation = exists
+        ? prev.education.map((e) => (e.id === savedEdu.id ? savedEdu : e))
+        : [...prev.education, savedEdu];
+      return updateProfileDataState(prev, { education: nextEducation });
+    });
   };
   const handleEducationDeleted = async (id: string, skipApi = false) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        education: profileData.education.filter((e) => e.id !== id),
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { education: prev.education.filter((e) => e.id !== id) }) : prev));
     if (!skipApi && accessToken) {
       try {
         await deleteEducation(accessToken, id);
@@ -280,20 +289,17 @@ export const ProfilePage: React.FC = () => {
     setIsProjModalOpen(true);
   };
   const handlePortfolioSaved = (savedItem: PortfolioItem) => {
-    if (!profileData) return;
-    const exists = profileData.portfolio.some((p) => p.id === savedItem.id);
-    const nextPortfolio = exists
-      ? profileData.portfolio.map((p) => (p.id === savedItem.id ? savedItem : p))
-      : [savedItem, ...profileData.portfolio];
-    setProfileData({ ...profileData, portfolio: nextPortfolio });
+    setProfileData((prev) => {
+      if (!prev) return prev;
+      const exists = prev.portfolio.some((p) => p.id === savedItem.id);
+      const nextPortfolio = exists
+        ? prev.portfolio.map((p) => (p.id === savedItem.id ? savedItem : p))
+        : [savedItem, ...prev.portfolio];
+      return updateProfileDataState(prev, { portfolio: nextPortfolio });
+    });
   };
   const handlePortfolioDeleted = async (id: string, skipApi = false) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        portfolio: profileData.portfolio.filter((p) => p.id !== id),
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { portfolio: prev.portfolio.filter((p) => p.id !== id) }) : prev));
     if (!skipApi && accessToken) {
       try {
         await deletePortfolioItem(accessToken, id);
@@ -305,16 +311,14 @@ export const ProfilePage: React.FC = () => {
 
   // Resume Handlers
   const handleResumeSaved = (savedResume: Resume | null) => {
-    if (profileData) {
-      setProfileData({ ...profileData, resume: savedResume });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { resume: savedResume }) : prev));
   };
   const handleToggleResumeVisibility = async () => {
     if (profileData?.resume && accessToken) {
       const nextVis = profileData.resume.visibility === 'Public' ? 'Private' : 'Public';
       try {
         const updated = await updateResumeVisibility(accessToken, nextVis);
-        setProfileData({ ...profileData, resume: updated });
+        setProfileData((prev) => (prev ? updateProfileDataState(prev, { resume: updated }) : prev));
       } catch (err) {
         console.warn('Resume visibility toggle note:', err);
       }
@@ -324,7 +328,7 @@ export const ProfilePage: React.FC = () => {
     if (accessToken && profileData?.resume) {
       try {
         await deleteResume(accessToken);
-        setProfileData({ ...profileData, resume: null });
+        setProfileData((prev) => (prev ? updateProfileDataState(prev, { resume: null }) : prev));
       } catch (err) {
         console.warn('Resume delete note:', err);
       }
@@ -341,20 +345,17 @@ export const ProfilePage: React.FC = () => {
     setIsLinkModalOpen(true);
   };
   const handleLinkSaved = (savedLink: ProfileLink) => {
-    if (!profileData) return;
-    const exists = profileData.links.some((l) => l.id === savedLink.id);
-    const nextLinks = exists
-      ? profileData.links.map((l) => (l.id === savedLink.id ? savedLink : l))
-      : [...profileData.links, savedLink];
-    setProfileData({ ...profileData, links: nextLinks });
+    setProfileData((prev) => {
+      if (!prev) return prev;
+      const exists = prev.links.some((l) => l.id === savedLink.id);
+      const nextLinks = exists
+        ? prev.links.map((l) => (l.id === savedLink.id ? savedLink : l))
+        : [...prev.links, savedLink];
+      return updateProfileDataState(prev, { links: nextLinks });
+    });
   };
   const handleLinkDeleted = async (id: string, skipApi = false) => {
-    if (profileData) {
-      setProfileData({
-        ...profileData,
-        links: profileData.links.filter((l) => l.id !== id),
-      });
-    }
+    setProfileData((prev) => (prev ? updateProfileDataState(prev, { links: prev.links.filter((l) => l.id !== id) }) : prev));
     if (!skipApi && accessToken) {
       try {
         await deleteLink(accessToken, id);
@@ -495,6 +496,7 @@ export const ProfilePage: React.FC = () => {
           {isOwner && (
             <ProfileCompletionCard
               stats={profileData.stats}
+              profileData={profileData}
               onOpenEditModal={() => setIsBasicModalOpen(true)}
             />
           )}

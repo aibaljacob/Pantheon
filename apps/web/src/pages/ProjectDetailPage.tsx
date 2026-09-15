@@ -46,6 +46,7 @@ import { RecommendedTalentSection } from '../features/projects/components/Recomm
 import { ProjectRepoTab } from '../features/projects/components/repo/ProjectRepoTab';
 import { ApplyForRoleModal } from '../features/projects/components/ApplyForRoleModal';
 import { FounderApplicationsSection } from '../features/projects/components/FounderApplicationsSection';
+import { TeamSection } from '../features/projects/components/TeamSection';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -144,7 +145,7 @@ export const ProjectDetailPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [editingRole, setEditingRole] = useState<ProjectRoleItem | null>(null);
-  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'repo' | 'applications'>('overview');
+  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'team' | 'repo' | 'applications'>('overview');
   const [applyingRole, setApplyingRole] = useState<ProjectRoleItem | null>(null);
 
   // AI Recommendation State
@@ -424,6 +425,22 @@ export const ProjectDetailPage: React.FC = () => {
           >
             <LayoutDashboard className="h-4 w-4 text-amber-400" />
             <span>Production Overview</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveProjectTab('team')}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              activeProjectTab === 'team'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <Users className="h-4 w-4 text-amber-400" />
+            <span>Team</span>
+            <span className="rounded-full bg-[#201f1e] text-[#cac6bc] border border-[#48473f] px-2 py-0.2 text-[9px] font-bold">
+              {project.memberCount}
+            </span>
           </button>
 
           <button
@@ -736,7 +753,11 @@ export const ProjectDetailPage: React.FC = () => {
             {/* Founder / Admin Candidate Recommendation Section */}
             {(project.isFounder || currentUser?.role === 'Administrator') && (
               <div className="pt-2">
-                <RecommendedTalentSection project={project} roles={roles} />
+                <RecommendedTalentSection
+                  project={project}
+                  roles={roles}
+                  onRoleAssigned={() => loadProject()}
+                />
               </div>
             )}
           </div>
@@ -790,9 +811,18 @@ export const ProjectDetailPage: React.FC = () => {
                     Production Team
                   </h3>
                 </div>
-                <span className="text-xs font-mono text-[#8c887e]">
-                  {project.memberCount} {project.memberCount === 1 ? 'member' : 'members'}
-                </span>
+                <div className="flex items-center gap-2 font-mono">
+                  <span className="text-xs text-[#8c887e]">
+                    {project.memberCount} {project.memberCount === 1 ? 'member' : 'members'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveProjectTab('team')}
+                    className="text-xs text-amber-400 hover:text-amber-300 ml-1 font-semibold transition-colors"
+                  >
+                    Manage →
+                  </button>
+                </div>
               </div>
 
               {/* Members List */}
@@ -841,6 +871,17 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+        {/* Tab: Team Roster & Founder Management */}
+        {activeProjectTab === 'team' && (
+          <TeamSection
+            projectId={project.id}
+            projectName={project.name}
+            isFounder={project.isFounder}
+            roles={roles}
+            onTeamUpdated={() => loadProject()}
+          />
+        )}
 
         {/* Tab 2: Code & Repository Management */}
         {activeProjectTab === 'repo' && (

@@ -25,31 +25,66 @@ export function formatApiAssetUrl(url?: string | null): string {
   return `${getApiBaseUrl()}/${url}`;
 }
 
+export function computeProfileCompletionStats(
+  user: any,
+  professional: any,
+  experiences: any[],
+  education: any[],
+  portfolio: any[],
+  resume: any | null,
+  links: any[],
+  existingStats?: any,
+) {
+  let score = 0;
+
+  // 1. Basic Info (50 points)
+  const hasName = Boolean(user.displayName?.trim() || (user.firstName?.trim() && user.lastName?.trim()));
+  if (hasName) score += 10;
+  if (user.headline?.trim()) score += 10;
+  if (user.bio?.trim()) score += 10;
+  if (user.avatarUrl?.trim()) score += 10;
+  if (user.location?.trim()) score += 5;
+  if (user.bannerUrl?.trim()) score += 5;
+
+  // 2. Professional Identity (15 points)
+  const hasRoles = (professional?.roles?.length ?? 0) > 0;
+  const hasSkills = (professional?.skills?.length ?? 0) > 0;
+  const hasEnginesOrTools =
+    (professional?.gameEngines?.length ?? 0) > 0 || (professional?.tools?.length ?? 0) > 0;
+
+  if (hasRoles) score += 5;
+  if (hasSkills) score += 5;
+  if (hasEnginesOrTools) score += 5;
+
+  // 3. Work Experience / Education (15 points)
+  const hasExpOrEdu = (experiences?.length ?? 0) > 0 || (education?.length ?? 0) > 0;
+  if (hasExpOrEdu) score += 15;
+
+  // 4. Official Resume (10 points)
+  if (resume) score += 10;
+
+  // 5. External Links (10 points)
+  if ((links?.length ?? 0) > 0) score += 10;
+
+  const profileCompletion = Math.min(100, Math.max(0, Math.round(score)));
+
+  // Portfolio score: 0 for 0 projects, 50% for 1 project, 100% for 2+ projects
+  let portfolioCompletion = 0;
+  if (portfolio && portfolio.length > 0) {
+    portfolioCompletion = Math.min(100, portfolio.length * 50);
+  }
+
+  return {
+    followersCount: existingStats?.followers ?? existingStats?.followersCount ?? 0,
+    followingCount: existingStats?.following ?? existingStats?.followingCount ?? 0,
+    profileCompletion,
+    portfolioCompletion,
+  };
+}
+
 export function mapServerProfileToFrontendProfile(raw: any): ProfileData {
   if (!raw) {
     throw new Error('Empty server profile payload.');
-  }
-
-  // Safely extract numeric completion scores
-  let profileCompletion = 85;
-  let portfolioCompletion = 75;
-
-  if (typeof raw.completion === 'object' && raw.completion !== null) {
-    if (typeof raw.completion.profile === 'number') {
-      profileCompletion = raw.completion.profile;
-    }
-    if (typeof raw.completion.portfolio === 'number') {
-      portfolioCompletion = raw.completion.portfolio;
-    }
-  } else if (typeof raw.completion === 'number') {
-    profileCompletion = raw.completion;
-  }
-
-  if (typeof raw.stats?.profileCompletion === 'number') {
-    profileCompletion = raw.stats.profileCompletion;
-  }
-  if (typeof raw.stats?.portfolioCompletion === 'number') {
-    portfolioCompletion = raw.stats.portfolioCompletion;
   }
 
   const user = raw.user || raw;
@@ -73,43 +108,57 @@ export function mapServerProfileToFrontendProfile(raw: any): ProfileData {
       }
     : null;
 
+  const formattedUser = {
+    id: user.id || prof.userId || '',
+    username: user.username || '',
+    firstName: prof.firstName || user.firstName || '',
+    lastName: prof.lastName || user.lastName || '',
+    displayName: prof.displayName || user.displayName || '',
+    avatarUrl: formatApiAssetUrl(prof.avatarUrl || user.avatarUrl),
+    bannerUrl: formatApiAssetUrl(prof.bannerUrl || user.bannerUrl),
+    headline: prof.headline || user.headline || '',
+    location: prof.location || user.location || '',
+    timezone: prof.timezone || user.timezone || '',
+    experienceYears: prof.experienceYears ?? user.experienceYears ?? 0,
+    bio: prof.bio || user.bio || '',
+    availability: prof.availability || user.availability || 'Available for collaboration',
+    isFounder: user.username === 'aibal' || Boolean(prof.isFounder || user.isFounder),
+  };
+
+  const formattedIdentity = {
+    roles: identity.roles || [],
+    specializations: identity.specializations || [],
+    skills: identity.skills || [],
+    tools: identity.tools || [],
+    gameEngines: identity.gameEngines || [],
+    genres: identity.genres || [],
+    platforms: identity.platforms || [],
+  };
+
+  const experiences = prof.experiences || raw.experiences || [];
+  const education = prof.education || raw.education || [];
+  const links = prof.links || raw.links || [];
+
+  const computedStats = computeProfileCompletionStats(
+    formattedUser,
+    formattedIdentity,
+    experiences,
+    education,
+    formattedPortfolio,
+    formattedResume,
+    links,
+    stats,
+  );
+
   return {
-    user: {
-      id: user.id || prof.userId || '',
-      username: user.username || '',
-      firstName: prof.firstName || user.firstName || '',
-      lastName: prof.lastName || user.lastName || '',
-      displayName: prof.displayName || user.displayName || '',
-      avatarUrl: formatApiAssetUrl(prof.avatarUrl || user.avatarUrl),
-      bannerUrl: formatApiAssetUrl(prof.bannerUrl || user.bannerUrl),
-      headline: prof.headline || user.headline || '',
-      location: prof.location || user.location || '',
-      timezone: prof.timezone || user.timezone || '',
-      experienceYears: prof.experienceYears ?? user.experienceYears ?? 0,
-      bio: prof.bio || user.bio || '',
-      availability: prof.availability || user.availability || 'Available for collaboration',
-      isFounder: user.username === 'aibal' || Boolean(prof.isFounder || user.isFounder),
-    },
-    professional: {
-      roles: identity.roles || [],
-      specializations: identity.specializations || [],
-      skills: identity.skills || [],
-      tools: identity.tools || [],
-      gameEngines: identity.gameEngines || [],
-      genres: identity.genres || [],
-      platforms: identity.platforms || [],
-    },
-    experiences: prof.experiences || raw.experiences || [],
-    education: prof.education || raw.education || [],
+    user: formattedUser,
+    professional: formattedIdentity,
+    experiences,
+    education,
     portfolio: formattedPortfolio,
     resume: formattedResume,
-    links: prof.links || raw.links || [],
-    stats: {
-      followersCount: stats.followers ?? stats.followersCount ?? 0,
-      followingCount: stats.following ?? stats.followingCount ?? 0,
-      profileCompletion,
-      portfolioCompletion,
-    },
+    links,
+    stats: computedStats,
     isOwner: Boolean(raw.isOwner),
     isFollowing: Boolean(raw.isFollowing),
   };
@@ -475,7 +524,11 @@ export async function uploadResume(accessToken: string, file: File): Promise<any
     throw new Error('Failed to upload resume.');
   }
 
-  return response.json();
+  const result = await response.json();
+  return {
+    ...result,
+    downloadUrl: formatApiAssetUrl(result.downloadUrl),
+  };
 }
 
 export async function updateResumeVisibility(accessToken: string, visibility: 'Public' | 'Private'): Promise<any> {
@@ -489,7 +542,11 @@ export async function updateResumeVisibility(accessToken: string, visibility: 'P
     throw new Error('Failed to update resume visibility.');
   }
 
-  return response.json();
+  const result = await response.json();
+  return {
+    ...result,
+    downloadUrl: formatApiAssetUrl(result.downloadUrl),
+  };
 }
 
 export async function deleteResume(accessToken: string): Promise<any> {
