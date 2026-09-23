@@ -1,8 +1,6 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Sparkles, ArrowRight, RefreshCw, UserCheck, ExternalLink, Loader2 } from 'lucide-react';
+import { Sparkles, ArrowRight, RefreshCw, UserCheck, Loader2 } from 'lucide-react';
 import type { DraftRoleRecommendation, ProjectDetail } from '../types';
-import { formatApiAssetUrl } from '../../profile/services/profileService';
 import { Badge } from '../../../components/ui/Badge';
 
 interface AiRoleRecommendationsSectionProps {
@@ -179,73 +177,6 @@ export const AiRoleRecommendationsSection: React.FC<AiRoleRecommendationsSection
                       Tool: {t.name}
                     </span>
                   ))}
-                </div>
-              )}
-
-              {/* RECOMMENDED USERS FOR THIS ROLE */}
-              {draft.topCandidates && draft.topCandidates.length > 0 && (
-                <div className="border-t border-[#201f1e] pt-3 space-y-2">
-                  <span className="font-mono text-[10px] uppercase tracking-wider text-[#8c887e]">
-                    Recommended Developers For This Role
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                    {draft.topCandidates.map((tc) => (
-                      <div
-                        key={tc.candidate.id}
-                        className="rounded-xl border border-[#2b2a29] bg-[#1c1b1a] p-3 space-y-2 flex flex-col justify-between hover:border-[#48473f] transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            {tc.candidate.avatarUrl ? (
-                              <img
-                                src={formatApiAssetUrl(tc.candidate.avatarUrl)}
-                                alt={tc.candidate.displayName}
-                                className="h-7 w-7 rounded-full object-cover border border-[#48473f] shrink-0"
-                              />
-                            ) : (
-                              <div className="h-7 w-7 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#ffffff] shrink-0">
-                                {tc.candidate.displayName.charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-headline text-xs font-bold text-[#ffffff] truncate">
-                                {tc.candidate.displayName}
-                              </p>
-                              <p className="text-[10px] font-mono text-[#8c887e] truncate">
-                                @{tc.candidate.username}
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-400 shrink-0">
-                            {tc.totalScore}%
-                          </span>
-                        </div>
-
-                        {/* Why this user is recommended */}
-                        <p className="text-[11px] text-[#cac6bc] line-clamp-2 font-sans bg-[#141312] p-1.5 rounded-lg border border-[#201f1e]">
-                          <span className="font-bold text-[#e6e2df]">Why recommended: </span>
-                          {tc.explanation}
-                        </p>
-
-                        <div className="flex items-center justify-between pt-1">
-                          <span className="text-[10px] font-mono text-[#8c887e]">
-                            {tc.candidate.experienceYears !== null && tc.candidate.experienceYears !== undefined
-                              ? `${tc.candidate.experienceYears} yrs exp`
-                              : 'Exp unspecified'}
-                          </span>
-                          <Link
-                            to={`/u/${tc.candidate.username}`}
-                            className="inline-flex items-center gap-1 font-mono text-[10px] text-[#e6e2df] hover:text-[#ffffff] underline"
-                          >
-                            <span>Profile</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
             </div>

@@ -176,7 +176,13 @@ export const DashboardProjectsSection: React.FC = () => {
                   </div>
 
                   {/* User Role Badge */}
-                  <div className="absolute top-3 right-3 rounded-full border border-[#48473f] bg-[#201f1e]/90 backdrop-blur-md px-3 py-0.5 text-[10px] font-mono text-[#ffffff] flex items-center gap-1">
+                  <div
+                    className={`absolute top-3 right-3 rounded-full backdrop-blur-md px-3 py-0.5 text-[10px] font-mono flex items-center gap-1 ${
+                      project.isFounder
+                        ? 'border border-amber-500/40 bg-amber-950/40 text-amber-300'
+                        : 'border border-[#48473f] bg-[#201f1e]/90 text-[#ffffff]'
+                    }`}
+                  >
                     {project.isFounder ? (
                       <>
                         <Crown className="h-3 w-3 text-amber-400" />

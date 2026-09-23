@@ -369,14 +369,17 @@ describe('ProjectApplicationsService', () => {
         data: {
           projectId: 'proj-1',
           userId: 'user-2',
-          role: 'Member',
+          role: 'Senior Audio Designer',
           projectRoleId: 'role-1',
           status: ProjectMemberStatus.ACTIVE,
         },
       });
       expect(txMock.projectRole.update).toHaveBeenCalledWith({
         where: { id: 'role-1' },
-        data: { status: ProjectRoleStatus.FILLED },
+        data: {
+          assignedMemberId: 'mem-1',
+          status: ProjectRoleStatus.FILLED,
+        },
       });
     });
 

@@ -309,6 +309,8 @@ export class ProjectRoleResponseDto {
   experienceLevel: ProjectRoleExperienceLevel;
   commitment: ProjectRoleCommitment;
   status: ProjectRoleStatus;
+  assignedMemberId?: string | null;
+  assignedMemberName?: string | null;
   createdAt: string;
   updatedAt: string;
   requiredSkills: ProjectRoleTaxonomyItemDto[];

@@ -22,25 +22,38 @@ import type {
 export class ProjectMembersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private mapToActiveMemberDto(member: any, founderId: string): ProjectActiveTeamMemberDto {
-    const profile = member.user.profile;
+  private mapToActiveMemberDto(
+    member: any,
+    founderId: string,
+    allRoles: any[] = [],
+    acceptedApps: any[] = [],
+    acceptedInvs: any[] = [],
+  ): ProjectActiveTeamMemberDto {
+    const profile = member.user?.profile;
     const displayName =
       profile?.displayName ||
       `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() ||
-      member.user.username;
+      member.user?.username ||
+      'Member';
 
-    const assignedRoles = (member.assignedRoles || []).map((r: any) => ({
-      id: r.id,
-      roleId: r.roleId,
-      roleName: r.role?.name || 'Role',
-      title: r.title || null,
-      experienceLevel: r.experienceLevel,
-      commitment: r.commitment,
-      status: r.status,
-    }));
+    const roleMap = new Map<string, any>();
 
-    if (assignedRoles.length === 0 && member.projectRole) {
-      assignedRoles.push({
+    for (const r of member.assignedRoles || []) {
+      if (r && r.id) {
+        roleMap.set(r.id, {
+          id: r.id,
+          roleId: r.roleId,
+          roleName: r.role?.name || 'Role',
+          title: r.title || null,
+          experienceLevel: r.experienceLevel,
+          commitment: r.commitment,
+          status: r.status,
+        });
+      }
+    }
+
+    if (member.projectRole && !roleMap.has(member.projectRole.id)) {
+      roleMap.set(member.projectRole.id, {
         id: member.projectRole.id,
         roleId: member.projectRole.roleId,
         roleName: member.projectRole.role?.name || 'Role',
@@ -51,49 +64,102 @@ export class ProjectMembersService {
       });
     }
 
-    const primaryRole = assignedRoles[0] || (member.projectRole ? {
-      id: member.projectRole.id,
-      title: member.projectRole.title,
-      roleName: member.projectRole.role?.name,
-    } : null);
+    for (const pr of allRoles) {
+      if (!roleMap.has(pr.id)) {
+        const isAssignedDirectly =
+          pr.assignedMemberId === member.id || pr.assignedMemberId === member.userId;
+        const isFromAcceptedApp = acceptedApps.some(
+          (app) => app.applicantId === member.userId && app.projectRoleId === pr.id,
+        );
+        const isFromAcceptedInv = acceptedInvs.some(
+          (inv) => inv.inviteeId === member.userId && inv.projectRoleId === pr.id,
+        );
+        const isFilledWithMatchingTitle =
+          pr.status === ProjectRoleStatus.FILLED &&
+          !pr.assignedMemberId &&
+          member.role &&
+          member.role !== 'Member' &&
+          member.role !== 'Founder' &&
+          (pr.title?.toLowerCase() === member.role.toLowerCase() ||
+            pr.role?.name?.toLowerCase() === member.role.toLowerCase());
+
+        if (
+          isAssignedDirectly ||
+          isFromAcceptedApp ||
+          isFromAcceptedInv ||
+          isFilledWithMatchingTitle
+        ) {
+          roleMap.set(pr.id, {
+            id: pr.id,
+            roleId: pr.roleId,
+            roleName: pr.role?.name || 'Role',
+            title: pr.title || null,
+            experienceLevel: pr.experienceLevel,
+            commitment: pr.commitment,
+            status: pr.status,
+          });
+        }
+      }
+    }
+
+    const assignedRoles = Array.from(roleMap.values());
+    const primaryRole = assignedRoles[0] || null;
+    const isFounder = (member.user?.id || member.userId) === founderId;
+    const roleTitle =
+      primaryRole?.title ||
+      primaryRole?.roleName ||
+      (member.role && member.role !== 'Member' ? member.role : isFounder ? 'Founder' : 'Member');
 
     return {
       id: member.id,
       membershipId: member.id,
-      userId: member.user.id,
-      username: member.user.username,
+      userId: member.user?.id || member.userId,
+      username: member.user?.username || '',
       displayName,
       avatarUrl: profile?.avatarUrl || null,
       headline: profile?.headline || null,
-      role: member.role,
-      isFounder: member.user.id === founderId,
+      role: roleTitle,
+      isFounder,
       projectRoleId: primaryRole?.id || member.projectRoleId || null,
       projectRoleTitle: primaryRole?.title || member.projectRole?.title || null,
       projectRoleName: primaryRole?.roleName || member.projectRole?.role?.name || null,
       assignedRoles,
-      joinedAt: member.joinedAt.toISOString(),
+      joinedAt: member.joinedAt instanceof Date ? member.joinedAt.toISOString() : String(member.joinedAt),
     };
   }
 
-  private mapToFormerMemberDto(member: any, founderId: string): ProjectFormerTeamMemberDto {
-    const profile = member.user.profile;
+  private mapToFormerMemberDto(
+    member: any,
+    founderId: string,
+    allRoles: any[] = [],
+    acceptedApps: any[] = [],
+    acceptedInvs: any[] = [],
+  ): ProjectFormerTeamMemberDto {
+    const profile = member.user?.profile;
     const displayName =
       profile?.displayName ||
       `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() ||
-      member.user.username;
+      member.user?.username ||
+      'Member';
 
-    const assignedRoles = (member.assignedRoles || []).map((r: any) => ({
-      id: r.id,
-      roleId: r.roleId,
-      roleName: r.role?.name || 'Role',
-      title: r.title || null,
-      experienceLevel: r.experienceLevel,
-      commitment: r.commitment,
-      status: r.status,
-    }));
+    const roleMap = new Map<string, any>();
 
-    if (assignedRoles.length === 0 && member.projectRole) {
-      assignedRoles.push({
+    for (const r of member.assignedRoles || []) {
+      if (r && r.id) {
+        roleMap.set(r.id, {
+          id: r.id,
+          roleId: r.roleId,
+          roleName: r.role?.name || 'Role',
+          title: r.title || null,
+          experienceLevel: r.experienceLevel,
+          commitment: r.commitment,
+          status: r.status,
+        });
+      }
+    }
+
+    if (member.projectRole && !roleMap.has(member.projectRole.id)) {
+      roleMap.set(member.projectRole.id, {
         id: member.projectRole.id,
         roleId: member.projectRole.roleId,
         roleName: member.projectRole.role?.name || 'Role',
@@ -104,29 +170,56 @@ export class ProjectMembersService {
       });
     }
 
-    const primaryRole = assignedRoles[0] || (member.projectRole ? {
-      id: member.projectRole.id,
-      title: member.projectRole.title,
-      roleName: member.projectRole.role?.name,
-    } : null);
+    for (const pr of allRoles) {
+      if (!roleMap.has(pr.id)) {
+        const isAssignedDirectly =
+          pr.assignedMemberId === member.id || pr.assignedMemberId === member.userId;
+        const isFromAcceptedApp = acceptedApps.some(
+          (app) => app.applicantId === member.userId && app.projectRoleId === pr.id,
+        );
+        const isFromAcceptedInv = acceptedInvs.some(
+          (inv) => inv.inviteeId === member.userId && inv.projectRoleId === pr.id,
+        );
+
+        if (isAssignedDirectly || isFromAcceptedApp || isFromAcceptedInv) {
+          roleMap.set(pr.id, {
+            id: pr.id,
+            roleId: pr.roleId,
+            roleName: pr.role?.name || 'Role',
+            title: pr.title || null,
+            experienceLevel: pr.experienceLevel,
+            commitment: pr.commitment,
+            status: pr.status,
+          });
+        }
+      }
+    }
+
+    const assignedRoles = Array.from(roleMap.values());
+    const primaryRole = assignedRoles[0] || null;
+    const isFounder = (member.user?.id || member.userId) === founderId;
+    const roleTitle =
+      primaryRole?.title ||
+      primaryRole?.roleName ||
+      (member.role && member.role !== 'Member' ? member.role : isFounder ? 'Founder' : 'Member');
 
     return {
       id: member.id,
       membershipId: member.id,
-      userId: member.user.id,
-      username: member.user.username,
+      userId: member.user?.id || member.userId,
+      username: member.user?.username || '',
       displayName,
       avatarUrl: profile?.avatarUrl || null,
       headline: profile?.headline || null,
-      role: member.role,
-      isFounder: member.user.id === founderId,
+      role: roleTitle,
+      isFounder,
       projectRoleId: primaryRole?.id || member.projectRoleId || null,
       projectRoleTitle: primaryRole?.title || member.projectRole?.title || null,
       projectRoleName: primaryRole?.roleName || member.projectRole?.role?.name || null,
       assignedRoles,
       status: member.status,
-      joinedAt: member.joinedAt.toISOString(),
-      leftAt: member.leftAt ? member.leftAt.toISOString() : null,
+      joinedAt: member.joinedAt instanceof Date ? member.joinedAt.toISOString() : String(member.joinedAt),
+      leftAt: member.leftAt ? (member.leftAt instanceof Date ? member.leftAt.toISOString() : String(member.leftAt)) : null,
     };
   }
 
@@ -168,41 +261,61 @@ export class ProjectMembersService {
       }
     }
 
-    const allMembers = await this.prisma.projectMember.findMany({
-      where: { projectId: project.id },
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            profile: {
-              select: {
-                displayName: true,
-                firstName: true,
-                lastName: true,
-                avatarUrl: true,
-                headline: true,
+    const [allMembers, allRoles, acceptedApps, acceptedInvs] = await Promise.all([
+      this.prisma.projectMember.findMany({
+        where: { projectId: project.id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  firstName: true,
+                  lastName: true,
+                  avatarUrl: true,
+                  headline: true,
+                },
               },
             },
           },
-        },
-        projectRole: {
-          include: {
-            role: true,
+          projectRole: {
+            include: {
+              role: true,
+            },
+          },
+          assignedRoles: {
+            include: {
+              role: true,
+            },
           },
         },
-        assignedRoles: {
-          include: {
-            role: true,
-          },
+        orderBy: { joinedAt: 'asc' },
+      }),
+      this.prisma.projectRole.findMany({
+        where: { projectId: project.id },
+        include: {
+          role: true,
         },
-      },
-      orderBy: { joinedAt: 'asc' },
-    });
+      }),
+      this.prisma.projectApplication?.findMany
+        ? this.prisma.projectApplication.findMany({
+            where: { projectId: project.id, status: 'ACCEPTED' as any },
+            select: { applicantId: true, projectRoleId: true },
+          })
+        : Promise.resolve([]),
+      this.prisma.projectInvitation?.findMany
+        ? this.prisma.projectInvitation.findMany({
+            where: { projectId: project.id, status: 'ACCEPTED' as any },
+            select: { inviteeId: true, projectRoleId: true },
+          })
+        : Promise.resolve([]),
+    ]);
 
     const activeMembers = allMembers
       .filter((m) => m.status === ProjectMemberStatus.ACTIVE)
-      .map((m) => this.mapToActiveMemberDto(m, project.founderId));
+      .map((m) => this.mapToActiveMemberDto(m, project.founderId, allRoles, acceptedApps, acceptedInvs));
 
     const formerMembers = allMembers
       .filter(
@@ -215,7 +328,31 @@ export class ProjectMembersService {
         const dateB = b.leftAt ? b.leftAt.getTime() : b.joinedAt.getTime();
         return dateB - dateA;
       })
-      .map((m) => this.mapToFormerMemberDto(m, project.founderId));
+      .map((m) => this.mapToFormerMemberDto(m, project.founderId, allRoles, acceptedApps, acceptedInvs));
+
+    // Opportunistically ensure DB relations are synced for matched roles
+    for (const am of activeMembers) {
+      for (const ar of am.assignedRoles) {
+        const matchingRole = allRoles.find((r) => r.id === ar.id);
+        if (matchingRole && matchingRole.assignedMemberId !== am.id) {
+          this.prisma.projectRole
+            .update({
+              where: { id: matchingRole.id },
+              data: { assignedMemberId: am.id, status: ProjectRoleStatus.FILLED },
+            })
+            .catch(() => {});
+        }
+        const dbMember = allMembers.find((m) => m.id === am.id);
+        if (dbMember && !dbMember.projectRoleId) {
+          this.prisma.projectMember
+            .update({
+              where: { id: am.id },
+              data: { projectRoleId: ar.id, role: ar.title || ar.roleName || am.role },
+            })
+            .catch(() => {});
+        }
+      }
+    }
 
     return {
       projectId: project.id,
@@ -280,6 +417,17 @@ export class ProjectMembersService {
         data: {
           assignedMemberId: null,
           status: ProjectRoleStatus.OPEN,
+        },
+      });
+
+      // Unassign any tasks assigned to this removed member
+      await tx.task.updateMany({
+        where: {
+          projectId,
+          assigneeId: current.userId,
+        },
+        data: {
+          assigneeId: null,
         },
       });
 
@@ -373,6 +521,17 @@ export class ProjectMembersService {
         data: {
           assignedMemberId: null,
           status: ProjectRoleStatus.OPEN,
+        },
+      });
+
+      // Unassign any tasks assigned to this departing member
+      await tx.task.updateMany({
+        where: {
+          projectId,
+          assigneeId: current.userId,
+        },
+        data: {
+          assigneeId: null,
         },
       });
 
@@ -489,12 +648,26 @@ export class ProjectMembersService {
         });
       }
 
-      // 3. Update member's primary projectRoleId (for legacy support)
+      // 3. Update member's primary projectRoleId and role title (for legacy support)
       const primaryRoleId = targetRoleIds[0] || null;
+      let primaryRoleTitle = targetMember.role;
+      if (primaryRoleId) {
+        const primaryRole = await tx.projectRole.findUnique({
+          where: { id: primaryRoleId },
+          include: { role: true },
+        });
+        if (primaryRole) {
+          primaryRoleTitle = primaryRole.title || primaryRole.role.name || 'Member';
+        }
+      } else {
+        primaryRoleTitle = 'Member';
+      }
+
       const updated = await tx.projectMember.update({
         where: { id: memberId },
         data: {
           projectRoleId: primaryRoleId,
+          role: primaryRoleTitle,
         },
         include: {
           user: {
@@ -561,6 +734,8 @@ export class ProjectMembersService {
       throw new BadRequestException('This project role is closed.');
     }
 
+    const roleTitle = projectRole.title || projectRole.role.name || 'Member';
+
     return this.prisma.$transaction(async (tx) => {
       let member = await tx.projectMember.findUnique({
         where: {
@@ -573,7 +748,7 @@ export class ProjectMembersService {
           data: {
             projectId,
             userId: targetUserId,
-            role: 'Member',
+            role: roleTitle,
             projectRoleId,
             status: ProjectMemberStatus.ACTIVE,
           },
@@ -585,13 +760,17 @@ export class ProjectMembersService {
             status: ProjectMemberStatus.ACTIVE,
             leftAt: null,
             joinedAt: new Date(),
+            role: roleTitle,
             projectRoleId: member.projectRoleId || projectRoleId,
           },
         });
-      } else if (!member.projectRoleId) {
+      } else {
         member = await tx.projectMember.update({
           where: { id: member.id },
-          data: { projectRoleId },
+          data: {
+            projectRoleId: member.projectRoleId || projectRoleId,
+            role: member.role === 'Member' ? roleTitle : member.role,
+          },
         });
       }
 

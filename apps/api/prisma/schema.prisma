@@ -34,6 +34,9 @@ model User {
   mergedPullRequests      RepoPullRequest[]        @relation("PrMergedBy")
   repoReleases            RepoRelease[]
   applications            ProjectApplication[]     @relation("ProjectApplications")
+  assignedTasks           Task[]                   @relation("AssignedTasks")
+  triggeredBuilds         BuildJob[]               @relation("TriggeredBuilds")
+  uploadedPlayableBuilds  PlayableBuild[]          @relation("UploadedPlayableBuilds")
 }
 
 model UserProfile {
@@ -389,6 +392,10 @@ model Project {
   invitations      ProjectInvitation[]
   repository       ProjectRepository?
   applications     ProjectApplication[]
+  milestones       Milestone[]
+  tasks            Task[]
+  buildJobs        BuildJob[]
+  playableBuilds   PlayableBuild[]
 
   @@index([founderId])
   @@index([moderationStatus])
@@ -670,6 +677,158 @@ model ProjectApplication {
   @@index([applicantId])
   @@index([status])
   @@index([applicantId, projectRoleId, status])
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  projectId   String
+  title       String
+  description String?   @db.Text
+  dueDate     DateTime?
+  isCompleted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
+  buildJobs   BuildJob[]
+  playableBuilds PlayableBuild[]
+
+  @@index([projectId])
+  @@index([isCompleted])
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  projectId   String
+  milestoneId String?
+  taskNumber  Int
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  assigneeId  String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone   Milestone?   @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  assignee    User?        @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, taskNumber])
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([priority])
+}
+
+enum BuildStatus {
+  QUEUED
+  RUNNING
+  SUCCESS
+  FAILED
+  CANCELLED
+}
+
+enum BuildPlatform {
+  WINDOWS
+  MAC
+  LINUX
+  WEBGL
+}
+
+model BuildRunner {
+  id         String        @id @default(uuid())
+  name       String
+  tokenHash  String
+  platform   BuildPlatform
+  isOnline   Boolean       @default(false)
+  lastSeenAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  buildJobs  BuildJob[]
+
+  @@index([platform])
+  @@index([isOnline])
+}
+
+model BuildJob {
+  id             String         @id @default(uuid())
+  projectId      String
+  buildRunnerId  String?
+  commitHash     String?
+  branchName     String?
+  targetPlatform BuildPlatform
+  status         BuildStatus    @default(QUEUED)
+  triggeredById  String
+  milestoneId    String?
+  buildLogs      String?        @db.Text
+  errorMessage   String?        @db.Text
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  project        Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  buildRunner    BuildRunner?   @relation(fields: [buildRunnerId], references: [id], onDelete: SetNull)
+  triggeredBy    User           @relation("TriggeredBuilds", fields: [triggeredById], references: [id], onDelete: Cascade)
+  milestone      Milestone?     @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  playableBuilds PlayableBuild[]
+
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([status])
+  @@index([targetPlatform])
+  @@index([triggeredById])
+  @@index([buildRunnerId])
+  @@index([createdAt])
+}
+
+model PlayableBuild {
+  id            String        @id @default(uuid())
+  projectId     String
+  buildJobId    String?
+  milestoneId   String?
+  version       String
+  title         String
+  platform      BuildPlatform
+  storagePath   String?
+  fileSizeBytes BigInt?
+  fileChecksum  String?
+  releaseNotes  String?       @db.Text
+  uploadedById  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  buildJob      BuildJob?     @relation(fields: [buildJobId], references: [id], onDelete: SetNull)
+  milestone     Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+  uploadedBy    User?         @relation("UploadedPlayableBuilds", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([milestoneId])
+  @@index([buildJobId])
+  @@index([platform])
+  @@index([version])
+  @@index([createdAt])
 }
 
 

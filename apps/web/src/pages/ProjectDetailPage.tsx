@@ -20,6 +20,7 @@ import {
   FolderGit2,
   LayoutDashboard,
   Send,
+  CheckSquare,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
@@ -47,6 +48,9 @@ import { ProjectRepoTab } from '../features/projects/components/repo/ProjectRepo
 import { ApplyForRoleModal } from '../features/projects/components/ApplyForRoleModal';
 import { FounderApplicationsSection } from '../features/projects/components/FounderApplicationsSection';
 import { TeamSection } from '../features/projects/components/TeamSection';
+import { TasksTab } from '../features/projects/components/tasks/TasksTab';
+import { ProductionProgressCard } from '../features/projects/components/tasks/ProductionProgressCard';
+import { BuildsTab } from '../features/projects/components/builds/BuildsTab';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -145,7 +149,7 @@ export const ProjectDetailPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [editingRole, setEditingRole] = useState<ProjectRoleItem | null>(null);
-  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'team' | 'repo' | 'applications'>('overview');
+  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'team' | 'tasks' | 'builds' | 'repo' | 'applications'>('overview');
   const [applyingRole, setApplyingRole] = useState<ProjectRoleItem | null>(null);
 
   // AI Recommendation State
@@ -441,6 +445,32 @@ export const ProjectDetailPage: React.FC = () => {
             <span className="rounded-full bg-[#201f1e] text-[#cac6bc] border border-[#48473f] px-2 py-0.2 text-[9px] font-bold">
               {project.memberCount}
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveProjectTab('tasks')}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              activeProjectTab === 'tasks'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <CheckSquare className="h-4 w-4 text-amber-400" />
+            <span>Tasks & Milestones</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveProjectTab('builds')}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              activeProjectTab === 'builds'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <Cpu className="h-4 w-4 text-amber-400" />
+            <span>Builds & Releases</span>
           </button>
 
           <button
@@ -762,8 +792,15 @@ export const ProjectDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* Right Column: Founder Card & Team Roster */}
+          {/* Right Column: Founder Card, Production Progress & Team Roster */}
           <div className="space-y-6">
+            {/* Real Production Telemetry Card */}
+            <ProductionProgressCard
+              projectId={project.id}
+              accessToken={accessToken}
+              onNavigateTasks={() => setActiveProjectTab('tasks')}
+            />
+
             {/* Founder Card */}
             <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
@@ -880,6 +917,28 @@ export const ProjectDetailPage: React.FC = () => {
             isFounder={project.isFounder}
             roles={roles}
             onTeamUpdated={() => loadProject()}
+          />
+        )}
+
+        {/* Tab: Tasks & Milestones Management */}
+        {activeProjectTab === 'tasks' && (
+          <TasksTab
+            projectId={project.id}
+            projectName={project.name}
+            isFounder={project.isFounder}
+            members={project.members}
+            currentUser={currentUser}
+          />
+        )}
+
+        {/* Tab: Game Builds & Releases */}
+        {activeProjectTab === 'builds' && (
+          <BuildsTab
+            projectId={project.id}
+            projectName={project.name}
+            isFounder={project.isFounder}
+            members={project.members}
+            currentUser={currentUser}
           />
         )}
 

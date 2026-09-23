@@ -38,6 +38,12 @@ describe('ProjectMembersService', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
       },
+      projectApplication: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      projectInvitation: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
       $transaction: jest.fn(async (callback: any) => callback(prismaMock)),
     };
 

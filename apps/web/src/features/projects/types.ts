@@ -95,6 +95,8 @@ export interface ProjectRoleItem {
   experienceLevel: ProjectRoleExperienceLevel;
   commitment: ProjectRoleCommitment;
   status: ProjectRoleStatus;
+  assignedMemberId?: string | null;
+  assignedMemberName?: string | null;
   createdAt: string;
   updatedAt: string;
   requiredSkills: ProjectRoleTaxonomyItem[];
@@ -197,5 +199,167 @@ export interface ProjectTeamResponse {
   activeCount?: number;
   activeMembers: ProjectActiveTeamMember[];
   formerMembers: ProjectFormerTeamMember[];
+}
+
+export type ProjectTaskMember = ProjectMemberDetail | ProjectActiveTeamMember;
+
+export type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'BLOCKED' | 'DONE';
+
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export interface TaskAssignee {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+}
+
+export interface TaskMilestoneSummary {
+  id: string;
+  title: string;
+}
+
+export interface TaskItem {
+  id: string;
+  projectId: string;
+  taskNumber: number;
+  taskCode: string;
+  title: string;
+  description?: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assigneeId?: string | null;
+  assignee?: TaskAssignee | null;
+  milestoneId?: string | null;
+  milestone?: TaskMilestoneSummary | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MilestoneItem {
+  id: string;
+  projectId: string;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  isCompleted: boolean;
+  totalTasks: number;
+  completedTasks: number;
+  progressPercentage: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTaskInput {
+  title: string;
+  description?: string;
+  priority?: TaskPriority;
+  status?: TaskStatus;
+  milestoneId?: string;
+  assigneeId?: string;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string;
+  priority?: TaskPriority;
+  status?: TaskStatus;
+  milestoneId?: string | null;
+  assigneeId?: string | null;
+}
+
+export interface CreateMilestoneInput {
+  title: string;
+  description?: string;
+  dueDate?: string;
+}
+
+export interface UpdateMilestoneInput {
+  title?: string;
+  description?: string;
+  dueDate?: string;
+  isCompleted?: boolean;
+}
+
+export type BuildStatus = 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+export type BuildPlatform = 'WINDOWS' | 'MAC' | 'LINUX' | 'WEBGL';
+
+export interface BuildTriggeredByUser {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string | null;
+}
+
+export interface BuildMilestoneInfo {
+  id: string;
+  title: string;
+}
+
+export interface BuildRunnerInfo {
+  id: string;
+  name: string;
+  platform: BuildPlatform;
+  isOnline: boolean;
+}
+
+export interface BuildJobItem {
+  id: string;
+  projectId: string;
+  buildRunnerId?: string | null;
+  commitHash?: string | null;
+  branchName?: string | null;
+  targetPlatform: BuildPlatform;
+  status: BuildStatus;
+  triggeredById: string;
+  triggeredBy: BuildTriggeredByUser;
+  milestoneId?: string | null;
+  milestone?: BuildMilestoneInfo | null;
+  buildRunner?: BuildRunnerInfo | null;
+  buildLogs?: string | null;
+  errorMessage?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  durationSeconds?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlayableBuildItem {
+  id: string;
+  projectId: string;
+  buildJobId?: string | null;
+  milestoneId?: string | null;
+  milestone?: BuildMilestoneInfo | null;
+  version: string;
+  title: string;
+  platform: BuildPlatform;
+  storagePath?: string | null;
+  fileSizeBytes?: number | null;
+  fileChecksum?: string | null;
+  releaseNotes?: string | null;
+  uploadedById?: string | null;
+  uploadedBy?: BuildTriggeredByUser | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBuildInput {
+  targetPlatform: BuildPlatform;
+  branchName?: string;
+  commitHash?: string;
+  milestoneId?: string;
+}
+
+export interface CreatePlayableBuildInput {
+  version: string;
+  title: string;
+  platform: BuildPlatform;
+  buildJobId?: string;
+  milestoneId?: string;
+  storagePath?: string;
+  fileSizeBytes?: number;
+  fileChecksum?: string;
+  releaseNotes?: string;
 }
 

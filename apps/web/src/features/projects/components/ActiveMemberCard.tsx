@@ -80,9 +80,14 @@ export const ActiveMemberCard: React.FC<ActiveMemberCardProps> = ({
                   {r.title || r.roleName}
                 </span>
               ))
+            ) : member.projectRoleTitle || member.projectRoleName || (member.role && member.role !== 'Member') ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-950/20 px-2 py-0.5 text-[10px] font-mono font-medium text-amber-200">
+                <Briefcase className="h-2.5 w-2.5 text-amber-400" />
+                {member.projectRoleTitle || member.projectRoleName || member.role}
+              </span>
             ) : (
               <span className="text-[11px] font-mono text-amber-200/80">
-                {member.isFounder ? 'Studio Founder' : (member.projectRoleTitle || member.projectRoleName || 'General Member')}
+                {member.isFounder ? 'Studio Founder' : 'General Member'}
               </span>
             )}
             <span className="text-[#48473f] text-xs">·</span>

@@ -14,10 +14,10 @@ export const Badge: React.FC<BadgeProps> = ({
   const baseStyles = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-medium tracking-wide uppercase transition-colors';
   
   const variants = {
-    default: 'bg-[#2b2a29] text-[#e6e2df] border border-[#363433]',
-    outline: 'bg-transparent text-[#cac6bc] border border-[#48473f]',
-    accent: 'bg-[#2A2724] text-[#e6e2df] border border-[#48473f]',
-    bronze: 'bg-[#201f1e] text-[#cac6bc] border border-[#48473f]/60',
+    default: 'bg-pantheon-high text-pantheon-ivory border border-pantheon-border',
+    outline: 'bg-transparent text-pantheon-muted border border-pantheon-border',
+    accent: 'bg-pantheon-bronze text-pantheon-ivory border border-pantheon-border',
+    bronze: 'bg-pantheon-mid text-pantheon-muted border border-pantheon-border-dark',
   };
 
   return (

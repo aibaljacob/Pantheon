@@ -27,7 +27,7 @@ export const Button: React.FC<ButtonProps> = ({
   const variantClasses = {
     primary: 'sculpted-btn group rounded-md inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
     secondary: 'secondary-btn group rounded-md inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
-    ghost: 'bg-transparent text-[#cac6bc] hover:text-[#e6e2df] hover:bg-[#201f1e] rounded-md inline-flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+    ghost: 'bg-transparent text-pantheon-muted hover:text-pantheon-ivory hover:bg-pantheon-mid rounded-md inline-flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:cursor-not-allowed disabled:opacity-60',
   };
 
   return (

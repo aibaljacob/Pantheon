@@ -28,50 +28,54 @@ export const ChangeProjectRoleModal: React.FC<ChangeProjectRoleModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
+  const isRoleMatchingMember = (r: ProjectRoleItem) => {
+    if (!member) return false;
+    return (
+      r.assignedMemberId === member.id ||
+      r.assignedMemberId === member.userId ||
+      (r.assignedMemberName && (r.assignedMemberName === member.displayName || r.assignedMemberName === member.username)) ||
+      (r.status === 'FILLED' && member.role && member.role !== 'Member' && member.role !== 'Founder' &&
+        (r.title?.toLowerCase() === member.role.toLowerCase() || r.roleName?.toLowerCase() === member.role.toLowerCase()))
+    );
+  };
+
   useEffect(() => {
     if (member) {
       const initialIds: string[] = [];
-      if (member.assignedRoles && member.assignedRoles.length > 0) {
-        member.assignedRoles.forEach((r) => initialIds.push(r.id));
-      } else if (member.projectRoleId) {
-        initialIds.push(member.projectRoleId);
-      }
+      (member.assignedRoles || []).forEach((r) => r.id && !initialIds.includes(r.id) && initialIds.push(r.id));
+      if (member.projectRoleId && !initialIds.includes(member.projectRoleId)) initialIds.push(member.projectRoleId);
+      roles.forEach((r) => isRoleMatchingMember(r) && !initialIds.includes(r.id) && initialIds.push(r.id));
       setSelectedRoleIds(initialIds);
       setError(null);
       setIsSuccess(false);
     }
-  }, [member, isOpen]);
+  }, [member, isOpen, roles]);
 
   if (!isOpen || !member) return null;
 
+  const assignableRoles = roles.filter((r) => {
+    const isAssigned = selectedRoleIds.includes(r.id) ||
+      member.assignedRoles?.some((ar) => ar.id === r.id) ||
+      member.projectRoleId === r.id ||
+      isRoleMatchingMember(r);
+    if (isAssigned) return true;
+    if (r.assignedMemberId && r.assignedMemberId !== member.id && r.assignedMemberId !== member.userId) return false;
+    return r.status !== 'FILLED' && r.status !== 'CLOSED';
+  });
+
   const toggleRole = (roleId: string) => {
-    setSelectedRoleIds((prev) =>
-      prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId],
-    );
+    setSelectedRoleIds((prev) => (prev.includes(roleId) ? prev.filter((id) => id !== roleId) : [...prev, roleId]));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accessToken) {
-      setError('You must be logged in as the project founder.');
-      return;
-    }
-
+    if (!accessToken) return setError('You must be logged in as the project founder.');
     setLoading(true);
     setError(null);
-
     try {
-      await assignProjectMemberRoles(
-        projectId,
-        member.id,
-        selectedRoleIds,
-        accessToken,
-      );
+      await assignProjectMemberRoles(projectId, member.id, selectedRoleIds, accessToken);
       setIsSuccess(true);
-      setTimeout(() => {
-        onSuccess();
-        onClose();
-      }, 1000);
+      setTimeout(() => { onSuccess(); onClose(); }, 1000);
     } catch (err: any) {
       setError(err.message || 'Failed to update member role assignments.');
     } finally {
@@ -87,14 +91,9 @@ export const ChangeProjectRoleModal: React.FC<ChangeProjectRoleModalProps> = ({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#48473f] bg-[#201f1e] text-amber-400">
               <Briefcase className="h-4 w-4" />
             </div>
-            <h3 className="font-headline text-lg font-bold text-[#ffffff]">
-              Assign Project Roles
-            </h3>
+            <h3 className="font-headline text-lg font-bold text-[#ffffff]">Assign Project Roles</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-[#8c887e] hover:bg-[#201f1e] hover:text-[#ffffff] transition-colors"
-          >
+          <button onClick={onClose} className="rounded-lg p-1.5 text-[#8c887e] hover:bg-[#201f1e] hover:text-[#ffffff] transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -123,14 +122,15 @@ export const ChangeProjectRoleModal: React.FC<ChangeProjectRoleModalProps> = ({
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-[#cac6bc] block">
-              Select Roles to Assign to this Member:
-            </label>
-            {roles.length === 0 ? (
-              <p className="text-xs text-[#8c887e] py-3 text-center">No project roles created yet.</p>
+            <label className="text-xs text-[#cac6bc] block">Select Roles to Assign to this Member:</label>
+            {assignableRoles.length === 0 ? (
+              <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-4 text-center space-y-1">
+                <p className="text-xs text-[#cac6bc] font-semibold">No Available Roles to Assign</p>
+                <p className="text-[11px] text-[#8c887e]">All other project roles are currently filled by team members or closed.</p>
+              </div>
             ) : (
               <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
-                {roles.map((r) => {
+                {assignableRoles.map((r) => {
                   const isSelected = selectedRoleIds.includes(r.id);
                   return (
                     <div
@@ -158,7 +158,7 @@ export const ChangeProjectRoleModal: React.FC<ChangeProjectRoleModalProps> = ({
                         </div>
                       </div>
                       <span className="text-[10px] font-mono text-[#8c887e]">
-                        {r.status}
+                        {isSelected ? 'ASSIGNED' : r.status}
                       </span>
                     </div>
                   );
@@ -171,13 +171,7 @@ export const ChangeProjectRoleModal: React.FC<ChangeProjectRoleModalProps> = ({
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-2 border-t border-[#2b2a29]">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={onClose}
-              disabled={loading || isSuccess}
-              type="button"
-            >
+            <Button variant="secondary" size="sm" onClick={onClose} disabled={loading || isSuccess} type="button">
               Cancel
             </Button>
             <Button
@@ -195,4 +189,3 @@ export const ChangeProjectRoleModal: React.FC<ChangeProjectRoleModalProps> = ({
     </div>
   );
 };
-

@@ -311,6 +311,11 @@ export class ProjectsService {
                 role: true,
               },
             },
+            assignedRoles: {
+              include: {
+                role: true,
+              },
+            },
           },
           orderBy: { joinedAt: 'asc' },
         },
@@ -343,11 +348,60 @@ export class ProjectsService {
       `${project.founder.profile?.firstName || ''} ${project.founder.profile?.lastName || ''}`.trim() ||
       project.founder.username;
 
+    const [allProjectRoles, acceptedApps, acceptedInvs] = await Promise.all([
+      this.prisma.projectRole.findMany({
+        where: { projectId: project.id },
+        include: { role: true },
+      }),
+      this.prisma.projectApplication.findMany({
+        where: { projectId: project.id, status: 'ACCEPTED' as any },
+        select: { applicantId: true, projectRoleId: true },
+      }),
+      this.prisma.projectInvitation.findMany({
+        where: { projectId: project.id, status: 'ACCEPTED' as any },
+        select: { inviteeId: true, projectRoleId: true },
+      }),
+    ]);
+
     const mappedMembers = project.members.map((m) => {
       const displayName =
         m.user.profile?.displayName ||
         `${m.user.profile?.firstName || ''} ${m.user.profile?.lastName || ''}`.trim() ||
         m.user.username;
+
+      const roleMap = new Map<string, any>();
+      for (const r of m.assignedRoles || []) {
+        if (r && r.id) roleMap.set(r.id, r);
+      }
+      if (m.projectRole && !roleMap.has(m.projectRole.id)) {
+        roleMap.set(m.projectRole.id, m.projectRole);
+      }
+      for (const pr of allProjectRoles) {
+        if (!roleMap.has(pr.id)) {
+          const isDirect = pr.assignedMemberId === m.id || pr.assignedMemberId === m.userId;
+          const isApp = acceptedApps.some((a) => a.applicantId === m.userId && a.projectRoleId === pr.id);
+          const isInv = acceptedInvs.some((i) => i.inviteeId === m.userId && i.projectRoleId === pr.id);
+          const isTitle =
+            pr.status === ProjectRoleStatus.FILLED &&
+            !pr.assignedMemberId &&
+            m.role &&
+            m.role !== 'Member' &&
+            m.role !== 'Founder' &&
+            (pr.title?.toLowerCase() === m.role.toLowerCase() ||
+              pr.role?.name?.toLowerCase() === m.role.toLowerCase());
+          if (isDirect || isApp || isInv || isTitle) {
+            roleMap.set(pr.id, pr);
+          }
+        }
+      }
+
+      const assignedRolesList = Array.from(roleMap.values());
+      const primaryRole = assignedRolesList[0] || null;
+      const isFounderMember = m.userId === project.founderId;
+      const primaryRoleTitle =
+        primaryRole?.title ||
+        primaryRole?.role?.name ||
+        (m.role && m.role !== 'Member' ? m.role : isFounderMember ? 'Founder' : 'Member');
 
       return {
         id: m.id,
@@ -356,10 +410,10 @@ export class ProjectsService {
         displayName,
         avatarUrl: m.user.profile?.avatarUrl || null,
         headline: m.user.profile?.headline || null,
-        role: m.role,
-        projectRoleId: m.projectRoleId || null,
-        projectRoleTitle: m.projectRole?.title || null,
-        projectRoleName: m.projectRole?.role?.name || null,
+        role: primaryRoleTitle,
+        projectRoleId: primaryRole?.id || m.projectRoleId || null,
+        projectRoleTitle: primaryRole?.title || m.projectRole?.title || null,
+        projectRoleName: primaryRole?.role?.name || m.projectRole?.role?.name || null,
         status: m.status,
         joinedAt: m.joinedAt.toISOString(),
         leftAt: m.leftAt ? m.leftAt.toISOString() : null,
@@ -592,17 +646,72 @@ export class ProjectsService {
       }
     }
 
-    const roles = await this.prisma.projectRole.findMany({
-      where: { projectId },
-      include: {
-        role: true,
-        requiredSkills: { include: { skill: true } },
-        requiredTools: { include: { tool: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [roles, allMembers, acceptedApps, acceptedInvs] = await Promise.all([
+      this.prisma.projectRole.findMany({
+        where: { projectId },
+        include: {
+          role: true,
+          requiredSkills: { include: { skill: true } },
+          requiredTools: { include: { tool: true } },
+          assignedMember: {
+            select: {
+              id: true,
+              userId: true,
+              user: {
+                select: {
+                  username: true,
+                  profile: {
+                    select: {
+                      displayName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          primaryMembers: {
+            where: { status: ProjectMemberStatus.ACTIVE },
+            select: {
+              id: true,
+              userId: true,
+              user: {
+                select: {
+                  username: true,
+                  profile: {
+                    select: {
+                      displayName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.projectMember.findMany({
+        where: { projectId, status: ProjectMemberStatus.ACTIVE },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              profile: { select: { displayName: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.projectApplication.findMany({
+        where: { projectId, status: 'ACCEPTED' as any },
+        select: { applicantId: true, projectRoleId: true },
+      }),
+      this.prisma.projectInvitation.findMany({
+        where: { projectId, status: 'ACCEPTED' as any },
+        select: { inviteeId: true, projectRoleId: true },
+      }),
+    ]);
 
-    return roles.map((r) => this.mapProjectRoleToDto(r));
+    return roles.map((r) => this.mapProjectRoleToDto(r, allMembers, acceptedApps, acceptedInvs));
   }
 
   async updateProjectRole(
@@ -741,7 +850,45 @@ export class ProjectsService {
     return { success: true };
   }
 
-  private mapProjectRoleToDto(roleRecord: any): ProjectRoleResponseDto {
+  private mapProjectRoleToDto(
+    roleRecord: any,
+    allMembers: any[] = [],
+    acceptedApps: any[] = [],
+    acceptedInvs: any[] = [],
+  ): ProjectRoleResponseDto {
+    let assignedMember =
+      roleRecord.assignedMember || roleRecord.primaryMembers?.[0] || null;
+
+    if (!assignedMember && roleRecord.status === ProjectRoleStatus.FILLED) {
+      const matchedApp = acceptedApps.find((a) => a.projectRoleId === roleRecord.id);
+      if (matchedApp) {
+        assignedMember = allMembers.find((m) => m.userId === matchedApp.applicantId) || null;
+      }
+      if (!assignedMember) {
+        const matchedInv = acceptedInvs.find((i) => i.projectRoleId === roleRecord.id);
+        if (matchedInv) {
+          assignedMember = allMembers.find((m) => m.userId === matchedInv.inviteeId) || null;
+        }
+      }
+      if (!assignedMember) {
+        assignedMember =
+          allMembers.find(
+            (m) =>
+              m.role &&
+              m.role !== 'Member' &&
+              m.role !== 'Founder' &&
+              (roleRecord.title?.toLowerCase() === m.role.toLowerCase() ||
+                roleRecord.role?.name?.toLowerCase() === m.role.toLowerCase()),
+          ) || null;
+      }
+    }
+
+    const assignedMemberId = assignedMember ? assignedMember.id : (roleRecord.assignedMemberId || null);
+    const assignedMemberName =
+      assignedMember?.user?.profile?.displayName ||
+      assignedMember?.user?.username ||
+      null;
+
     return {
       id: roleRecord.id,
       projectId: roleRecord.projectId,
@@ -752,6 +899,8 @@ export class ProjectsService {
       experienceLevel: roleRecord.experienceLevel,
       commitment: roleRecord.commitment,
       status: roleRecord.status,
+      assignedMemberId,
+      assignedMemberName,
       createdAt: roleRecord.createdAt.toISOString(),
       updatedAt: roleRecord.updatedAt.toISOString(),
       requiredSkills: (roleRecord.requiredSkills || []).map((s: any) => ({

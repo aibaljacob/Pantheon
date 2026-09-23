@@ -436,27 +436,32 @@ export class ProjectApplicationsService {
         throw new BadRequestException('Applicant is already a team member of this project.');
       }
 
+      const memberRoleTitle = currentRole.title || currentRole.role?.name || 'Member';
+      let memberId: string;
+
       if (existingMember) {
-        await tx.projectMember.update({
+        const updatedMember = await tx.projectMember.update({
           where: { id: existingMember.id },
           data: {
             status: ProjectMemberStatus.ACTIVE,
-            role: 'Member',
+            role: memberRoleTitle,
             projectRoleId: currentApp.projectRoleId,
             joinedAt: new Date(),
             leftAt: null,
           },
         });
+        memberId = updatedMember.id;
       } else {
-        await tx.projectMember.create({
+        const newMember = await tx.projectMember.create({
           data: {
             projectId: currentApp.projectId,
             userId: currentApp.applicantId,
-            role: 'Member',
+            role: memberRoleTitle,
             projectRoleId: currentApp.projectRoleId,
             status: ProjectMemberStatus.ACTIVE,
           },
         });
+        memberId = newMember.id;
       }
 
       const accepted = await tx.projectApplication.update({
@@ -466,7 +471,10 @@ export class ProjectApplicationsService {
 
       await tx.projectRole.update({
         where: { id: currentRole.id },
-        data: { status: ProjectRoleStatus.FILLED },
+        data: {
+          assignedMemberId: memberId,
+          status: ProjectRoleStatus.FILLED,
+        },
       });
 
       return this.mapToResponseDto(accepted);

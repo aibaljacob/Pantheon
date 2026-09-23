@@ -233,6 +233,7 @@ export class ProjectInvitationsService {
       // 2. Verify project role is OPEN or IN_REVIEW
       const currentRole = await tx.projectRole.findUnique({
         where: { id: currentInv.projectRoleId },
+        include: { role: true },
       });
 
       if (
@@ -260,28 +261,33 @@ export class ProjectInvitationsService {
         throw new BadRequestException('Candidate is already an active team member of this project.');
       }
 
+      const memberRoleTitle = currentRole.title || currentRole.role?.name || 'Member';
+      let memberId: string;
+
       // 4. Create or Reactivate ProjectMember
       if (existingMembership) {
-        await tx.projectMember.update({
+        const updated = await tx.projectMember.update({
           where: { id: existingMembership.id },
           data: {
             status: ProjectMemberStatus.ACTIVE,
-            role: 'Member',
+            role: memberRoleTitle,
             projectRoleId: currentInv.projectRoleId,
             joinedAt: new Date(),
             leftAt: null,
           },
         });
+        memberId = updated.id;
       } else {
-        await tx.projectMember.create({
+        const created = await tx.projectMember.create({
           data: {
             projectId: currentInv.projectId,
             userId,
-            role: 'Member',
+            role: memberRoleTitle,
             projectRoleId: currentInv.projectRoleId,
             status: ProjectMemberStatus.ACTIVE,
           },
         });
+        memberId = created.id;
       }
 
       // 5. Update ProjectInvitation status to ACCEPTED
@@ -290,10 +296,13 @@ export class ProjectInvitationsService {
         data: { status: ProjectInvitationStatus.ACCEPTED },
       });
 
-      // 6. Update ProjectRole status to FILLED
+      // 6. Update ProjectRole status to FILLED and assign to member
       await tx.projectRole.update({
         where: { id: currentInv.projectRoleId },
-        data: { status: ProjectRoleStatus.FILLED },
+        data: {
+          assignedMemberId: memberId,
+          status: ProjectRoleStatus.FILLED,
+        },
       });
 
       return this.mapToResponseDto(updatedInvitation);
