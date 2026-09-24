@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const FormData = require('form-data');
+const { runGodotBuild } = require('./godot-build-strategy');
 
 const API_URL = process.env.API_URL || 'http://localhost:3000';
 const RUNNER_NAME = process.env.RUNNER_NAME || 'Local Windows Runner';
@@ -82,7 +83,8 @@ async function checkoutSource(job, buildDir, logFn) {
       repoDir
     ], { shell: false });
   } catch (err) {
-    throw new Error(`Git clone failed.`);
+    console.error('Git clone error:', err.message, err.stderr, err.stdout);
+    throw new Error(`Git clone failed: ${err.message}`);
   }
 
   logFn(`[runner] Checking out commit ${commitHash.substring(0, 7)}`);
@@ -106,33 +108,14 @@ async function checkoutSource(job, buildDir, logFn) {
   return repoDir;
 }
 
-async function simulateBuild(jobId, buildDir, logFn) {
-  return new Promise((resolve, reject) => {
-    logFn(`[runner] Starting build stage for job ${jobId}...`);
-    
-    const artifactDir = path.join(buildDir, 'artifact');
-    if (!fs.existsSync(artifactDir)) {
-      fs.mkdirSync(artifactDir, { recursive: true });
-    }
-    
-    fs.writeFileSync(path.join(artifactDir, 'game.exe'), 'MZ... this is a dummy executable content');
-    fs.writeFileSync(path.join(artifactDir, 'game.pck'), 'dummy resource pack');
 
-    const zipPath = path.join(buildDir, `${jobId}.zip`);
-    const { execSync } = require('child_process');
-    try {
-      execSync(`powershell Compress-Archive -Path ${artifactDir}\\* -DestinationPath ${zipPath}`);
-      logFn(`[runner] Build packaged into ${zipPath}`);
-      resolve(zipPath);
-    } catch(err) {
-      reject(err);
-    }
-  });
-}
 
-async function uploadArtifact(jobId, zipPath) {
+async function uploadArtifact(jobId, zipPath, checksum) {
   const form = new FormData();
   form.append('file', fs.createReadStream(zipPath));
+  if (checksum) {
+    form.append('fileChecksum', checksum);
+  }
 
   const headers = {
     ...getHeaders(),
@@ -160,7 +143,11 @@ async function updateJobStatus(jobId, status, logs = null, errorMessage = null) 
   }
 }
 
+let isPolling = false;
+
 async function pollJobs() {
+  if (isPolling) return;
+  isPolling = true;
   try {
     const res = await axios.post(`${API_URL}/build-runners/jobs/claim`, {}, { headers: getHeaders() });
     
@@ -184,15 +171,15 @@ async function pollJobs() {
         await updateJobStatus(job.id, 'RUNNING', logs);
         
         // 1. Checkout Source
-        await checkoutSource(job, buildDir, logFn);
+        const repoDir = await checkoutSource(job, buildDir, logFn);
         await updateJobStatus(job.id, 'RUNNING', logs);
 
-        // 2. Build Execution (Simulated)
-        const zipPath = await simulateBuild(job.id, buildDir, logFn);
+        // 2. Build Execution (Godot 4.x Windows Export)
+        const { zipPath, checksum } = await runGodotBuild(job.id, repoDir, buildDir, logFn);
         
         logFn('[runner] Build completed. Uploading artifact...');
         await updateJobStatus(job.id, 'RUNNING', logs);
-        await uploadArtifact(job.id, zipPath);
+        await uploadArtifact(job.id, zipPath, checksum);
         
         logFn('[runner] Build finished and uploaded successfully.');
         await updateJobStatus(job.id, 'SUCCESS', logs);
@@ -213,6 +200,8 @@ async function pollJobs() {
       console.error('Error polling jobs (data):', err.response?.data);
       console.error(err);
     }
+  } finally {
+    isPolling = false;
   }
 }
 

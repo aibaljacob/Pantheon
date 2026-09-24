@@ -79,6 +79,7 @@ export class BuildRunnersController {
     @Request() req: any,
     @Param('jobId') jobId: string,
     @UploadedFile() file: Express.Multer.File,
+    @Body('fileChecksum') fileChecksum?: string,
   ) {
     // For local MVP, just save the file to a local "uploads" directory
     // In production, this would go to S3 or a robust storage bucket.
@@ -102,7 +103,8 @@ export class BuildRunnersController {
     const playableBuild = await this.buildRunnersService.saveArtifactAsPlayableBuild(
       jobId, 
       fileUrl, 
-      file.size
+      file.size,
+      fileChecksum,
     );
     
     return { 

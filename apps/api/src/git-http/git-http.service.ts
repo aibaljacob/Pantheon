@@ -13,7 +13,6 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class GitHttpService {
   private readonly logger = new Logger(GitHttpService.name);
-  private readonly repoRoot = process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
 
   constructor(
     private readonly authService: ProjectAuthorizationService,
@@ -63,8 +62,10 @@ export class GitHttpService {
     }
 
     // Path traversal check
+    const repoRoot = process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
     const normalizedTarget = path.normalize(project.repository.repoDiskPath);
-    if (!normalizedTarget.startsWith(this.repoRoot)) {
+    this.logger.debug(`repoRoot: ${repoRoot}, normalizedTarget: ${normalizedTarget}`);
+    if (!normalizedTarget.toLowerCase().startsWith(path.normalize(repoRoot).toLowerCase())) {
       throw new ForbiddenException('Invalid repository path');
     }
 

@@ -93,7 +93,6 @@ export class BuildRunnersService {
       const updatedJob = await this.prisma.buildJob.update({
         where: { 
           id: job.id,
-          status: BuildStatus.QUEUED // optimistic locking-ish
         },
         data: {
           status: BuildStatus.RUNNING,
@@ -143,7 +142,7 @@ export class BuildRunnersService {
     });
   }
 
-  async saveArtifactAsPlayableBuild(jobId: string, filePath: string, fileSize: number) {
+  async saveArtifactAsPlayableBuild(jobId: string, filePath: string, fileSize: number, fileChecksum?: string) {
     const job = await this.prisma.buildJob.findUnique({
       where: { id: jobId },
       include: { project: true },
@@ -165,6 +164,7 @@ export class BuildRunnersService {
         platform: job.targetPlatform,
         storagePath: filePath,
         fileSizeBytes: BigInt(fileSize),
+        fileChecksum: fileChecksum || null,
         releaseNotes: 'Automatically uploaded by Build Runner.',
       },
     });
