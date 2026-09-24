@@ -152,4 +152,17 @@ export class TasksController {
   ): Promise<{ success: boolean; message: string }> {
     return this.tasksService.deleteTask(projectId, taskId, user.id, user.role);
   }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get commits linked to a task' })
+  @ApiResponse({ status: 200, description: 'Commits retrieved successfully' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get(':taskId/commits')
+  getTaskCommits(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user?: AuthenticatedUser,
+  ) {
+    return this.tasksService.getTaskCommits(projectId, taskId, user?.id, user?.role);
+  }
 }

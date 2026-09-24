@@ -294,6 +294,24 @@ export async function deleteProjectTask(
   return response.json();
 }
 
+export async function fetchProjectTaskCommits(
+  projectId: string,
+  taskId: string,
+  accessToken?: string | null,
+): Promise<any[]> {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/tasks/${taskId}/commits`, {
+    method: 'GET',
+    headers: buildHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch task commits.');
+  }
+
+  return response.json();
+}
+
 export const taskService = {
   getTasks: (projectId: string, filters?: TaskFilters, token?: string | null) =>
     fetchProjectTasks(projectId, filters, token ?? useAuthStore.getState().accessToken),
@@ -311,6 +329,8 @@ export const taskService = {
     updateTaskMilestone(projectId, taskId, milestoneId, token ?? useAuthStore.getState().accessToken ?? ''),
   deleteTask: (projectId: string, taskId: string, token?: string | null) =>
     deleteProjectTask(projectId, taskId, token ?? useAuthStore.getState().accessToken ?? ''),
+  getTaskCommits: (projectId: string, taskId: string, token?: string | null) =>
+    fetchProjectTaskCommits(projectId, taskId, token ?? useAuthStore.getState().accessToken),
 
   getMilestones: (projectId: string, token?: string | null) =>
     fetchProjectMilestones(projectId, token ?? useAuthStore.getState().accessToken),

@@ -368,4 +368,47 @@ export class TasksService {
       },
     });
   }
+
+  async getTaskCommits(projectId: string, taskId: string, userId?: string, userRole?: string) {
+    await this.authzService.assertCanView(projectId, userId, userRole);
+
+    const task = await this.prisma.task.findUnique({
+      where: {
+        id: taskId,
+        projectId,
+      },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found.');
+    }
+
+    const commits = await this.prisma.taskCommitLink.findMany({
+      where: { taskId },
+      orderBy: { timestamp: 'desc' },
+      include: {
+        author: {
+          include: {
+            profile: true,
+          }
+        }
+      }
+    });
+
+    return commits.map(commit => ({
+      id: commit.id,
+      taskId: commit.taskId,
+      commitHash: commit.commitHash,
+      commitMsg: commit.commitMsg,
+      authorName: commit.authorName,
+      branchName: commit.branchName,
+      timestamp: commit.timestamp,
+      author: commit.author ? {
+        id: commit.author.id,
+        username: commit.author.username,
+        avatarUrl: commit.author.profile?.avatarUrl,
+        displayName: commit.author.profile?.displayName,
+      } : null,
+    }));
+  }
 }

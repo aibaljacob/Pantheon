@@ -5,8 +5,10 @@ import {
   Edit3,
   AlertCircle,
   Loader2,
+  GitCommit,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { taskService } from '../../services/taskService';
 import type {
   MilestoneItem,
   ProjectTaskMember,
@@ -71,6 +73,19 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [commits, setCommits] = useState<any[]>([]);
+  const [isLoadingCommits, setIsLoadingCommits] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && task.id) {
+      setIsLoadingCommits(true);
+      taskService.getTaskCommits(task.projectId, task.id)
+        .then((data) => setCommits(data))
+        .catch((err) => console.error('Failed to load commits', err))
+        .finally(() => setIsLoadingCommits(false));
+    }
+  }, [isOpen, task.id, task.projectId]);
 
   if (!isOpen) return null;
 
@@ -360,6 +375,57 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
               <div>
                 Last Updated {new Date(task.updatedAt).toLocaleString()}
               </div>
+            </div>
+
+            {/* Commits Section */}
+            <div className="space-y-3 pt-4 border-t border-[#2b2a29]">
+              <div className="flex items-center gap-2">
+                <GitCommit className="h-4 w-4 text-[#8c887e]" />
+                <span className="text-xs font-mono uppercase tracking-wider text-[#8c887e]">
+                  Linked Commits
+                </span>
+              </div>
+              
+              {isLoadingCommits ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#8c887e]" />
+                </div>
+              ) : commits.length > 0 ? (
+                <div className="space-y-2">
+                  {commits.map((commit) => (
+                    <div key={commit.id} className="flex flex-col gap-1 rounded-xl border border-[#2b2a29] bg-[#141312] p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {commit.author?.avatarUrl ? (
+                            <img src={commit.author.avatarUrl} alt={commit.authorName} className="h-5 w-5 rounded-full object-cover" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full bg-[#363433] flex items-center justify-center text-[9px] text-[#e6e2df]">
+                              {commit.authorName.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                          <span className="text-xs font-medium text-[#e6e2df]">{commit.authorName}</span>
+                          <span className="text-[10px] text-[#8c887e] font-mono">{commit.commitHash.substring(0, 7)}</span>
+                        </div>
+                        <span className="text-[10px] text-[#8c887e]">
+                          {new Date(commit.timestamp).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#cac6bc] pl-7 whitespace-pre-wrap">{commit.commitMsg}</p>
+                      {commit.branchName && (
+                        <div className="pl-7 mt-1">
+                          <span className="inline-flex items-center rounded bg-[#201f1e] px-1.5 py-0.5 text-[10px] font-mono text-[#8c887e]">
+                            {commit.branchName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs font-mono text-[#8c887e] italic text-center py-4 bg-[#141312] rounded-xl border border-[#2b2a29] border-dashed">
+                  No commits linked to this task.
+                </p>
+              )}
             </div>
           </div>
         )}
