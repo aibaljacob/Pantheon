@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GitBranch, Plus, GitCommit } from 'lucide-react';
+import { GitBranch, GitCommit } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import type { RepoBranch } from '../../services/projectRepositoryService';
 
@@ -43,14 +43,6 @@ export const RepoBranchesList: React.FC<RepoBranchesListProps> = ({
     <div className="space-y-4 font-mono">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3 text-xs text-[#8c887e]">
         <span>Repository Branches ({branches.length})</span>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setIsModalOpen(true)}
-          icon={<Plus className="h-3.5 w-3.5" />}
-        >
-          New Branch
-        </Button>
       </div>
 
       <div className="space-y-3">

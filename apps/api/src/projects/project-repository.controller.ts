@@ -32,9 +32,10 @@ export class ProjectRepositoryController {
   @Get(':id/repo')
   getRepository(
     @Param('id') projectId: string,
+    @CurrentUser() user: AuthenticatedUser | undefined,
     @Query('branch') branch?: string,
   ) {
-    return this.repositoryService.getRepository(projectId, branch);
+    return this.repositoryService.getRepository(projectId, user, branch);
   }
 
   @ApiOperation({ summary: 'Get raw content of a specific file in the repository' })
@@ -44,9 +45,10 @@ export class ProjectRepositoryController {
   getFileContent(
     @Param('id') projectId: string,
     @Query('path') path: string,
+    @CurrentUser() user: AuthenticatedUser | undefined,
     @Query('branch') branch?: string,
   ) {
-    return this.repositoryService.getFileContent(projectId, path, branch);
+    return this.repositoryService.getFileContent(projectId, path, user, branch);
   }
 
   @ApiBearerAuth()

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   GitPullRequest,
-  Plus,
   GitMerge,
   X,
 } from 'lucide-react';
@@ -104,15 +103,6 @@ export const RepoPullRequestsList: React.FC<RepoPullRequestsListProps> = ({
             </button>
           ))}
         </div>
-
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setIsCreateOpen(true)}
-          icon={<Plus className="h-3.5 w-3.5" />}
-        >
-          New Pull Request
-        </Button>
       </div>
 
       {/* PR Cards List */}

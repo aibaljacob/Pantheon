@@ -13,6 +13,7 @@ import { ProjectRepositoryRepository } from './project-repository.repository';
 import { ProjectApplicationsController } from './project-applications.controller';
 import { ProjectApplicationsService } from './project-applications.service';
 import { ProjectMembersService } from './project-members.service';
+import { GitService } from './git.service';
 import { CooccurrenceService } from './graph-team-formation/cooccurrence.service';
 import { GraphBuilderService } from './graph-team-formation/graph-builder';
 import { RWRSolver } from './graph-team-formation/rwr-solver';
@@ -20,9 +21,10 @@ import { AssignmentSolver } from './graph-team-formation/assignment-solver';
 import { TeamEvaluator } from './graph-team-formation/team-evaluator';
 import { BaselineComparisonService } from './graph-team-formation/baseline-comparison.service';
 import { ResearchExperimentRunner } from './graph-team-formation/research-experiment-runner';
+import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, TasksModule],
   controllers: [
     ProjectsController,
     ProjectInvitationsController,
@@ -39,6 +41,7 @@ import { ResearchExperimentRunner } from './graph-team-formation/research-experi
     ProjectRepositoryService,
     ProjectRepositoryRepository,
     ProjectApplicationsService,
+    GitService,
     CooccurrenceService,
     GraphBuilderService,
     RWRSolver,
@@ -56,6 +59,7 @@ import { ResearchExperimentRunner } from './graph-team-formation/research-experi
     ProjectRepositoryService,
     ProjectRepositoryRepository,
     ProjectApplicationsService,
+    GitService,
     CooccurrenceService,
     GraphBuilderService,
     RWRSolver,

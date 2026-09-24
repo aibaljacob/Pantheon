@@ -10,7 +10,6 @@ import {
   BookOpen,
   CornerLeftUp,
 } from 'lucide-react';
-import { Button } from '../../../../components/ui/Button';
 import type { RepoFile, RepoCommit, RepoBranch } from '../../services/projectRepositoryService';
 
 interface RepoCodeBrowserProps {
@@ -19,7 +18,7 @@ interface RepoCodeBrowserProps {
   currentBranch: string;
   onSelectBranch: (branch: string) => void;
   onOpenCreateBranch: () => void;
-  onOpenCreateFile: () => void;
+
   onSelectFile: (file: RepoFile) => void;
   latestCommit?: RepoCommit;
   totalCommits: number;
@@ -42,7 +41,7 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
   currentBranch,
   onSelectBranch,
   onOpenCreateBranch,
-  onOpenCreateFile,
+
   onSelectFile,
   latestCommit,
   totalCommits,
@@ -166,15 +165,7 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
           )}
         </div>
 
-        {/* Action: Add File */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onOpenCreateFile}
-          icon={<Plus className="h-3.5 w-3.5" />}
-        >
-          Add File
-        </Button>
+
       </div>
 
       {/* Latest Commit Header Strip */}

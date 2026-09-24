@@ -16,8 +16,6 @@ import {
 import { Button } from '../../../../components/ui/Button';
 import {
   fetchProjectRepo,
-  commitRepoFile,
-  deleteRepoFile,
   createRepoBranch,
   createRepoPullRequest,
   mergeRepoPullRequest,
@@ -31,7 +29,6 @@ import { RepoCommitsList } from './RepoCommitsList';
 import { RepoBranchesList } from './RepoBranchesList';
 import { RepoPullRequestsList } from './RepoPullRequestsList';
 import { RepoReleasesList } from './RepoReleasesList';
-import { CreateFileModal } from './CreateFileModal';
 
 interface ProjectRepoTabProps {
   projectId: string;
@@ -69,8 +66,7 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
   const [cloneProtocol, setCloneProtocol] = useState<'https' | 'ssh'>('https');
   const [isCopied, setIsCopied] = useState(false);
 
-  // Create File modal state
-  const [isCreateFileOpen, setIsCreateFileOpen] = useState(false);
+
 
   const loadRepo = async (branch?: string) => {
     setIsLoading(true);
@@ -104,51 +100,7 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const handleCommitNewFile = async (path: string, content: string, commitMessage: string) => {
-    if (!accessToken) throw new Error('Authentication required to commit code.');
-    await commitRepoFile(
-      projectId,
-      {
-        path,
-        content,
-        commitMessage,
-        branch: currentBranch,
-      },
-      accessToken,
-    );
-    await loadRepo(currentBranch);
-  };
 
-  const handleCommitEdit = async (content: string, commitMessage: string) => {
-    if (!selectedFile || !accessToken) return;
-    const res = await commitRepoFile(
-      projectId,
-      {
-        path: selectedFile.path,
-        content,
-        commitMessage,
-        branch: currentBranch,
-      },
-      accessToken,
-    );
-    setSelectedFile(res.file);
-    await loadRepo(currentBranch);
-  };
-
-  const handleDeleteFile = async (commitMessage: string) => {
-    if (!selectedFile || !accessToken) return;
-    await deleteRepoFile(
-      projectId,
-      {
-        path: selectedFile.path,
-        commitMessage,
-        branch: currentBranch,
-      },
-      accessToken,
-    );
-    setSelectedFile(null);
-    await loadRepo(currentBranch);
-  };
 
   const handleCreateBranch = async (name: string, sourceBranch: string) => {
     if (!accessToken) throw new Error('Authentication required to create branch.');
@@ -450,8 +402,6 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
             file={selectedFile}
             branch={currentBranch}
             onBack={() => setSelectedFile(null)}
-            onCommitEdit={handleCommitEdit}
-            onDeleteFile={handleDeleteFile}
           />
         ) : (
           <RepoCodeBrowser
@@ -460,7 +410,6 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
             currentBranch={currentBranch}
             onSelectBranch={handleBranchChange}
             onOpenCreateBranch={() => setActiveTab('branches')}
-            onOpenCreateFile={() => setIsCreateFileOpen(true)}
             onSelectFile={(f) => setSelectedFile(f)}
             latestCommit={repoData.recentCommits[0]}
             totalCommits={repoData.stats.totalCommits}
@@ -498,13 +447,6 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
         />
       )}
 
-      {/* In-Browser Create File Modal */}
-      <CreateFileModal
-        isOpen={isCreateFileOpen}
-        onClose={() => setIsCreateFileOpen(false)}
-        branch={currentBranch}
-        onCommitFile={handleCommitNewFile}
-      />
     </div>
   );
 };

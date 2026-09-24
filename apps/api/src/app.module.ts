@@ -10,9 +10,11 @@ import { PrismaModule } from './prisma/prisma.module';
 import { TasksModule } from './tasks/tasks.module';
 import { BuildsModule } from './builds/builds.module';
 import { BuildRunnersModule } from './build-runners/build-runners.module';
+import { PersonalAccessTokensModule } from './personal-access-tokens/personal-access-tokens.module';
+import { GitHttpModule } from './git-http/git-http.module';
 
 @Module({
-  imports: [AuthModule, ProfileModule, TaxonomyModule, ProjectsModule, AdminModule, PrismaModule, TasksModule, BuildsModule, BuildRunnersModule],
+  imports: [AuthModule, ProfileModule, TaxonomyModule, ProjectsModule, AdminModule, PrismaModule, TasksModule, BuildsModule, BuildRunnersModule, PersonalAccessTokensModule, GitHttpModule],
 
   controllers: [AppController],
   providers: [AppService],

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tag, Plus, Download, Package, X } from 'lucide-react';
+import { Tag, Download, Package, X } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import type { RepoRelease, RepoBranch } from '../../services/projectRepositoryService';
 
@@ -50,14 +50,6 @@ export const RepoReleasesList: React.FC<RepoReleasesListProps> = ({
     <div className="space-y-4 font-mono">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3 text-xs text-[#8c887e]">
         <span>Releases & Builds ({releases.length})</span>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => setIsCreateOpen(true)}
-          icon={<Plus className="h-3.5 w-3.5" />}
-        >
-          Draft a New Release
-        </Button>
       </div>
 
       <div className="space-y-4">

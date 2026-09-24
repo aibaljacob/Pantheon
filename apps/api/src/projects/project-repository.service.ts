@@ -2,9 +2,16 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  NotImplementedException,
+  Logger,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
+import * as path from 'path';
 import { ProjectRepositoryRepository } from './project-repository.repository';
+import { PrismaService } from '../prisma/prisma.service';
+import { GitService, GitTreeItem } from './git.service';
+import { ProjectAuthorizationService } from '../tasks/project-authorization.service';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
 import {
   CommitFileDto,
   DeleteFileDto,
@@ -82,7 +89,15 @@ export interface RepoReleaseItem {
 
 @Injectable()
 export class ProjectRepositoryService {
-  constructor(private readonly repoRepository: ProjectRepositoryRepository) {}
+  private readonly logger = new Logger(ProjectRepositoryService.name);
+  private readonly repoRoot = process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
+
+  constructor(
+    private readonly repoRepository: ProjectRepositoryRepository,
+    private readonly gitService: GitService,
+    private readonly prisma: PrismaService,
+    private readonly authService: ProjectAuthorizationService,
+  ) {}
 
   private generateSha(seed: string): string {
     return crypto
@@ -106,26 +121,7 @@ export class ProjectRepositoryService {
       ? 'Godot Engine 4.x'
       : 'Unreal Engine 5.x';
 
-    const readmeContent = `# ${projectName}
-
-${description || 'A collaborative game production project on Pantheon.'}
-
-## Game Overview
-- **Engine**: ${engineLabel}
-- **VCS & Architecture**: Git Monorepo Architecture
-- **Production Studio**: Pantheon Studio
-
-## Getting Started
-1. Clone the repository:
-\`\`\`bash
-git clone https://git.pantheon.studio/projects/${projectSlug}.git
-\`\`\`
-2. Checkout the default branch:
-\`\`\`bash
-git checkout main
-\`\`\`
-3. Open the project in ${engineLabel} to verify engine compatibility.
-`;
+    const readmeContent = `# ${projectName}\n\n${description || 'A collaborative game production project on Pantheon.'}\n\n## Game Overview\n- **Engine**: ${engineLabel}\n- **VCS & Architecture**: Git Monorepo Architecture\n- **Production Studio**: Pantheon Studio\n\n## Getting Started\n1. Clone the repository:\n\`\`\`bash\ngit clone https://git.pantheon.studio/projects/${projectSlug}.git\n\`\`\`\n2. Checkout the default branch:\n\`\`\`bash\ngit checkout main\n\`\`\`\n3. Open the project in ${engineLabel} to verify engine compatibility.\n`;
 
     let gitignoreContent = `# Pantheon Default VCS Ignore Rules\nBinaries/\nBuild/\nSaved/\nIntermediate/\n.idea/\n.vs/\n*.log\n`;
     if (isUnity) {
@@ -174,6 +170,17 @@ git checkout main
     return result;
   }
 
+  private resolveSafeRepoPath(slug: string): string {
+    // Basic sanitization
+    const safeSlug = slug.replace(/[^a-zA-Z0-9_-]/g, '');
+    const repoPath = path.resolve(this.repoRoot, `${safeSlug}.git`);
+    // Ensure it doesn't escape the repoRoot
+    if (!repoPath.startsWith(this.repoRoot)) {
+      throw new BadRequestException('Invalid project slug');
+    }
+    return repoPath;
+  }
+
   async getOrCreateRepository(projectId: string) {
     const project = await this.repoRepository.findProjectWithDetails(projectId);
     if (!project) {
@@ -181,13 +188,39 @@ git checkout main
     }
 
     let repo = await this.repoRepository.findRepositoryByProjectId(projectId);
-    if (!repo) {
-      // Create new real repository in database
-      const createdRepo = await this.repoRepository.createRepository(projectId, 'main');
-      const defaultBranch = createdRepo.branches[0];
+    let repoDiskPath = repo?.repoDiskPath;
 
-      // Generate real initial commit
-      const initialSha = this.generateSha(`${project.slug}-init`);
+    // If repository doesn't exist in DB, create it
+    if (!repo) {
+      repoDiskPath = this.resolveSafeRepoPath(project.slug);
+      
+      const createdRepo = await this.repoRepository.createRepository(projectId, 'main');
+      
+      // Update with repoDiskPath
+      await this.prisma.projectRepository.update({
+        where: { id: createdRepo.id },
+        data: { repoDiskPath }
+      });
+      
+      repo = await this.repoRepository.findRepositoryByProjectId(projectId);
+    }
+
+    // Ensure repoDiskPath is populated
+    if (!repoDiskPath) {
+      repoDiskPath = this.resolveSafeRepoPath(project.slug);
+      await this.prisma.projectRepository.update({
+        where: { id: repo!.id },
+        data: { repoDiskPath }
+      });
+      repo!.repoDiskPath = repoDiskPath;
+    }
+
+    // Initialize physical bare repository if it doesn't exist
+    const isValid = await this.gitService.isValidRepository(repoDiskPath);
+    if (!isValid) {
+      this.logger.log(`Initializing bare git repository at ${repoDiskPath}`);
+      await this.gitService.initBareRepository(repoDiskPath, repo!.defaultBranch || 'main');
+      
       const starterFiles = this.generateStarterFiles(
         project.name,
         project.slug,
@@ -195,117 +228,90 @@ git checkout main
         project.description,
       );
 
-      const commit = await this.repoRepository.createCommit({
-        repositoryId: createdRepo.id,
-        hash: initialSha,
-        message: `chore: initialize repository for ${project.name}`,
-        branchName: defaultBranch.name,
-        authorId: project.founderId,
-        changedFiles: starterFiles.map((f) => f.path),
-      });
-
-      // Insert starter files into default branch
-      for (const starter of starterFiles) {
-        await this.repoRepository.upsertFile({
-          repositoryId: createdRepo.id,
-          branchId: defaultBranch.id,
-          path: starter.path,
-          content: starter.content,
-          size: Buffer.byteLength(starter.content, 'utf8'),
-          linesCount: starter.content.split('\n').length,
-          lastCommitId: commit.id,
-        });
-      }
-
-      repo = await this.repoRepository.findRepositoryByProjectId(projectId);
+      // Create initial commit with starter files
+      await this.gitService.createInitialCommitFromFiles(
+        repoDiskPath,
+        starterFiles,
+        `chore: initialize repository for ${project.name}`,
+        project.founder.username,
+        `${project.founder.username}@pantheon.studio`,
+        repo!.defaultBranch || 'main'
+      );
     }
 
     return { project, repo: repo! };
   }
+  async getRepository(projectId: string, user: AuthenticatedUser | undefined, branchName?: string) {
+    await this.authService.assertCanView(projectId, user?.id, user?.role);
 
-  async getRepository(projectId: string, branchName?: string) {
     const { project, repo } = await this.getOrCreateRepository(projectId);
+    const repoPath = repo.repoDiskPath!;
 
+    const gitBranches = await this.gitService.listBranches(repoPath);
     const activeBranchName = branchName || repo.defaultBranch || 'main';
-    let branch = await this.repoRepository.findBranchByName(repo.id, activeBranchName);
+    
+    // Fetch commits
+    const gitCommits = await this.gitService.listCommits(repoPath, activeBranchName, 50).catch(() => []);
+    
+    // Fetch tree
+    const tree = await this.gitService.getTree(repoPath, activeBranchName).catch(() => []);
 
-    if (!branch && repo.branches.length > 0) {
-      branch = await this.repoRepository.findBranchByName(repo.id, repo.branches[0].name);
+    const files: RepoFileItem[] = [];
+    for (const item of tree) {
+      if (item.type === 'blob') {
+        const ext = path.extname(item.path);
+        // Only load text files into memory to avoid huge payloads. 
+        // For phase 3A, we'll try to fetch content. In production we'd paginate or only fetch on demand.
+        const isText = ['.txt', '.md', '.json', '.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.cs', '.cpp', '.h', '.gitignore', '.gitattributes'].includes(ext);
+        
+        let content = '';
+        let linesCount = 0;
+        if (isText && (item.size || 0) < 100000) { // Limit to 100KB
+          content = await this.gitService.getFileContent(repoPath, activeBranchName, item.path).catch(() => '');
+          linesCount = content.split('\n').length;
+        }
+
+        // For this UI, we need the last commit that touched the file.
+        // We'll approximate this by taking the latest commit on the branch since doing `git log -1 -- path` for every file is slow.
+        // Or we could run git log once per file, but for Phase 3A let's use the top commit for simplicity.
+        const topCommit = gitCommits[0];
+
+        files.push({
+          path: item.path,
+          content,
+          size: item.size || 0,
+          linesCount,
+          lastCommit: {
+            hash: topCommit?.hash || 'init',
+            message: topCommit?.message || 'initial commit',
+            author: topCommit?.authorName || project.founder.username,
+            date: topCommit?.date || repo.createdAt.toISOString(),
+          },
+        });
+      }
     }
 
-    const branchFiles = branch ? await this.repoRepository.getBranchFiles(branch.id) : [];
-
-    const files: RepoFileItem[] = branchFiles.map((f) => ({
-      path: f.path,
-      content: f.content,
-      size: f.size,
-      linesCount: f.linesCount,
-      lastCommit: {
-        hash: f.lastCommit?.hash || 'init',
-        message: f.lastCommit?.message || 'initial commit',
-        author: f.lastCommit?.author?.username || project.founder.username,
-        date: f.lastCommit?.createdAt?.toISOString() || f.createdAt.toISOString(),
-      },
-    }));
-
-    const commits: RepoCommitItem[] = repo.commits.map((c) => ({
+    const commits: RepoCommitItem[] = gitCommits.map((c) => ({
       hash: c.hash,
       message: c.message,
       author: {
-        username: c.author.username,
-        displayName: c.author.profile?.displayName || c.author.username,
-        avatarUrl: c.author.profile?.avatarUrl,
+        username: c.authorName,
+        displayName: c.authorName,
       },
-      date: c.createdAt.toISOString(),
-      branch: c.branchName,
-      changedFiles: c.changedFiles,
+      date: new Date(c.date).toISOString(),
+      branch: activeBranchName,
+      changedFiles: [], // Omitted for brevity in listing
     }));
 
-    const branches: RepoBranchItem[] = repo.branches.map((b) => {
-      const branchCommits = repo.commits.filter((c) => c.branchName === b.name);
-      return {
-        name: b.name,
-        isDefault: b.isDefault,
-        lastCommitHash: branchCommits[0]?.hash || repo.commits[0]?.hash || 'init',
-        updatedAt: b.updatedAt.toISOString(),
-      };
-    });
-
-    const pullRequests: RepoPullRequestItem[] = repo.pullRequests.map((pr) => ({
-      id: pr.id,
-      number: pr.number,
-      title: pr.title,
-      description: pr.description || '',
-      sourceBranch: pr.sourceBranch,
-      targetBranch: pr.targetBranch,
-      status: pr.status as 'OPEN' | 'MERGED' | 'CLOSED',
-      author: {
-        username: pr.author.username,
-        displayName: pr.author.profile?.displayName || pr.author.username,
-        avatarUrl: pr.author.profile?.avatarUrl,
-      },
-      createdAt: pr.createdAt.toISOString(),
-      updatedAt: pr.updatedAt.toISOString(),
-      mergedAt: pr.mergedAt?.toISOString() || null,
-      mergedBy: pr.mergedBy?.username || null,
-      commentsCount: 0,
-      changedFilesCount: 1,
+    const branches: RepoBranchItem[] = gitBranches.map((b) => ({
+      name: b.name,
+      isDefault: b.isDefault,
+      lastCommitHash: b.lastCommitHash,
+      updatedAt: repo.updatedAt.toISOString(), // Approximation
     }));
 
-    const releases: RepoReleaseItem[] = repo.releases.map((rel) => ({
-      id: rel.id,
-      tagName: rel.tagName,
-      title: rel.title,
-      description: rel.description || '',
-      targetBranch: rel.targetBranch,
-      author: {
-        username: rel.author.username,
-        displayName: rel.author.profile?.displayName || rel.author.username,
-        avatarUrl: rel.author.profile?.avatarUrl,
-      },
-      publishedAt: rel.publishedAt.toISOString(),
-      assets: (rel.assets as any) || [],
-    }));
+    const pullRequests: RepoPullRequestItem[] = []; // Virtual PRs not supported in Phase 3A
+    const releases: RepoReleaseItem[] = []; // Virtual Releases not supported in Phase 3A
 
     const languages = this.calculateLanguages(files);
     const totalLines = files.reduce((acc, f) => acc + f.linesCount, 0);
@@ -315,7 +321,7 @@ git checkout main
       name: project.name,
       slug: project.slug,
       gameEngine: project.gameEngine,
-      currentBranch: branch?.name || activeBranchName,
+      currentBranch: activeBranchName,
       defaultBranch: repo.defaultBranch,
       branches,
       files,
@@ -340,30 +346,33 @@ git checkout main
     };
   }
 
-  async getFileContent(projectId: string, path: string, branchName: string = 'main') {
+  async getFileContent(projectId: string, filePath: string, user: AuthenticatedUser | undefined, branchName: string = 'main') {
+    await this.authService.assertCanView(projectId, user?.id, user?.role);
+
     const { repo } = await this.getOrCreateRepository(projectId);
-    const branch = await this.repoRepository.findBranchByName(repo.id, branchName);
-    if (!branch) {
-      throw new NotFoundException(`Branch '${branchName}' not found`);
-    }
+    const repoPath = repo.repoDiskPath!;
+    
+    try {
+      const content = await this.gitService.getFileContent(repoPath, branchName, filePath);
+      
+      const commits = await this.gitService.listCommits(repoPath, branchName, 1);
+      const topCommit = commits[0];
 
-    const file = await this.repoRepository.findFile(branch.id, path);
-    if (!file) {
-      throw new NotFoundException(`File not found at path: ${path}`);
+      return {
+        path: filePath,
+        content,
+        size: Buffer.byteLength(content, 'utf8'),
+        linesCount: content.split('\n').length,
+        lastCommit: {
+          hash: topCommit?.hash || 'init',
+          message: topCommit?.message || 'initial commit',
+          author: topCommit?.authorName || 'developer',
+          date: topCommit?.date || new Date().toISOString(),
+        },
+      };
+    } catch (err) {
+      throw new NotFoundException(`File not found at path: ${filePath}`);
     }
-
-    return {
-      path: file.path,
-      content: file.content,
-      size: file.size,
-      linesCount: file.linesCount,
-      lastCommit: {
-        hash: file.lastCommit?.hash || 'init',
-        message: file.lastCommit?.message || 'initial commit',
-        author: file.lastCommit?.author?.username || 'developer',
-        date: file.lastCommit?.createdAt?.toISOString() || file.createdAt.toISOString(),
-      },
-    };
   }
 
   async commitFile(
@@ -371,68 +380,7 @@ git checkout main
     dto: CommitFileDto,
     author: { id: string; username: string },
   ) {
-    const { repo } = await this.getOrCreateRepository(projectId);
-    const branchName = dto.branch || repo.defaultBranch;
-    let branch = await this.repoRepository.findBranchByName(repo.id, branchName);
-
-    if (!branch) {
-      await this.repoRepository.createBranch(repo.id, branchName, false);
-      branch = await this.repoRepository.findBranchByName(repo.id, branchName);
-    }
-
-    if (!branch) {
-      throw new NotFoundException(`Failed to resolve branch '${branchName}'`);
-    }
-
-    const sha = this.generateSha(dto.path);
-    const commit = await this.repoRepository.createCommit({
-      repositoryId: repo.id,
-      hash: sha,
-      message: dto.commitMessage,
-      branchName: branch.name,
-      authorId: author.id,
-      changedFiles: [dto.path],
-    });
-
-    const linesCount = dto.content.split('\n').length;
-    const size = Buffer.byteLength(dto.content, 'utf8');
-
-    const file = await this.repoRepository.upsertFile({
-      repositoryId: repo.id,
-      branchId: branch.id,
-      path: dto.path,
-      content: dto.content,
-      size,
-      linesCount,
-      lastCommitId: commit.id,
-    });
-
-    return {
-      commit: {
-        hash: commit.hash,
-        message: commit.message,
-        author: {
-          username: commit.author.username,
-          displayName: commit.author.profile?.displayName || commit.author.username,
-          avatarUrl: commit.author.profile?.avatarUrl,
-        },
-        date: commit.createdAt.toISOString(),
-        branch: commit.branchName,
-        changedFiles: commit.changedFiles,
-      },
-      file: {
-        path: file.path,
-        content: file.content,
-        size: file.size,
-        linesCount: file.linesCount,
-        lastCommit: {
-          hash: commit.hash,
-          message: commit.message,
-          author: commit.author.username,
-          date: commit.createdAt.toISOString(),
-        },
-      },
-    };
+    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
   }
 
   async deleteFile(
@@ -440,46 +388,7 @@ git checkout main
     dto: DeleteFileDto,
     author: { id: string; username: string },
   ) {
-    const { repo } = await this.getOrCreateRepository(projectId);
-    const branchName = dto.branch || repo.defaultBranch;
-    const branch = await this.repoRepository.findBranchByName(repo.id, branchName);
-
-    if (!branch) {
-      throw new NotFoundException(`Branch '${branchName}' not found`);
-    }
-
-    const file = await this.repoRepository.findFile(branch.id, dto.path);
-    if (!file) {
-      throw new NotFoundException(`File '${dto.path}' not found on branch '${branchName}'`);
-    }
-
-    await this.repoRepository.deleteFile(branch.id, dto.path);
-
-    const sha = this.generateSha(dto.path);
-    const commit = await this.repoRepository.createCommit({
-      repositoryId: repo.id,
-      hash: sha,
-      message: dto.commitMessage,
-      branchName: branch.name,
-      authorId: author.id,
-      changedFiles: [dto.path],
-    });
-
-    return {
-      success: true,
-      commit: {
-        hash: commit.hash,
-        message: commit.message,
-        author: {
-          username: commit.author.username,
-          displayName: commit.author.profile?.displayName || commit.author.username,
-          avatarUrl: commit.author.profile?.avatarUrl,
-        },
-        date: commit.createdAt.toISOString(),
-        branch: commit.branchName,
-        changedFiles: commit.changedFiles,
-      },
-    };
+    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
   }
 
   async createBranch(
@@ -487,42 +396,7 @@ git checkout main
     dto: CreateBranchDto,
     author: { id: string; username: string },
   ) {
-    const { repo } = await this.getOrCreateRepository(projectId);
-    const existing = await this.repoRepository.findBranchByName(repo.id, dto.name);
-    if (existing) {
-      throw new BadRequestException(`Branch '${dto.name}' already exists.`);
-    }
-
-    const sourceBranchName = dto.sourceBranch || repo.defaultBranch;
-    const sourceBranch = await this.repoRepository.findBranchByName(repo.id, sourceBranchName);
-    if (!sourceBranch) {
-      throw new NotFoundException(`Source branch '${sourceBranchName}' not found.`);
-    }
-
-    const newBranch = await this.repoRepository.createBranch(repo.id, dto.name, false);
-    const sourceFiles = await this.repoRepository.getBranchFiles(sourceBranch.id);
-
-    await this.repoRepository.cloneFilesToBranch(
-      repo.id,
-      newBranch.id,
-      sourceFiles.map((f) => ({
-        path: f.path,
-        content: f.content,
-        size: f.size,
-        linesCount: f.linesCount,
-        lastCommitId: f.lastCommitId,
-      })),
-    );
-
-    const sourceCommits = repo.commits.filter((c) => c.branchName === sourceBranch.name);
-    const lastCommitHash = sourceCommits[0]?.hash || repo.commits[0]?.hash || 'init';
-
-    return {
-      name: newBranch.name,
-      isDefault: newBranch.isDefault,
-      lastCommitHash,
-      updatedAt: newBranch.updatedAt.toISOString(),
-    };
+    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
   }
 
   async createPullRequest(
@@ -530,49 +404,7 @@ git checkout main
     dto: CreatePullRequestDto,
     author: { id: string; username: string },
   ) {
-    const { repo } = await this.getOrCreateRepository(projectId);
-    const sourceBranch = await this.repoRepository.findBranchByName(repo.id, dto.sourceBranch);
-    if (!sourceBranch) {
-      throw new NotFoundException(`Source branch '${dto.sourceBranch}' not found.`);
-    }
-
-    const targetBranchName = dto.targetBranch || repo.defaultBranch;
-    const targetBranch = await this.repoRepository.findBranchByName(repo.id, targetBranchName);
-    if (!targetBranch) {
-      throw new NotFoundException(`Target branch '${targetBranchName}' not found.`);
-    }
-
-    const number = repo.pullRequests.length + 1;
-    const pr = await this.repoRepository.createPullRequest({
-      repositoryId: repo.id,
-      number,
-      title: dto.title,
-      description: dto.description,
-      sourceBranch: dto.sourceBranch,
-      targetBranch: targetBranchName,
-      authorId: author.id,
-    });
-
-    return {
-      id: pr.id,
-      number: pr.number,
-      title: pr.title,
-      description: pr.description || '',
-      sourceBranch: pr.sourceBranch,
-      targetBranch: pr.targetBranch,
-      status: pr.status as 'OPEN' | 'MERGED' | 'CLOSED',
-      author: {
-        username: pr.author.username,
-        displayName: pr.author.profile?.displayName || pr.author.username,
-        avatarUrl: pr.author.profile?.avatarUrl,
-      },
-      createdAt: pr.createdAt.toISOString(),
-      updatedAt: pr.updatedAt.toISOString(),
-      mergedAt: null,
-      mergedBy: null,
-      commentsCount: 0,
-      changedFilesCount: 1,
-    };
+    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
   }
 
   async mergePullRequest(
@@ -580,70 +412,7 @@ git checkout main
     prNumber: number,
     author: { id: string; username: string },
   ) {
-    const { repo } = await this.getOrCreateRepository(projectId);
-    const pr = await this.repoRepository.findPullRequestByNumber(repo.id, prNumber);
-    if (!pr) {
-      throw new NotFoundException(`Pull request #${prNumber} not found.`);
-    }
-
-    if (pr.status === 'MERGED') {
-      throw new BadRequestException('Pull request has already been merged.');
-    }
-
-    const sourceBranch = await this.repoRepository.findBranchByName(repo.id, pr.sourceBranch);
-    const targetBranch = await this.repoRepository.findBranchByName(repo.id, pr.targetBranch);
-
-    if (!sourceBranch || !targetBranch) {
-      throw new NotFoundException('Branches for pull request not found.');
-    }
-
-    // Merge source files into target branch
-    const sourceFiles = await this.repoRepository.getBranchFiles(sourceBranch.id);
-    for (const sf of sourceFiles) {
-      await this.repoRepository.upsertFile({
-        repositoryId: repo.id,
-        branchId: targetBranch.id,
-        path: sf.path,
-        content: sf.content,
-        size: sf.size,
-        linesCount: sf.linesCount,
-        lastCommitId: sf.lastCommitId || undefined,
-      });
-    }
-
-    // Generate merge commit
-    const mergeSha = this.generateSha(`merge-pr-${prNumber}`);
-    await this.repoRepository.createCommit({
-      repositoryId: repo.id,
-      hash: mergeSha,
-      message: `Merge pull request #${prNumber} from ${pr.sourceBranch} into ${pr.targetBranch}`,
-      branchName: targetBranch.name,
-      authorId: author.id,
-      changedFiles: sourceFiles.map((f) => f.path),
-    });
-
-    const updatedPr = await this.repoRepository.markPullRequestMerged(pr.id, author.id);
-
-    return {
-      id: updatedPr.id,
-      number: updatedPr.number,
-      title: updatedPr.title,
-      description: updatedPr.description || '',
-      sourceBranch: updatedPr.sourceBranch,
-      targetBranch: updatedPr.targetBranch,
-      status: 'MERGED' as const,
-      author: {
-        username: updatedPr.author.username,
-        displayName: updatedPr.author.profile?.displayName || updatedPr.author.username,
-        avatarUrl: updatedPr.author.profile?.avatarUrl,
-      },
-      createdAt: updatedPr.createdAt.toISOString(),
-      updatedAt: updatedPr.updatedAt.toISOString(),
-      mergedAt: updatedPr.mergedAt?.toISOString() || null,
-      mergedBy: author.username,
-      commentsCount: 0,
-      changedFilesCount: sourceFiles.length,
-    };
+    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
   }
 
   async createRelease(
@@ -651,44 +420,6 @@ git checkout main
     dto: CreateReleaseDto,
     author: { id: string; username: string },
   ) {
-    const { repo, project } = await this.getOrCreateRepository(projectId);
-    const existing = repo.releases.find((r) => r.tagName === dto.tagName);
-    if (existing) {
-      throw new BadRequestException(`Release tag '${dto.tagName}' already exists.`);
-    }
-
-    const targetBranchName = dto.targetBranch || repo.defaultBranch;
-    const defaultAssets = [
-      {
-        name: `${project.slug}-${dto.tagName}-build.zip`,
-        size: '150 MB',
-        downloadUrl: '#',
-      },
-    ];
-
-    const release = await this.repoRepository.createRelease({
-      repositoryId: repo.id,
-      tagName: dto.tagName,
-      title: dto.title,
-      description: dto.description,
-      targetBranch: targetBranchName,
-      authorId: author.id,
-      assets: defaultAssets,
-    });
-
-    return {
-      id: release.id,
-      tagName: release.tagName,
-      title: release.title,
-      description: release.description || '',
-      targetBranch: release.targetBranch,
-      author: {
-        username: release.author.username,
-        displayName: release.author.profile?.displayName || release.author.username,
-        avatarUrl: release.author.profile?.avatarUrl,
-      },
-      publishedAt: release.publishedAt.toISOString(),
-      assets: defaultAssets,
-    };
+    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
   }
 }
