@@ -20,7 +20,7 @@ export class GitHttpService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async resolveRepoPath(projectSlug: string, user: any, pat: any, accessType: 'read' | 'write') {
+  async resolveRepoPath(projectSlug: string, user: any, pat: any, runner: any, accessType: 'read' | 'write') {
     const project = await this.prisma.project.findUnique({
       where: { slug: projectSlug },
       include: { repository: true },
@@ -30,26 +30,34 @@ export class GitHttpService {
       throw new NotFoundException('Repository not found');
     }
 
-    if (accessType === 'read') {
-      if (!pat.scopes.includes('repo:read') && !pat.scopes.includes('repo:write')) {
-        throw new ForbiddenException('Token lacks repo:read scope');
+    // Runner access: runners are allowed 'read' access to any project since they fetch for builds.
+    // Runners should not be pushing code (write access).
+    if (runner) {
+      if (accessType === 'write') {
+        throw new ForbiddenException('Runners cannot push code');
       }
-      // Re-use Phase 3A logic which handles Founders, Members, Admin, Public
-      await this.authService.assertCanView(project.id, user.id, user.role);
-    } else if (accessType === 'write') {
-      if (!pat.scopes.includes('repo:write')) {
-        throw new ForbiddenException('Token lacks repo:write scope');
-      }
-      
-      if (user.role === 'ADMINISTRATOR' || project.founderId === user.id) {
-        // allowed
-      } else {
-        const member = await this.prisma.projectMember.findUnique({
-          where: { projectId_userId: { projectId: project.id, userId: user.id } },
-        });
+      // Allowed read access
+    } else {
+      if (accessType === 'read') {
+        if (!pat.scopes.includes('repo:read') && !pat.scopes.includes('repo:write')) {
+          throw new ForbiddenException('Token lacks repo:read scope');
+        }
+        await this.authService.assertCanView(project.id, user.id, user.role);
+      } else if (accessType === 'write') {
+        if (!pat.scopes.includes('repo:write')) {
+          throw new ForbiddenException('Token lacks repo:write scope');
+        }
+        
+        if (user.role === 'ADMINISTRATOR' || project.founderId === user.id) {
+          // allowed
+        } else {
+          const member = await this.prisma.projectMember.findUnique({
+            where: { projectId_userId: { projectId: project.id, userId: user.id } },
+          });
 
-        if (!member || member.status !== 'ACTIVE') {
-          throw new ForbiddenException('Write access requires active project membership');
+          if (!member || member.status !== 'ACTIVE') {
+            throw new ForbiddenException('Write access requires active project membership');
+          }
         }
       }
     }
@@ -68,6 +76,7 @@ export class GitHttpService {
     service: string,
     user: any,
     pat: any,
+    runner: any,
     req: Request,
     res: Response,
   ) {
@@ -77,7 +86,7 @@ export class GitHttpService {
     }
 
     const accessType = service === 'git-receive-pack' ? 'write' : 'read';
-    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, accessType);
+    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, runner, accessType);
 
     res.setHeader('Content-Type', `application/x-${service}-advertisement`);
     res.setHeader('Cache-Control', 'no-cache');
@@ -101,10 +110,11 @@ export class GitHttpService {
     projectSlug: string,
     user: any,
     pat: any,
+    runner: any,
     req: Request,
     res: Response,
   ) {
-    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, 'read');
+    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, runner, 'read');
 
     res.setHeader('Content-Type', 'application/x-git-upload-pack-result');
     res.setHeader('Cache-Control', 'no-cache');
@@ -125,10 +135,11 @@ export class GitHttpService {
     projectSlug: string,
     user: any,
     pat: any,
+    runner: any,
     req: Request,
     res: Response,
   ) {
-    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, 'write');
+    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, runner, 'write');
 
     const refsBefore = await this.getRefs(repoPath);
 

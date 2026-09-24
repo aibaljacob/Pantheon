@@ -26,7 +26,8 @@ export class GitHttpController {
   ) {
     const user = (req as any).user;
     const pat = (req as any).pat;
-    this.gitService.handleInfoRefs(slug, service, user, pat, req, res).catch((err) => {
+    const runner = (req as any).runner;
+    this.gitService.handleInfoRefs(slug, service, user, pat, runner, req, res).catch((err) => {
       console.error('Git HTTP info-refs error:', err);
       res.status(err.status || 500).send(err.message || 'Internal Server Error');
     });
@@ -40,7 +41,8 @@ export class GitHttpController {
   ) {
     const user = (req as any).user;
     const pat = (req as any).pat;
-    this.gitService.handleUploadPack(slug, user, pat, req, res).catch((err) => {
+    const runner = (req as any).runner;
+    this.gitService.handleUploadPack(slug, user, pat, runner, req, res).catch((err) => {
       console.error('Git HTTP upload-pack error:', err);
       res.status(err.status || 500).send(err.message || 'Internal Server Error');
     });
@@ -54,7 +56,8 @@ export class GitHttpController {
   ) {
     const user = (req as any).user;
     const pat = (req as any).pat;
-    this.gitService.handleReceivePack(slug, user, pat, req, res).catch((err) => {
+    const runner = (req as any).runner;
+    this.gitService.handleReceivePack(slug, user, pat, runner, req, res).catch((err) => {
       console.error('Git HTTP receive-pack error:', err);
       res.status(err.status || 500).send(err.message || 'Internal Server Error');
     });

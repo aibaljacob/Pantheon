@@ -29,8 +29,29 @@ export class GitBasicAuthGuard implements CanActivate {
     const b64auth = authHeader.split(' ')[1];
     const [username, token] = Buffer.from(b64auth, 'base64').toString().split(':');
 
-    if (!token || !token.startsWith('pht_')) {
+    if (!token) {
       throw new UnauthorizedException('Invalid token format');
+    }
+
+    // Handle Build Runner Authentication
+    if (!token.startsWith('pht_')) {
+      // Assume username is runnerId and token is runnerToken
+      const runnerRecord = await this.prisma.buildRunner.findUnique({
+        where: { id: username },
+      });
+
+      if (!runnerRecord) {
+        throw new UnauthorizedException('Invalid runner credentials');
+      }
+
+      const isMatch = await bcrypt.compare(token, runnerRecord.tokenHash);
+      if (!isMatch) {
+        throw new UnauthorizedException('Invalid runner token');
+      }
+
+      // Attach runner info to request
+      (request as any).runner = runnerRecord;
+      return true;
     }
 
     const prefix = token.substring(0, 12);
