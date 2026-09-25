@@ -25,8 +25,6 @@ import { CreateTaskModal } from './CreateTaskModal';
 import { CreateMilestoneModal } from './CreateMilestoneModal';
 import { TaskDetailModal } from './TaskDetailModal';
 import { MilestoneSection } from './MilestoneSection';
-import { PlaytestFeedbackSection } from './PlaytestFeedbackSection';
-import { Gamepad2 } from 'lucide-react';
 
 interface TasksTabProps {
   projectId: string;
@@ -53,8 +51,6 @@ export const TasksTab: React.FC<TasksTabProps> = ({
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [viewMode, setViewMode] = useState<'tasks' | 'feedback'>('tasks');
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -199,39 +195,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* View Toggle */}
-      <div className="flex items-center gap-2 border-b border-[#2b2a29] pb-4">
-        <button
-          onClick={() => setViewMode('tasks')}
-          className={`px-4 py-2 text-sm font-bold font-headline transition-colors ${
-            viewMode === 'tasks' 
-              ? 'text-amber-400 border-b-2 border-amber-400' 
-              : 'text-[#8c887e] hover:text-white border-b-2 border-transparent'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <CheckSquare className="h-4 w-4" />
-            Task Board
-          </div>
-        </button>
-        <button
-          onClick={() => setViewMode('feedback')}
-          className={`px-4 py-2 text-sm font-bold font-headline transition-colors ${
-            viewMode === 'feedback' 
-              ? 'text-amber-400 border-b-2 border-amber-400' 
-              : 'text-[#8c887e] hover:text-white border-b-2 border-transparent'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            <Gamepad2 className="h-4 w-4" />
-            Playtest Feedback
-          </div>
-        </button>
-      </div>
-
-      {viewMode === 'tasks' && (
-        <>
-          {/* Top Banner & Action Header */}
+      {/* Top Banner & Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-950/20 text-amber-400">
@@ -448,16 +412,6 @@ export const TasksTab: React.FC<TasksTabProps> = ({
           onUpdateMilestone={handleUpdateMilestoneForTask}
           onUpdateDetails={handleUpdateDetails}
           onDeleteTask={handleDeleteTask}
-        />
-      )}
-      </>
-    )}
-      
-      {viewMode === 'feedback' && (
-        <PlaytestFeedbackSection
-          projectId={projectId}
-          isFounderOrAdmin={isFounderOrAdmin}
-          onTaskCreated={loadData}
         />
       )}
     </div>

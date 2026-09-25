@@ -23,8 +23,6 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
-import { usePlaytestStore } from '../features/projects/store/playtestStore';
-import { PlaytestWidget } from '../features/projects/components/playtest/PlaytestWidget';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -53,6 +51,7 @@ import { TeamSection } from '../features/projects/components/TeamSection';
 import { TasksTab } from '../features/projects/components/tasks/TasksTab';
 import { ProductionProgressCard } from '../features/projects/components/tasks/ProductionProgressCard';
 import { BuildsTab } from '../features/projects/components/builds/BuildsTab';
+import { PlaytestsTab } from '../features/projects/components/playtest/PlaytestsTab';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -142,7 +141,6 @@ export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const currentUser = useAuthStore((state) => state.currentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
-  const { activeSession, buildVersion, clearSession } = usePlaytestStore();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [roles, setRoles] = useState<ProjectRoleItem[]>([]);
@@ -152,7 +150,7 @@ export const ProjectDetailPage: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [editingRole, setEditingRole] = useState<ProjectRoleItem | null>(null);
-  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'team' | 'tasks' | 'builds' | 'repo' | 'applications'>('overview');
+  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'team' | 'tasks' | 'builds' | 'playtests' | 'repo' | 'applications'>('overview');
   const [applyingRole, setApplyingRole] = useState<ProjectRoleItem | null>(null);
 
   // AI Recommendation State
@@ -490,6 +488,19 @@ export const ProjectDetailPage: React.FC = () => {
             <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.2 text-[9px] font-bold">
               Git
             </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveProjectTab('playtests')}
+            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              activeProjectTab === 'playtests'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <Gamepad2 className="h-4 w-4 text-amber-400" />
+            <span>Playtests</span>
           </button>
 
           {project.isFounder && (
@@ -945,6 +956,15 @@ export const ProjectDetailPage: React.FC = () => {
           />
         )}
 
+        {/* Tab: Playtests & Feedback */}
+        {activeProjectTab === 'playtests' && (
+          <PlaytestsTab
+            projectId={project.id}
+            isFounder={project.isFounder}
+            currentUser={currentUser}
+          />
+        )}
+
         {/* Tab 2: Code & Repository Management */}
         {activeProjectTab === 'repo' && (
           <ProjectRepoTab projectId={project.id} accessToken={accessToken} />
@@ -1000,14 +1020,6 @@ export const ProjectDetailPage: React.FC = () => {
     return (
       <DashboardLayout user={currentUser}>
         <div className="max-w-7xl mx-auto pb-12">{renderContent()}</div>
-        {activeSession && project && (
-          <PlaytestWidget 
-            projectId={project.id} 
-            activeSession={activeSession} 
-            onEndSession={clearSession} 
-            buildVersion={buildVersion || ''} 
-          />
-        )}
       </DashboardLayout>
     );
   }
@@ -1017,14 +1029,6 @@ export const ProjectDetailPage: React.FC = () => {
       <Navbar />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">{renderContent()}</main>
       <Footer />
-      {activeSession && project && (
-        <PlaytestWidget 
-          projectId={project.id} 
-          activeSession={activeSession} 
-          onEndSession={clearSession} 
-          buildVersion={buildVersion || ''} 
-        />
-      )}
     </div>
   );
 };

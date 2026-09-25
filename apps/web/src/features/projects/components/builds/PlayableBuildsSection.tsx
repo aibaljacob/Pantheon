@@ -10,12 +10,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import type { PlayableBuildItem } from '../../types';
-import { Gamepad2 } from 'lucide-react';
-import { usePlaytestStore } from '../../store/playtestStore';
-import { playtestService } from '../../services/playtestService';
 
 interface PlayableBuildsSectionProps {
-  projectId: string;
   playableBuilds: PlayableBuildItem[];
   onOpenRegisterModal?: () => void;
   isFounderOrAdmin: boolean;
@@ -33,22 +29,10 @@ function formatBytes(bytes?: number | null): string {
 }
 
 export const PlayableBuildsSection: React.FC<PlayableBuildsSectionProps> = ({
-  projectId,
   playableBuilds,
   onOpenRegisterModal,
   isFounderOrAdmin,
 }) => {
-  const { activeSession, setActiveSession } = usePlaytestStore();
-
-  const handleStartPlaytest = async (buildId: string, buildVersion: string) => {
-    try {
-      const session = await playtestService.startSession(projectId, buildId);
-      setActiveSession(session, projectId, buildVersion);
-    } catch (err) {
-      console.error('Failed to start playtest', err);
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
@@ -118,24 +102,14 @@ export const PlayableBuildsSection: React.FC<PlayableBuildsSectionProps> = ({
                   {/* Download Action */}
                   <div className="flex items-center gap-2">
                     {hasArtifact ? (
-                      <>
-                        <a
-                          href={pb.storagePath || '#'}
-                          download
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-mono font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                          <span>Download Build</span>
-                        </a>
-                        <button
-                          onClick={() => handleStartPlaytest(pb.id, pb.version)}
-                          disabled={activeSession !== null}
-                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#363433] bg-[#1c1b1a] px-3.5 py-1.5 text-xs font-mono font-semibold text-[#e6e2df] hover:border-amber-500/50 hover:bg-amber-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Gamepad2 className="h-3.5 w-3.5" />
-                          <span>Playtest</span>
-                        </button>
-                      </>
+                      <a
+                        href={pb.storagePath || '#'}
+                        download
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-mono font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Download Build</span>
+                      </a>
                     ) : (
                       <div className="flex items-center gap-1.5 rounded-xl border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-[11px] font-mono text-[#8c887e]">
                         <AlertCircle className="h-3.5 w-3.5 text-[#8c887e]" />
