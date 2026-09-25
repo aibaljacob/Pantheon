@@ -23,6 +23,8 @@ import {
   CheckSquare,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
+import { usePlaytestStore } from '../features/projects/store/playtestStore';
+import { PlaytestWidget } from '../features/projects/components/playtest/PlaytestWidget';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
@@ -140,6 +142,7 @@ export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const currentUser = useAuthStore((state) => state.currentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
+  const { activeSession, buildVersion, clearSession } = usePlaytestStore();
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [roles, setRoles] = useState<ProjectRoleItem[]>([]);
@@ -997,6 +1000,14 @@ export const ProjectDetailPage: React.FC = () => {
     return (
       <DashboardLayout user={currentUser}>
         <div className="max-w-7xl mx-auto pb-12">{renderContent()}</div>
+        {activeSession && project && (
+          <PlaytestWidget 
+            projectId={project.id} 
+            activeSession={activeSession} 
+            onEndSession={clearSession} 
+            buildVersion={buildVersion || ''} 
+          />
+        )}
       </DashboardLayout>
     );
   }
@@ -1006,6 +1017,14 @@ export const ProjectDetailPage: React.FC = () => {
       <Navbar />
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">{renderContent()}</main>
       <Footer />
+      {activeSession && project && (
+        <PlaytestWidget 
+          projectId={project.id} 
+          activeSession={activeSession} 
+          onEndSession={clearSession} 
+          buildVersion={buildVersion || ''} 
+        />
+      )}
     </div>
   );
 };

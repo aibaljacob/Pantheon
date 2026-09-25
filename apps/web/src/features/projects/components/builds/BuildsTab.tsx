@@ -302,6 +302,7 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
         </div>
       ) : (
         <PlayableBuildsSection
+          projectId={projectId}
           playableBuilds={playableBuilds}
           onOpenRegisterModal={() => setIsRegisterPlayableOpen(true)}
           isFounderOrAdmin={isFounderOrAdmin}
