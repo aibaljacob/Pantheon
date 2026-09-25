@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { apiClient } from '../features/auth/services/httpClient';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { Gamepad2, ArrowLeft, Terminal } from 'lucide-react';
@@ -31,7 +31,7 @@ export function PlaytestNewPage() {
 
   const loadBuilds = async () => {
     try {
-      const res = await api.get(`/projects/${projectId}/playable-builds`);
+      const res = await apiClient.get(`/projects/${projectId}/playable-builds`);
       setBuilds(res.data);
       if (res.data.length > 0) {
         setSelectedBuildId(res.data[0].id);
@@ -52,7 +52,7 @@ export function PlaytestNewPage() {
     try {
       setIsSubmitting(true);
       setError(null);
-      const res = await api.post(`/projects/${projectId}/playable-builds/${selectedBuildId}/playtests`, {
+      const res = await apiClient.post(`/projects/${projectId}/playable-builds/${selectedBuildId}/playtests`, {
         title,
         instructions
       });

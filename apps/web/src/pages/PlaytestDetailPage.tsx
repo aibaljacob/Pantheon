@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api } from '../lib/api';
+import { apiClient } from '../features/auth/services/httpClient';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { ArrowLeft, Download, AlertCircle, MessageSquare, Plus, Target, Settings, GitCommit, CheckSquare } from 'lucide-react';
@@ -62,14 +62,14 @@ export function PlaytestDetailPage() {
       setIsLoading(true);
       
       // Load Project to check if founder
-      const projRes = await api.get(`/projects/${projectId}`);
+      const projRes = await apiClient.get(`/projects/${projectId}`);
       setIsProjectFounder(projRes.data.isFounder);
 
-      const ptRes = await api.get(`/projects/${projectId}/playtests/${playtestId}`);
+      const ptRes = await apiClient.get(`/projects/${projectId}/playtests/${playtestId}`);
       setPlaytest(ptRes.data);
 
       if (projRes.data.isFounder) {
-        const fbRes = await api.get(`/projects/${projectId}/playtests/${playtestId}/feedback`);
+        const fbRes = await apiClient.get(`/projects/${projectId}/playtests/${playtestId}/feedback`);
         setFeedback(fbRes.data);
       }
     } catch (err: any) {
@@ -83,7 +83,7 @@ export function PlaytestDetailPage() {
   const handleDownload = async () => {
     if (!playtest) return;
     try {
-      const res = await api.get(`/projects/${projectId}/playable-builds/${playtest.playableBuild.id}/download`);
+      const res = await apiClient.get(`/projects/${projectId}/playable-builds/${playtest.playableBuild.id}/download`);
       window.location.href = res.data.downloadUrl;
     } catch (err: any) {
       alert('Failed to generate download link');
@@ -95,7 +95,7 @@ export function PlaytestDetailPage() {
     if (!feedbackTitle.trim() || !feedbackDesc.trim()) return;
     try {
       setIsSubmitting(true);
-      await api.post(`/projects/${projectId}/playtests/${playtestId}/feedback`, {
+      await apiClient.post(`/projects/${projectId}/playtests/${playtestId}/feedback`, {
         title: feedbackTitle,
         description: feedbackDesc,
         severity: feedbackSeverity
@@ -105,7 +105,7 @@ export function PlaytestDetailPage() {
       setFeedbackDesc('');
       setFeedbackSeverity('MEDIUM');
       if (isProjectFounder) {
-        const fbRes = await api.get(`/projects/${projectId}/playtests/${playtestId}/feedback`);
+        const fbRes = await apiClient.get(`/projects/${projectId}/playtests/${playtestId}/feedback`);
         setFeedback(fbRes.data);
       } else {
         alert('Feedback submitted successfully! Thank you.');
@@ -120,9 +120,9 @@ export function PlaytestDetailPage() {
   const convertToTask = async (feedbackId: string) => {
     try {
       setConvertingId(feedbackId);
-      await api.post(`/projects/${projectId}/playtests/${playtestId}/feedback/${feedbackId}/convert-to-task`);
+      await apiClient.post(`/projects/${projectId}/playtests/${playtestId}/feedback/${feedbackId}/convert-to-task`);
       // Reload feedback
-      const fbRes = await api.get(`/projects/${projectId}/playtests/${playtestId}/feedback`);
+      const fbRes = await apiClient.get(`/projects/${projectId}/playtests/${playtestId}/feedback`);
       setFeedback(fbRes.data);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to convert to task');

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Gamepad2, Plus, Calendar, Settings, Play, CheckCircle, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { api } from '../../../../lib/api';
+import { apiClient } from '../../../auth/services/httpClient';
 import { Button } from '../../../../components/ui/Button';
 
 interface PlaytestSession {
@@ -40,7 +40,7 @@ export function PlaytestsTab({ projectId, isFounder, currentUser }: PlaytestsTab
     try {
       setIsLoading(true);
       setError(null);
-      const res = await api.get(`/projects/${projectId}/playtests`);
+      const res = await apiClient.get(`/projects/${projectId}/playtests`);
       setPlaytests(res.data);
     } catch (err: any) {
       console.error(err);
