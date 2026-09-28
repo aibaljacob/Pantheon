@@ -9,23 +9,36 @@ const { runGodotBuild } = require('./godot-build-strategy');
 const API_URL = process.env.API_URL || 'http://localhost:3000';
 const RUNNER_NAME = process.env.RUNNER_NAME || 'Local Windows Runner';
 const PLATFORM = process.env.PLATFORM || 'WINDOWS';
+const PROJECT_ID = process.env.PROJECT_ID;
+const RUNNER_BOOTSTRAP_SECRET = process.env.RUNNER_BOOTSTRAP_SECRET;
 
 let RUNNER_ID = process.env.RUNNER_ID;
 let RUNNER_TOKEN = process.env.RUNNER_TOKEN;
 
 async function registerRunner() {
-  console.log('Registering new runner...');
+  if (!PROJECT_ID) {
+    console.error('PROJECT_ID environment variable is required to register a runner.');
+    process.exit(1);
+  }
+  if (!RUNNER_BOOTSTRAP_SECRET) {
+    console.error('RUNNER_BOOTSTRAP_SECRET environment variable is required to register a runner.');
+    process.exit(1);
+  }
+
+  console.log(`Registering new runner for project ${PROJECT_ID}...`);
   try {
     const res = await axios.post(`${API_URL}/build-runners/register`, {
       name: RUNNER_NAME,
-      platform: PLATFORM
+      platform: PLATFORM,
+      projectId: PROJECT_ID,
+      bootstrapSecret: RUNNER_BOOTSTRAP_SECRET,
     });
     
     RUNNER_ID = res.data.id;
     RUNNER_TOKEN = res.data.token;
     
     // Save to .env
-    const envContent = `API_URL=${API_URL}\nRUNNER_NAME=${RUNNER_NAME}\nPLATFORM=${PLATFORM}\nRUNNER_ID=${RUNNER_ID}\nRUNNER_TOKEN=${RUNNER_TOKEN}\n`;
+    const envContent = `API_URL=${API_URL}\nRUNNER_NAME=${RUNNER_NAME}\nPLATFORM=${PLATFORM}\nPROJECT_ID=${PROJECT_ID}\nRUNNER_BOOTSTRAP_SECRET=${RUNNER_BOOTSTRAP_SECRET}\nRUNNER_ID=${RUNNER_ID}\nRUNNER_TOKEN=${RUNNER_TOKEN}\nGODOT_EXECUTABLE=${process.env.GODOT_EXECUTABLE || ''}\n`;
     fs.writeFileSync(path.join(__dirname, '.env'), envContent);
     console.log(`Registered successfully as ${RUNNER_ID}`);
   } catch (err) {

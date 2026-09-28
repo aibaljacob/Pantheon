@@ -1,5 +1,11 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { BuildPlatform } from '@prisma/client';
 
 export class RegisterRunnerDto {
@@ -11,4 +17,19 @@ export class RegisterRunnerDto {
   @ApiProperty({ enum: BuildPlatform, example: BuildPlatform.WINDOWS })
   @IsEnum(BuildPlatform)
   platform: BuildPlatform;
+
+  @ApiProperty({
+    description: 'Target project ID this runner is dedicated to',
+    example: 'uuid',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  projectId: string;
+
+  @ApiPropertyOptional({
+    description: 'Server bootstrap secret required to register a runner',
+  })
+  @IsString()
+  @IsOptional()
+  bootstrapSecret?: string;
 }

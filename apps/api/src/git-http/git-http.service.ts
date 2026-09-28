@@ -35,13 +35,18 @@ export class GitHttpService {
       throw new NotFoundException('Repository not found');
     }
 
-    // Runner access: runners are allowed 'read' access to any project since they fetch for builds.
+    // Runner access: runners are allowed 'read' access ONLY to their assigned project repository.
     // Runners should not be pushing code (write access).
     if (runner) {
       if (accessType === 'write') {
         throw new ForbiddenException('Runners cannot push code');
       }
-      // Allowed read access
+      if (runner.projectId !== project.id) {
+        throw new ForbiddenException(
+          'Runner is not authorized to access this project repository',
+        );
+      }
+      // Allowed read access for assigned project
     } else {
       if (accessType === 'read') {
         if (

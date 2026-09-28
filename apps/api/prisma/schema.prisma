@@ -402,6 +402,7 @@ model Project {
   buildJobs                  BuildJob[]
   playableBuilds             PlayableBuild[]
   playtestSessions           PlaytestSession[]
+  buildRunners               BuildRunner[]
 
   @@index([founderId])
   @@index([moderationStatus])
@@ -786,6 +787,7 @@ enum BuildPlatform {
 
 model BuildRunner {
   id         String        @id @default(uuid())
+  projectId  String
   name       String
   tokenHash  String
   platform   BuildPlatform
@@ -794,8 +796,10 @@ model BuildRunner {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   buildJobs BuildJob[]
 
+  @@index([projectId])
   @@index([platform])
   @@index([isOnline])
 }

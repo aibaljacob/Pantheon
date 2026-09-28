@@ -2,7 +2,6 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
-  BadRequestException,
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,7 +9,7 @@ import { RegisterRunnerDto } from './dto/register-runner.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
-import { BuildStatus, BuildPlatform } from '@prisma/client';
+import { BuildStatus, BuildRunner, Prisma } from '@prisma/client';
 
 @Injectable()
 export class BuildRunnersService {
@@ -18,14 +17,42 @@ export class BuildRunnersService {
 
   constructor(private prisma: PrismaService) {}
 
-  async registerRunner(dto: RegisterRunnerDto) {
+  async registerRunner(dto: RegisterRunnerDto, headerSecret?: string) {
+    const configuredSecret = process.env.BUILD_RUNNER_BOOTSTRAP_SECRET;
+    const providedSecret = dto.bootstrapSecret || headerSecret;
+
+    if (!configuredSecret) {
+      throw new UnauthorizedException(
+        'Runner registration is disabled: BUILD_RUNNER_BOOTSTRAP_SECRET is not configured on the server.',
+      );
+    }
+
+    if (!providedSecret || providedSecret !== configuredSecret) {
+      throw new UnauthorizedException(
+        'Invalid or missing runner bootstrap secret.',
+      );
+    }
+
+    // Verify project exists
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
+      select: { id: true, slug: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException(
+        `Project with ID "${dto.projectId}" not found.`,
+      );
+    }
+
     // Generate a secure random token
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = await bcrypt.hash(token, 10);
 
     const runner = await this.prisma.buildRunner.create({
       data: {
-        name: dto.name,
+        projectId: project.id,
+        name: dto.name.trim(),
         platform: dto.platform,
         tokenHash,
         isOnline: true,
@@ -36,19 +63,24 @@ export class BuildRunnersService {
     // Return the plain token ONLY once during registration
     return {
       id: runner.id,
+      projectId: runner.projectId,
       name: runner.name,
       platform: runner.platform,
       token, // Important: provide plain token
     };
   }
 
-  async validateRunner(runnerId: string, token: string): Promise<boolean> {
+  async validateRunner(
+    runnerId: string,
+    token: string,
+  ): Promise<BuildRunner | null> {
     const runner = await this.prisma.buildRunner.findUnique({
       where: { id: runnerId },
     });
 
-    if (!runner) return false;
-    return bcrypt.compare(token, runner.tokenHash);
+    if (!runner) return null;
+    const isMatch = await bcrypt.compare(token, runner.tokenHash);
+    return isMatch ? runner : null;
   }
 
   async heartbeat(runnerId: string) {
@@ -63,7 +95,7 @@ export class BuildRunnersService {
   }
 
   async claimJob(runnerId: string) {
-    // 1. Verify runner exists and get platform
+    // 1. Verify runner exists and get its assigned project and platform
     const runner = await this.prisma.buildRunner.findUnique({
       where: { id: runnerId },
     });
@@ -72,68 +104,75 @@ export class BuildRunnersService {
     // Update last seen
     await this.heartbeat(runnerId);
 
-    // 2. Find oldest QUEUED job for this platform
-    // In PostgreSQL we can use a transaction or simply rely on Prisma's atomic update if possible.
-    // For simplicity, we find one first, then try to update it.
+    // 2. Atomically find and claim the oldest QUEUED job for this runner's project and platform
+    return this.prisma.$transaction(async (tx) => {
+      const job = await tx.buildJob.findFirst({
+        where: {
+          status: BuildStatus.QUEUED,
+          targetPlatform: runner.platform,
+          projectId: runner.projectId,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
 
-    // To prevent race conditions, we can do an updateMany where status is QUEUED
-    // But updateMany doesn't support returning the updated row in a clean way without taking the whole list.
-    // Since this is a prototype, we'll do findFirst then update, handling potential concurrency with a small risk.
-    const job = await this.prisma.buildJob.findFirst({
-      where: {
-        status: BuildStatus.QUEUED,
-        targetPlatform: runner.platform,
-      },
-      orderBy: { createdAt: 'asc' },
-      include: {
-        project: true,
-      },
-    });
+      if (!job) {
+        return { job: null }; // No jobs available for this runner's project and platform
+      }
 
-    if (!job) {
-      return { job: null }; // No jobs available
-    }
-
-    // Try to claim it
-    try {
-      const updatedJob = await this.prisma.buildJob.update({
+      // Concurrency-safe atomic claim
+      const updated = await tx.buildJob.updateMany({
         where: {
           id: job.id,
+          status: BuildStatus.QUEUED,
         },
         data: {
           status: BuildStatus.RUNNING,
           buildRunnerId: runnerId,
           startedAt: new Date(),
         },
+      });
+
+      if (updated.count === 0) {
+        return { job: null }; // Job claimed by another concurrent runner or cancelled
+      }
+
+      const claimedJob = await tx.buildJob.findUnique({
+        where: { id: job.id },
         include: {
           project: true,
         },
       });
-      return { job: updatedJob };
-    } catch (error) {
-      // Job might have been claimed or cancelled
-      this.logger.warn(`Failed to claim job ${job.id}: ${error.message}`);
-      return { job: null };
-    }
+
+      return { job: claimedJob };
+    });
   }
 
   async updateJobStatus(runnerId: string, jobId: string, dto: UpdateJobDto) {
+    const runner = await this.prisma.buildRunner.findUnique({
+      where: { id: runnerId },
+    });
+    if (!runner) throw new NotFoundException('Runner not found');
+
     const job = await this.prisma.buildJob.findUnique({
       where: { id: jobId },
     });
 
     if (!job) throw new NotFoundException('Job not found');
-    if (job.buildRunnerId !== runnerId)
+    if (job.buildRunnerId !== runnerId) {
       throw new UnauthorizedException('Job belongs to another runner');
+    }
+    if (job.projectId !== runner.projectId) {
+      throw new UnauthorizedException('Job belongs to another project');
+    }
 
-    const updateData: any = {
+    const updateData: Prisma.BuildJobUpdateInput = {
       status: dto.status,
     };
 
-    if (dto.buildLogs) {
-      updateData.buildLogs = dto.buildLogs; // Could also append
+    if (dto.buildLogs !== undefined) {
+      updateData.buildLogs = dto.buildLogs;
     }
-    if (dto.errorMessage) {
+    if (dto.errorMessage !== undefined) {
       updateData.errorMessage = dto.errorMessage;
     }
 
@@ -153,11 +192,10 @@ export class BuildRunnersService {
     });
   }
 
-  async saveArtifactAsPlayableBuild(
+  async assertJobOwnedByRunner(
     jobId: string,
-    filePath: string,
-    fileSize: number,
-    fileChecksum?: string,
+    runnerId: string,
+    runnerProjectId: string,
   ) {
     const job = await this.prisma.buildJob.findUnique({
       where: { id: jobId },
@@ -165,6 +203,40 @@ export class BuildRunnersService {
     });
 
     if (!job) throw new NotFoundException('Job not found');
+    if (job.buildRunnerId !== runnerId) {
+      throw new UnauthorizedException('Job belongs to another runner');
+    }
+    if (job.projectId !== runnerProjectId) {
+      throw new UnauthorizedException('Job belongs to another project');
+    }
+
+    return job;
+  }
+
+  async saveArtifactAsPlayableBuild(
+    jobId: string,
+    runnerId: string,
+    filePath: string,
+    fileSize: number,
+    fileChecksum?: string,
+  ) {
+    const runner = await this.prisma.buildRunner.findUnique({
+      where: { id: runnerId },
+    });
+    if (!runner) throw new NotFoundException('Runner not found');
+
+    const job = await this.prisma.buildJob.findUnique({
+      where: { id: jobId },
+      include: { project: true },
+    });
+
+    if (!job) throw new NotFoundException('Job not found');
+    if (job.buildRunnerId !== runnerId) {
+      throw new UnauthorizedException('Job belongs to another runner');
+    }
+    if (job.projectId !== runner.projectId) {
+      throw new UnauthorizedException('Job belongs to another project');
+    }
 
     const version = job.commitHash
       ? `git-${job.commitHash.substring(0, 7)}`
