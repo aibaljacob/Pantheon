@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
+import { resolve, join } from 'node:path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -17,9 +19,13 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const express = require('express');
-  const path = require('node:path');
-  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+  const uploadsDir = resolve(process.cwd(), 'uploads');
+  // Statically serve ONLY legitimate public media subdirectories (avatars, banners, portfolio, resumes).
+  // Build artifacts, project archives, and private files are NEVER served statically.
+  app.use('/uploads/avatars', express.static(join(uploadsDir, 'avatars')));
+  app.use('/uploads/banners', express.static(join(uploadsDir, 'banners')));
+  app.use('/uploads/portfolio', express.static(join(uploadsDir, 'portfolio')));
+  app.use('/uploads/resumes', express.static(join(uploadsDir, 'resumes')));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Pantheon API')
@@ -32,4 +38,4 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3000);
 }
-bootstrap();
+void bootstrap();

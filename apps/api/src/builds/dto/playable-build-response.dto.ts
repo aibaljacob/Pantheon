@@ -33,6 +33,9 @@ export class PlayableBuildResponseDto {
   @ApiPropertyOptional()
   storagePath?: string | null;
 
+  @ApiPropertyOptional({ description: 'Secure authenticated download URL' })
+  downloadUrl?: string | null;
+
   @ApiPropertyOptional({ description: 'File size in bytes' })
   fileSizeBytes?: number | null;
 

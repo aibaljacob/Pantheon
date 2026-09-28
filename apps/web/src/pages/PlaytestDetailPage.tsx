@@ -101,14 +101,31 @@ export function PlaytestDetailPage() {
     setRefreshTrigger((prev) => prev + 1);
   };
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
   const handleDownload = async () => {
-    if (!playtest) return;
+    if (!playtest || !projectId) return;
     try {
-      const res = await apiClient.get(`/projects/${projectId}/playable-builds/${playtest.playableBuild.id}/download`);
-      window.location.href = res.data.downloadUrl;
+      setIsDownloading(true);
+      const res = await apiClient.get(
+        `/projects/${projectId}/builds/${playtest.playableBuild.id}/download`,
+        { responseType: 'blob' },
+      );
+      const blob = new Blob([res.data], { type: 'application/zip' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `build-${playtest.playableBuild.version || playtest.playableBuild.id}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to generate download link.';
+      const message =
+        err instanceof Error ? err.message : 'Failed to download build artifact.';
       alert(message);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -232,8 +249,18 @@ export function PlaytestDetailPage() {
           <div className="flex flex-col gap-3 w-full md:w-auto">
             {playtest.isActive && (
               <>
-                <Button variant="primary" icon={<Download className="h-4 w-4" />} onClick={handleDownload} className="w-full">
-                  Download Build
+                <Button
+                  variant="primary"
+                  icon={
+                    <Download
+                      className={`h-4 w-4 ${isDownloading ? 'animate-bounce' : ''}`}
+                    />
+                  }
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="w-full"
+                >
+                  {isDownloading ? 'Downloading...' : 'Download Build'}
                 </Button>
                 <Button variant="secondary" icon={<MessageSquare className="h-4 w-4" />} onClick={() => setIsFeedbackModalOpen(true)} className="w-full">
                   Submit Feedback

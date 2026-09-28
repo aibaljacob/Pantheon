@@ -290,17 +290,186 @@ Comprehensive unit and integration test suites were created:
 
 ---
 
-## Remaining Security Work (Phase 0.1B)
+# Build Artifact Security Fix (Phase 0.1B)
 
-The following items are deferred to Phase 0.1B in accordance with the Phase 0.1A specification:
+## Problem
 
-1. **Authenticated Artifact Downloads:**
-   - Secure `GET /uploads/:filename` so only authorized project members can download build artifacts.
-2. **Remove Public `/uploads` Directory Exposure:**
-   - Remove static file serving of the `/uploads` directory in NestJS/Express.
-3. **Streaming / Disk-Based Artifact Uploads:**
-   - Replace in-memory Multer buffer uploads with streaming disk writes or presigned storage uploads to prevent server OOM on large builds (e.g., >500MB).
-4. **Artifact Upload Size Limits:**
-   - Enforce explicit multipart size limits on artifact upload endpoints.
-5. **Asynchronous File Operations:**
-   - Replace synchronous file operations (`fs.writeFileSync`, `fs.mkdirSync`) in controller with non-blocking stream/async equivalents.
+Following Phase 0.1A's runner identity and project isolation fixes, the audit confirmed several severe build artifact vulnerabilities:
+
+1. **Public Static Exposure:** Build artifacts were publicly accessible to anyone without authentication via `GET /uploads/build_<jobId>.zip` through `app.use('/uploads', express.static(...))`. Any crawler, external user, or competitor who discovered a `jobId` could download proprietary game release binaries.
+2. **Unbounded RAM Buffering (Multer MemoryStorage):** Artifact uploads used Multer's default memory storage, buffering multi-gigabyte build archives completely into Node.js heap memory before writing.
+3. **No Artifact Upload Size Limits:** There was no maximum size constraint on uploaded archives, allowing malicious or oversized uploads to trigger Out-Of-Memory crashes (DoS).
+4. **Synchronous File I/O:** The controller used synchronous blocking file operations (`fs.writeFileSync`, `fs.mkdirSync`), blocking the Node.js event loop during disk writes of large build files.
+5. **Physical Filesystem Path Leakage:** Build records and API responses returned raw local filesystem paths (e.g. `uploads/builds/...`) directly to frontend clients.
+
+---
+
+## Phase 0.1B Architecture Changes
+
+```
+1. ARTIFACT UPLOAD (Runner -> API)
+   Runner Daemon
+         │  Multipart Form Data (x-runner-id, x-runner-token)
+         ▼
+   Multer DiskStorage (Temporary Spool: uploads/temp/)
+         │  - Enforces BUILD_ARTIFACT_MAX_SIZE_MB limit (500 MB default)
+         │  - Generates secure random spool filename
+         │  - Never buffers archive into Node.js RAM
+         ▼
+   BuildRunnersController.uploadArtifact()
+         │  - Asserts runner ownership & project isolation (Phase 0.1A)
+         │  - Creates destination: uploads/builds/<projectId>/<jobId>/
+         │  - Asynchronously moves spool file via fs.promises.rename()
+         │  - Cleans up temp file on failure
+         ▼
+   PlayableBuild Entity Created
+         - storagePath: "uploads/builds/<projectId>/<jobId>/artifact.zip" (Internal DB key only)
+         - Stripped from public API responses; mapped to safe virtual download route
+
+2. AUTHENTICATED ARTIFACT DOWNLOAD (Client -> API)
+   Authenticated User (Browser / Playtest UI)
+         │  GET /projects/:projectId/builds/:buildId/download
+         │  Headers: Authorization: Bearer <jwt>  (or ?token=<jwt>)
+         ▼
+   JwtAuthGuard & ProjectAuthorizationService
+         │  - Authenticates user session
+         │  - Enforces project access: assertCanView(projectId, userId)
+         ▼
+   BuildsService.getBuildArtifactStream()
+         │  - Verifies build exists and belongs strictly to requested projectId
+         │  - Defends against directory traversal (path.resolve confinement)
+         │  - Validates physical file presence on disk (404 without leaking path)
+         │  - Creates non-blocking read stream (fs.createReadStream)
+         ▼
+   Streaming File Response
+         - StreamableFile: streamed in chunks, zero whole-file RAM buffering
+         - Content-Type: application/zip
+         - Content-Disposition: attachment; filename="<project-slug>-v<version>.zip"
+```
+
+---
+
+## Removed Public `/uploads` Exposure
+
+In `apps/api/src/main.ts`:
+- The previous unrestricted static directory mount:
+  ```ts
+  // VULNERABLE: Exposed entire uploads/ folder including build archives
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  ```
+- Was replaced with strictly scoped mounts for public user profile media only:
+  ```ts
+  // SECURE: Only public user media subdirectories are served statically
+  const uploadsRoot = join(process.cwd(), 'uploads');
+  const publicUploadDirs = ['avatars', 'banners', 'portfolio', 'resumes'];
+  for (const dir of publicUploadDirs) {
+    const fullDir = join(uploadsRoot, dir);
+    if (!fs.existsSync(fullDir)) {
+      fs.mkdirSync(fullDir, { recursive: true });
+    }
+    app.use(`/uploads/${dir}`, express.static(fullDir));
+  }
+  ```
+- Direct HTTP requests to `/uploads/build_*.zip` or `/uploads/builds/*` now return `404 Not Found`.
+
+---
+
+## Upload Storage Strategy & Non-Blocking I/O
+
+1. **Multer Disk Storage (`build-artifact-storage.config.ts`):**
+   - Incoming archives stream directly to disk in `uploads/temp/`.
+   - File extensions are validated (`.zip`, `.tar.gz`, `.tar`, `.tgz`, `.7z`, `.rar`).
+   - Filenames are generated server-side using cryptographically secure random bytes (`temp-build-<uuid>-<random>.zip`).
+   - `file.buffer` has been completely eliminated from all build artifact code paths.
+2. **Configurable Size Limits:**
+   - Default: `500 MB`
+   - Configurable via `BUILD_ARTIFACT_MAX_SIZE_MB` in `.env`.
+   - Multer enforces `limits: { fileSize: maxBytes }` at the multipart parser level before files consume unbounded disk space.
+3. **Asynchronous File Moving:**
+   - Permanent storage location: `uploads/builds/<projectId>/<jobId>/artifact.zip`.
+   - File relocation uses asynchronous `fs.promises.rename` with a cross-device `fs.promises.copyFile` + `fs.promises.unlink` fallback.
+   - Zero blocking synchronous calls (`fs.writeFileSync`).
+
+---
+
+## Authenticated Download Endpoints
+
+Two authenticated streaming endpoints are provided:
+- `GET /projects/:projectId/builds/:buildId/download`
+- `GET /projects/:projectId/playable-builds/:buildId/download` (alias)
+
+### Authorization & Safety Guarantees:
+1. **Authentication:** Requires valid user JWT (`JwtAuthGuard`). Supports `Bearer <token>` header or `?token=<jwt>` query parameter for direct browser anchor downloads.
+2. **Project Authorization:** Enforces `ProjectAuthorizationService.assertCanView(projectId, user.id)`. Non-members and unauthorized users receive `403 Forbidden`.
+3. **Project Scoping:** Queries Prisma with `{ projectId, OR: [{ id: buildId }, { buildJobId: buildId }] }`. If a valid `buildId` from Project A is requested under Project B's URL, the request is rejected with `404 Not Found`.
+4. **Path Traversal Defense:** Verifies that the resolved path is strictly contained within `uploads/builds/`. Any traversal attempt (e.g. `../../etc/passwd`) immediately throws `ForbiddenException`.
+5. **No Filesystem Path Leakage:** If the artifact file is missing from disk, throws `NotFoundException('Build artifact file is unavailable on server.')` without exposing directory structures.
+6. **Streaming Response:** Returns a NestJS `StreamableFile` backed by `fs.createReadStream()`. The file is piped to the client in small stream chunks, preventing RAM exhaustion.
+
+---
+
+## Frontend Integration
+
+1. **API Response Sanitization:**
+   - `BuildsService.mapPlayableBuild` maps `storagePath` and `downloadUrl` to the virtual authenticated endpoint:
+     `/projects/${projectId}/builds/${playableBuild.id}/download`
+   - Physical disk paths are never sent to the client.
+2. **Builds Service Client (`apps/web/src/features/projects/services/buildService.ts`):**
+   - Added `downloadBuildArtifact(projectId, buildId, filename)` which streams the file as a Blob with authorization headers and initiates browser download.
+3. **Builds Tab (`PlayableBuildsSection.tsx`):**
+   - Replaced unauthenticated `<a>` download links with an authenticated download action triggering `buildService.downloadBuild`.
+4. **Playtest Detail (`PlaytestDetailPage.tsx`):**
+   - Updated `handleDownload` to fetch the file through the authenticated endpoint via authenticated `fetch` with Bearer token, preserving the full playtest workflow.
+
+---
+
+## Tests Added & Updated
+
+### 1. `apps/api/src/builds/builds.service.spec.ts` (10 New Tests, 30 Total)
+- **Download Authorization:**
+  - Rejects unauthenticated download requests (401).
+  - Rejects authenticated users not belonging to the project (403).
+  - Rejects removed/left project members (403).
+  - Rejects mismatched `projectId` and `buildId` (404).
+  - Rejects nonexistent `buildId` (404).
+  - Rejects build record without uploaded artifact (404).
+  - Blocks path traversal attempts (403).
+  - Safely handles missing disk file without exposing filesystem path (404).
+  - Successfully streams artifact for active project member (200, StreamableFile).
+  - Successfully streams artifact for project founder (200, StreamableFile).
+
+### 2. `apps/api/src/build-runners/build-runners.service.spec.ts` (5 New Tests, 25 Total)
+- **Artifact Upload Storage & Limits:**
+  - Defaults upload size limit to 500 MB when unset.
+  - Respects `BUILD_ARTIFACT_MAX_SIZE_MB` environment variable.
+  - Falls back to 500 MB default when environment variable is invalid/malformed.
+  - Generates safe server-side storage paths and sanitizes path traversal attempts.
+  - Configures Multer disk storage options with the proper byte limit.
+
+### 3. `tools/pantheon-runner/godot-build-strategy.spec.js` (10 Tests)
+- All Godot runner client tests remain passing.
+
+---
+
+## Validation Results
+
+| Check | Command | Result |
+| :--- | :--- | :--- |
+| **Backend TypeScript Build** | `pnpm --filter api run build` | **0 errors, Exit code 0** |
+| **Backend Typecheck** | `pnpm --filter api exec tsc --noEmit` | **0 errors, Exit code 0** |
+| **Backend Tests** | `pnpm --filter api test` | **22 / 22 test suites passed, 299 / 299 tests passed** |
+| **Build Service Tests** | `jest builds.service.spec.ts` | **30 / 30 tests passed** |
+| **Build Runner Security Tests** | `jest build-runners.service.spec.ts` | **25 / 25 tests passed** |
+| **Runner Client Tests** | `jest godot-build-strategy.spec.js` | **10 / 10 tests passed** |
+| **Frontend Web Build** | `pnpm --filter web build` | **0 errors, Exit code 0** |
+| **Backend Lint** | `pnpm --filter api exec eslint src/build-runners src/builds src/main.ts` | **0 errors, 0 warnings** |
+
+---
+
+## Remaining Concerns & Next Steps
+
+1. **Orphaned Artifact Cleanup (Phase 0.2):**
+   - When a project, build job, or playable build record is deleted, the corresponding artifact files on disk in `uploads/builds/<projectId>/` should be purged asynchronously to reclaim storage space.
+2. **External Playtesters (Phase 0.3):**
+   - External playtesters who do not have full platform studio accounts will require cryptographically signed, short-lived download tokens (e.g. presigned URLs) to access playtest builds without compromising project workspace authorization.
+

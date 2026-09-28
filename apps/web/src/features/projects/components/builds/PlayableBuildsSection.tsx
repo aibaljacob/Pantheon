@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Download,
   Package,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import type { PlayableBuildItem } from '../../types';
+import { buildService } from '../../services/buildService';
 
 interface PlayableBuildsSectionProps {
   playableBuilds: PlayableBuildItem[];
@@ -33,6 +34,25 @@ export const PlayableBuildsSection: React.FC<PlayableBuildsSectionProps> = ({
   onOpenRegisterModal,
   isFounderOrAdmin,
 }) => {
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const handleDownload = async (pb: PlayableBuildItem) => {
+    try {
+      setDownloadingId(pb.id);
+      await buildService.downloadBuild(
+        pb.projectId,
+        pb.id,
+        `${pb.title || 'build'}-${pb.version}.zip`,
+      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to download build artifact.';
+      alert(message);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
@@ -102,14 +122,21 @@ export const PlayableBuildsSection: React.FC<PlayableBuildsSectionProps> = ({
                   {/* Download Action */}
                   <div className="flex items-center gap-2">
                     {hasArtifact ? (
-                      <a
-                        href={pb.storagePath || '#'}
-                        download
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-mono font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors"
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(pb)}
+                        disabled={downloadingId === pb.id}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-950/30 px-3.5 py-1.5 text-xs font-mono font-semibold text-amber-300 hover:bg-amber-900/40 transition-colors disabled:opacity-50 cursor-pointer"
                       >
-                        <Download className="h-3.5 w-3.5" />
-                        <span>Download Build</span>
-                      </a>
+                        <Download
+                          className={`h-3.5 w-3.5 ${downloadingId === pb.id ? 'animate-bounce' : ''}`}
+                        />
+                        <span>
+                          {downloadingId === pb.id
+                            ? 'Downloading...'
+                            : 'Download Build'}
+                        </span>
+                      </button>
                     ) : (
                       <div className="flex items-center gap-1.5 rounded-xl border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-[11px] font-mono text-[#8c887e]">
                         <AlertCircle className="h-3.5 w-3.5 text-[#8c887e]" />

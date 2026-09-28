@@ -3,7 +3,10 @@ import {
   BadRequestException,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { BuildsService } from './builds.service';
 import { ProjectAuthorizationService } from '../tasks/project-authorization.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -177,6 +180,26 @@ describe('Builds Module - BuildsService', () => {
         findUnique: jest.fn().mockImplementation((args: any) => {
           if (args.where?.id === mockPlayableBuild.id) {
             return Promise.resolve({ ...mockPlayableBuild });
+          }
+          return Promise.resolve(null);
+        }),
+        findFirst: jest.fn().mockImplementation((args: any) => {
+          if (
+            args.where?.projectId === mockProjectId &&
+            (args.where?.OR?.some(
+              (cond: any) =>
+                cond.id === mockPlayableBuild.id ||
+                cond.buildJobId === mockPlayableBuild.id,
+            ))
+          ) {
+            return Promise.resolve({
+              ...mockPlayableBuild,
+              project: {
+                id: mockProjectId,
+                slug: mockProject.slug,
+                name: 'Cyber Odyssey',
+              },
+            });
           }
           return Promise.resolve(null);
         }),
@@ -612,4 +635,197 @@ describe('Builds Module - BuildsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  describe('Phase 0.1B — Build Artifact Download Security & Streaming', () => {
+    const testArtifactRelativePath = 'builds/test-proj/artifact.zip';
+    const uploadsDir = path.resolve(process.cwd(), 'uploads');
+    const testArtifactFullPath = path.resolve(
+      uploadsDir,
+      testArtifactRelativePath,
+    );
+
+    beforeAll(() => {
+      fs.mkdirSync(path.dirname(testArtifactFullPath), { recursive: true });
+      fs.writeFileSync(testArtifactFullPath, 'PK fake zip content for test');
+    });
+
+    afterAll(() => {
+      if (fs.existsSync(testArtifactFullPath)) {
+        fs.unlinkSync(testArtifactFullPath);
+      }
+    });
+
+    it('should reject unauthenticated download request', async () => {
+      await expect(
+        buildsService.getBuildArtifactStream(
+          mockProjectId,
+          mockPlayableBuild.id,
+          undefined,
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should reject unauthorized user outside the project', async () => {
+      await expect(
+        buildsService.getBuildArtifactStream(
+          mockProjectId,
+          mockPlayableBuild.id,
+          mockUnrelatedUserId,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject former/removed member from downloading', async () => {
+      await expect(
+        buildsService.getBuildArtifactStream(
+          mockProjectId,
+          mockPlayableBuild.id,
+          mockRemovedMemberId,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should reject request with mismatched projectId', async () => {
+      await expect(
+        buildsService.getBuildArtifactStream(
+          'wrong-project-id',
+          mockPlayableBuild.id,
+          mockMemberId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject request with nonexistent buildId', async () => {
+      await expect(
+        buildsService.getBuildArtifactStream(
+          mockProjectId,
+          'nonexistent-build',
+          mockMemberId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject download when artifact has not been uploaded yet', async () => {
+      prismaMock.playableBuild.findFirst.mockResolvedValueOnce({
+        ...mockPlayableBuild,
+        storagePath: null,
+        project: {
+          id: mockProjectId,
+          slug: mockProject.slug,
+          name: 'Cyber Odyssey',
+        },
+      });
+
+      await expect(
+        buildsService.getBuildArtifactStream(
+          mockProjectId,
+          mockPlayableBuild.id,
+          mockMemberId,
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should reject path traversal attempts without leaking filesystem paths', async () => {
+      prismaMock.playableBuild.findFirst.mockResolvedValueOnce({
+        ...mockPlayableBuild,
+        storagePath: '../../etc/passwd',
+        project: {
+          id: mockProjectId,
+          slug: mockProject.slug,
+          name: 'Cyber Odyssey',
+        },
+      });
+
+      await expect(
+        buildsService.getBuildArtifactStream(
+          mockProjectId,
+          mockPlayableBuild.id,
+          mockMemberId,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should handle missing artifact file on disk safely without path exposure', async () => {
+      prismaMock.playableBuild.findFirst.mockResolvedValueOnce({
+        ...mockPlayableBuild,
+        storagePath: 'builds/nonexistent-folder/missing.zip',
+        project: {
+          id: mockProjectId,
+          slug: mockProject.slug,
+          name: 'Cyber Odyssey',
+        },
+      });
+
+      try {
+        await buildsService.getBuildArtifactStream(
+          mockProjectId,
+          mockPlayableBuild.id,
+          mockMemberId,
+        );
+        throw new Error('Expected NotFoundException was not thrown');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(NotFoundException);
+        expect(err.message).toBe('Build artifact file not found on server.');
+        expect(err.message).not.toContain('C:\\');
+        expect(err.message).not.toContain('/uploads/');
+      }
+    });
+
+    it('should allow authorized active member to stream artifact from disk', async () => {
+      prismaMock.playableBuild.findFirst.mockResolvedValueOnce({
+        ...mockPlayableBuild,
+        storagePath: testArtifactRelativePath,
+        project: {
+          id: mockProjectId,
+          slug: mockProject.slug,
+          name: 'Cyber Odyssey',
+        },
+      });
+
+      const result = await buildsService.getBuildArtifactStream(
+        mockProjectId,
+        mockPlayableBuild.id,
+        mockMemberId,
+      );
+
+      expect(result).toBeDefined();
+      expect(result.stream).toBeDefined();
+      expect(typeof result.stream.pipe).toBe('function');
+      expect(result.filename).toBe('cyber-odyssey-v0.1.0.zip');
+      expect(result.size).toBeGreaterThan(0);
+
+      await new Promise((resolve) => {
+        result.stream.on('close', resolve);
+        result.stream.destroy();
+      });
+    });
+
+    it('should allow project founder to stream artifact from disk', async () => {
+      prismaMock.playableBuild.findFirst.mockResolvedValueOnce({
+        ...mockPlayableBuild,
+        storagePath: testArtifactRelativePath,
+        project: {
+          id: mockProjectId,
+          slug: mockProject.slug,
+          name: 'Cyber Odyssey',
+        },
+      });
+
+      const result = await buildsService.getBuildArtifactStream(
+        mockProjectId,
+        mockPlayableBuild.id,
+        mockFounderId,
+      );
+
+      expect(result).toBeDefined();
+      expect(result.stream).toBeDefined();
+      expect(result.filename).toBe('cyber-odyssey-v0.1.0.zip');
+
+      await new Promise((resolve) => {
+        result.stream.on('close', resolve);
+        result.stream.destroy();
+      });
+    });
+  });
 });
+

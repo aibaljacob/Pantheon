@@ -9,6 +9,11 @@ import { BuildRunnerAuthGuard } from './build-runner-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 import { BuildPlatform, BuildStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import {
+  getArtifactMaxSizeBytes,
+  getBuildArtifactStoragePath,
+  buildArtifactUploadOptions,
+} from './build-artifact-storage.config';
 
 describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
   let service: BuildRunnersService;
@@ -425,7 +430,7 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       const playableBuild = await service.saveArtifactAsPlayableBuild(
         mockClaimedJobA.id,
         mockRunnerA.id,
-        'http://localhost:3000/uploads/build_123.zip',
+        'builds/project-a/job-1/artifact.zip',
         1000000,
         'sha256:abc',
       );
@@ -536,4 +541,59 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
   });
+
+  // ==========================================
+  // 6. PHASE 0.1B — ARTIFACT UPLOAD STORAGE & LIMITS
+  // ==========================================
+  describe('6. Phase 0.1B — Artifact Upload Storage & Limits', () => {
+    const originalEnv = process.env.BUILD_ARTIFACT_MAX_SIZE_MB;
+
+    afterEach(() => {
+      process.env.BUILD_ARTIFACT_MAX_SIZE_MB = originalEnv;
+    });
+
+    it('should default artifact upload size limit to 500 MB', () => {
+      delete process.env.BUILD_ARTIFACT_MAX_SIZE_MB;
+      const sizeBytes = getArtifactMaxSizeBytes();
+      expect(sizeBytes).toBe(500 * 1024 * 1024);
+    });
+
+    it('should respect BUILD_ARTIFACT_MAX_SIZE_MB environment variable', () => {
+      process.env.BUILD_ARTIFACT_MAX_SIZE_MB = '250';
+      const sizeBytes = getArtifactMaxSizeBytes();
+      expect(sizeBytes).toBe(250 * 1024 * 1024);
+    });
+
+    it('should fallback to default for invalid BUILD_ARTIFACT_MAX_SIZE_MB', () => {
+      process.env.BUILD_ARTIFACT_MAX_SIZE_MB = 'invalid';
+      const sizeBytes = getArtifactMaxSizeBytes();
+      expect(sizeBytes).toBe(500 * 1024 * 1024);
+    });
+
+    it('should generate safe server-side storage path and sanitize traversal attempts', () => {
+      const maliciousProjectId = '../../secrets/project';
+      const maliciousJobId = '../../../root/job';
+
+      const { dir, fullPath, relativeKey } = getBuildArtifactStoragePath(
+        maliciousProjectId,
+        maliciousJobId,
+      );
+
+      // Traversal characters should be sanitized to underscores
+      expect(relativeKey).not.toContain('..');
+      expect(dir).not.toContain('..');
+      expect(fullPath).not.toContain('..');
+      expect(relativeKey).toBe(
+        'builds/______secrets_project/_________root_job/artifact.zip',
+      );
+      expect(fullPath.endsWith('artifact.zip')).toBe(true);
+    });
+
+    it('should configure Multer diskStorage limits with file size cap', () => {
+      expect(buildArtifactUploadOptions.limits).toBeDefined();
+      expect(buildArtifactUploadOptions.limits?.fileSize).toBeGreaterThan(0);
+      expect(buildArtifactUploadOptions.storage).toBeDefined();
+    });
+  });
 });
+

@@ -24,8 +24,11 @@ import { RegisterRunnerDto } from './dto/register-runner.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { BuildRunnerAuthGuard } from './build-runner-auth.guard';
 import type { RunnerRequest } from './build-runner-auth.guard';
-import * as fs from 'fs';
-import * as path from 'path';
+import {
+  buildArtifactUploadOptions,
+  getBuildArtifactStoragePath,
+} from './build-artifact-storage.config';
+import * as fsp from 'fs/promises';
 
 @ApiTags('Build Runners')
 @Controller('build-runners')
@@ -96,55 +99,65 @@ export class BuildRunnersController {
   @ApiResponse({ status: 201, description: 'Artifact uploaded.' })
   @UseGuards(BuildRunnerAuthGuard)
   @Post('jobs/:jobId/artifacts')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', buildArtifactUploadOptions))
   async uploadArtifact(
     @Req() req: RunnerRequest,
     @Param('jobId') jobId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('fileChecksum') fileChecksum?: string,
   ) {
-    if (!file) {
+    if (!file || !file.path) {
       throw new BadRequestException('Artifact file is required.');
     }
 
-    // Verify job exists, is assigned to this runner, and matches the runner's project
-    await this.buildRunnersService.assertJobOwnedByRunner(
-      jobId,
-      req.runner.id,
-      req.runner.projectId,
-    );
-
-    // Save the file to the local "uploads" directory
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    const safeJobId = jobId.replace(/[^a-z0-9-]/gi, '_');
-    const fileName = `build_${safeJobId}.zip`;
-    const filePath = path.join(uploadDir, fileName);
-
-    fs.writeFileSync(filePath, file.buffer);
-
-    const host = req.get('host') || 'localhost:3000';
-    const fileUrl = `${req.protocol}://${host}/uploads/${fileName}`;
-
-    const playableBuild =
-      await this.buildRunnersService.saveArtifactAsPlayableBuild(
+    try {
+      // Verify job exists, is assigned to this runner, and matches the runner's project
+      await this.buildRunnersService.assertJobOwnedByRunner(
         jobId,
         req.runner.id,
-        fileUrl,
-        file.size,
-        fileChecksum,
+        req.runner.projectId,
       );
 
-    return {
-      success: true,
-      filePath,
-      fileName,
-      playableBuild: {
-        ...playableBuild,
-        fileSizeBytes: playableBuild.fileSizeBytes?.toString(),
-      },
-    };
+      // Safe, server-generated destination on disk
+      const {
+        dir: destinationDir,
+        fullPath: destinationFile,
+        relativeKey,
+      } = getBuildArtifactStoragePath(req.runner.projectId, jobId);
+
+      await fsp.mkdir(destinationDir, { recursive: true });
+
+      // Move file asynchronously from temp upload to permanent location
+      try {
+        await fsp.rename(file.path, destinationFile);
+      } catch {
+        // If cross-device, copy and unlink
+        await fsp.copyFile(file.path, destinationFile);
+        await fsp.unlink(file.path).catch(() => {});
+      }
+
+      const playableBuild =
+        await this.buildRunnersService.saveArtifactAsPlayableBuild(
+          jobId,
+          req.runner.id,
+          relativeKey,
+          file.size,
+          fileChecksum,
+        );
+
+      return {
+        success: true,
+        playableBuild: {
+          ...playableBuild,
+          storagePath: `/projects/${req.runner.projectId}/builds/${playableBuild.id}/download`,
+          fileSizeBytes: playableBuild.fileSizeBytes?.toString(),
+        },
+      };
+    } catch (error) {
+      if (file?.path) {
+        await fsp.unlink(file.path).catch(() => {});
+      }
+      throw error;
+    }
   }
 }

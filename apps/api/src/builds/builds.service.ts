@@ -3,10 +3,14 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectAuthorizationService } from '../tasks/project-authorization.service';
-import { BuildPlatform, BuildStatus } from '@prisma/client';
+import * as fs from 'fs';
+import * as fsp from 'fs/promises';
+import * as path from 'path';
+import { BuildPlatform, BuildStatus, Prisma } from '@prisma/client';
 import { CreateBuildDto } from './dto/create-build.dto';
 import { UpdateBuildStatusDto } from './dto/update-build-status.dto';
 import { CreatePlayableBuildDto } from './dto/create-playable-build.dto';
@@ -21,6 +25,73 @@ const VALID_TRANSITIONS: Record<BuildStatus, BuildStatus[]> = {
   FAILED: [],
   CANCELLED: [],
 };
+
+interface BuildJobRecord {
+  id: string;
+  projectId: string;
+  buildRunnerId?: string | null;
+  commitHash?: string | null;
+  branchName?: string | null;
+  targetPlatform: BuildPlatform;
+  status: BuildStatus;
+  triggeredById: string;
+  triggeredBy: {
+    id: string;
+    username: string;
+    profile?: {
+      displayName?: string | null;
+      firstName?: string | null;
+      avatarUrl?: string | null;
+    } | null;
+  };
+  milestoneId?: string | null;
+  milestone?: {
+    id: string;
+    title: string;
+  } | null;
+  buildRunner?: {
+    id: string;
+    name: string;
+    platform: BuildPlatform;
+    isOnline?: boolean;
+  } | null;
+  buildLogs?: string | null;
+  errorMessage?: string | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface PlayableBuildRecord {
+  id: string;
+  projectId: string;
+  buildJobId?: string | null;
+  milestoneId?: string | null;
+  milestone?: {
+    id: string;
+    title: string;
+  } | null;
+  version: string;
+  title: string;
+  platform: BuildPlatform;
+  storagePath?: string | null;
+  fileSizeBytes?: bigint | number | null;
+  fileChecksum?: string | null;
+  releaseNotes?: string | null;
+  uploadedById?: string | null;
+  uploadedBy?: {
+    id: string;
+    username: string;
+    profile?: {
+      displayName?: string | null;
+      firstName?: string | null;
+      avatarUrl?: string | null;
+    } | null;
+  } | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 @Injectable()
 export class BuildsService {
@@ -40,7 +111,7 @@ export class BuildsService {
     );
   }
 
-  private mapBuildJob(build: any): BuildJobResponseDto {
+  private mapBuildJob(build: BuildJobRecord): BuildJobResponseDto {
     return {
       id: build.id,
       projectId: build.projectId,
@@ -71,7 +142,7 @@ export class BuildsService {
             id: build.buildRunner.id,
             name: build.buildRunner.name,
             platform: build.buildRunner.platform,
-            isOnline: build.buildRunner.isOnline,
+            isOnline: Boolean(build.buildRunner.isOnline),
           }
         : null,
       buildLogs: build.buildLogs,
@@ -87,7 +158,7 @@ export class BuildsService {
     };
   }
 
-  private mapPlayableBuild(pb: any): PlayableBuildResponseDto {
+  private mapPlayableBuild(pb: PlayableBuildRecord): PlayableBuildResponseDto {
     return {
       id: pb.id,
       projectId: pb.projectId,
@@ -102,7 +173,12 @@ export class BuildsService {
       version: pb.version,
       title: pb.title,
       platform: pb.platform,
-      storagePath: pb.storagePath,
+      storagePath: pb.storagePath
+        ? `/projects/${pb.projectId}/builds/${pb.id}/download`
+        : null,
+      downloadUrl: pb.storagePath
+        ? `/projects/${pb.projectId}/builds/${pb.id}/download`
+        : null,
       fileSizeBytes: pb.fileSizeBytes != null ? Number(pb.fileSizeBytes) : null,
       fileChecksum: pb.fileChecksum,
       releaseNotes: pb.releaseNotes,
@@ -204,7 +280,7 @@ export class BuildsService {
   ): Promise<BuildJobResponseDto[]> {
     await this.authService.assertCanView(projectId, userId, userRole);
 
-    const where: any = { projectId };
+    const where: Prisma.BuildJobWhereInput = { projectId };
     if (query.status) where.status = query.status;
     if (query.platform) where.targetPlatform = query.platform;
     if (query.milestoneId) where.milestoneId = query.milestoneId;
@@ -328,7 +404,7 @@ export class BuildsService {
     }
 
     const now = new Date();
-    const updateData: any = {
+    const updateData: Prisma.BuildJobUpdateInput = {
       status: dto.status,
     };
 
@@ -648,5 +724,80 @@ export class BuildsService {
     });
 
     return this.mapPlayableBuild(created);
+  }
+
+  async getBuildArtifactStream(
+    projectId: string,
+    buildId: string,
+    userId?: string,
+    userRole?: string,
+  ): Promise<{ stream: fs.ReadStream; filename: string; size?: number }> {
+    if (!userId) {
+      throw new UnauthorizedException(
+        'Authentication required to download build artifacts.',
+      );
+    }
+
+    await this.authService.assertCanView(projectId, userId, userRole);
+
+    const pb = await this.prisma.playableBuild.findFirst({
+      where: {
+        projectId,
+        OR: [{ id: buildId }, { buildJobId: buildId }],
+      },
+      include: {
+        project: { select: { id: true, slug: true, name: true } },
+      },
+    });
+
+    if (!pb) {
+      throw new NotFoundException('Build artifact not found.');
+    }
+
+    if (!pb.storagePath) {
+      throw new NotFoundException(
+        'Build artifact file has not been uploaded yet.',
+      );
+    }
+
+    // Resolve physical file path securely
+    const uploadsBase = path.resolve(process.cwd(), 'uploads');
+    let resolvedPath: string;
+
+    if (
+      pb.storagePath.startsWith('http://') ||
+      pb.storagePath.startsWith('https://')
+    ) {
+      const fileName = path.basename(pb.storagePath);
+      resolvedPath = path.resolve(uploadsBase, fileName);
+    } else if (path.isAbsolute(pb.storagePath)) {
+      resolvedPath = path.resolve(pb.storagePath);
+    } else {
+      resolvedPath = path.resolve(uploadsBase, pb.storagePath);
+    }
+
+    // Path traversal defense: ensure resolved path is within uploads directory
+    if (!resolvedPath.startsWith(uploadsBase)) {
+      throw new ForbiddenException('Invalid artifact storage path.');
+    }
+
+    try {
+      await fsp.access(resolvedPath, fs.constants.R_OK);
+    } catch {
+      throw new NotFoundException('Build artifact file not found on server.');
+    }
+
+    const safeVersion = pb.version.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeProjectSlug = pb.project.slug.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${safeProjectSlug}-${safeVersion}.zip`;
+
+    const stats = await fsp.stat(resolvedPath);
+    const stream = fs.createReadStream(resolvedPath);
+
+    return {
+      stream,
+      filename,
+      size: stats.size,
+    };
   }
 }

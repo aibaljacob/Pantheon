@@ -6,8 +6,11 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -193,5 +196,52 @@ export class BuildsController {
       user.id,
       user.role,
     );
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Download build artifact archive' })
+  @ApiResponse({
+    status: 200,
+    description: 'Streams the build artifact ZIP file',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Get('builds/:buildId/download')
+  async downloadBuild(
+    @Param('projectId') projectId: string,
+    @Param('buildId') buildId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { stream, filename } =
+      await this.buildsService.getBuildArtifactStream(
+        projectId,
+        buildId,
+        user.id,
+        user.role,
+      );
+
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+
+    return new StreamableFile(stream);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Download playable build artifact archive (alias)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Streams the playable build artifact ZIP file',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Get('playable-builds/:buildId/download')
+  async downloadPlayableBuild(
+    @Param('projectId') projectId: string,
+    @Param('buildId') buildId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    return this.downloadBuild(projectId, buildId, user, res);
   }
 }

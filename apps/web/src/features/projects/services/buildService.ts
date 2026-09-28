@@ -182,6 +182,37 @@ export async function createPlayableBuild(
   return res.json();
 }
 
+export async function downloadBuildArtifact(
+  projectId: string,
+  buildId: string,
+  filename?: string,
+): Promise<void> {
+  const url = `${getApiBaseUrl()}/projects/${projectId}/builds/${buildId}/download`;
+  const token = useAuthStore.getState().accessToken;
+
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to download build artifact.');
+  }
+
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename || `build-${buildId}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(blobUrl);
+  document.body.removeChild(a);
+}
+
 export const buildService = {
   getBuilds: fetchProjectBuilds,
   getBuild: fetchProjectBuild,
@@ -191,4 +222,6 @@ export const buildService = {
   getPlayableBuilds: fetchPlayableBuilds,
   getPlayableBuild: fetchPlayableBuild,
   createPlayableBuild: createPlayableBuild,
+  downloadBuild: downloadBuildArtifact,
 };
+
