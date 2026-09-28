@@ -1,7 +1,15 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { ProjectRoleCommitment, ProjectRoleExperienceLevel, ProjectRoleStatus, Role } from '@prisma/client';
+import {
+  ProjectRoleCommitment,
+  ProjectRoleExperienceLevel,
+  ProjectRoleStatus,
+  Role,
+} from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { RoleMatchSpecification, TalentMatchingService } from '../talent-matching.service';
+import {
+  RoleMatchSpecification,
+  TalentMatchingService,
+} from '../talent-matching.service';
 import { AssignmentSolver } from './assignment-solver';
 import { GraphBuilderService, RawProjectGraphPayload } from './graph-builder';
 import {
@@ -79,7 +87,9 @@ export class BaselineComparisonService {
         members: { select: { userId: true } },
         openRoles: {
           where: {
-            status: { in: [ProjectRoleStatus.OPEN, ProjectRoleStatus.IN_REVIEW] },
+            status: {
+              in: [ProjectRoleStatus.OPEN, ProjectRoleStatus.IN_REVIEW],
+            },
           },
           include: {
             role: true,
@@ -94,7 +104,9 @@ export class BaselineComparisonService {
       throw new NotFoundException(`Project with ID ${projectId} not found.`);
     }
 
-    const excludedUserIds = new Set<string>(project.members.map((m) => m.userId));
+    const excludedUserIds = new Set<string>(
+      project.members.map((m) => m.userId),
+    );
     excludedUserIds.add(project.founderId);
 
     const candidates = await this.prisma.user.findMany({
@@ -170,11 +182,15 @@ export class BaselineComparisonService {
     for (const r of roles) {
       const roleNodeId = GraphBuilderService.toRoleId(r.id);
       if (graph.hasNode(roleNodeId)) {
-        const affs = this.rwrSolver.computeCandidateAffinity(graph, roleNodeId, {
-          alpha: options.rwrAlpha,
-          maxIterations: options.rwrMaxIterations,
-          epsilon: options.rwrEpsilon,
-        });
+        const affs = this.rwrSolver.computeCandidateAffinity(
+          graph,
+          roleNodeId,
+          {
+            alpha: options.rwrAlpha,
+            maxIterations: options.rwrMaxIterations,
+            epsilon: options.rwrEpsilon,
+          },
+        );
         affinitiesByRole.set(r.id, affs);
         for (const aff of affs) {
           affinityLookup.set(`${r.id}:${aff.candidateId}`, aff.rawGraphScore);
@@ -251,10 +267,14 @@ export class BaselineComparisonService {
     const baselineAssignments: RoleCandidateAssignment[] = [];
 
     for (const opp of baselineOpportunities) {
-      if (!baselineAssignedRoles.has(opp.roleId) && !baselineAssignedCandidates.has(opp.candidateId)) {
+      if (
+        !baselineAssignedRoles.has(opp.roleId) &&
+        !baselineAssignedCandidates.has(opp.candidateId)
+      ) {
         baselineAssignedRoles.add(opp.roleId);
         baselineAssignedCandidates.add(opp.candidateId);
-        const rwrScore = affinityLookup.get(`${opp.roleId}:${opp.candidateId}`) ?? 0;
+        const rwrScore =
+          affinityLookup.get(`${opp.roleId}:${opp.candidateId}`) ?? 0;
         baselineAssignments.push({
           roleId: opp.roleId,
           candidateId: opp.candidateId,
@@ -264,8 +284,12 @@ export class BaselineComparisonService {
       }
     }
 
-    const baselineUnassignedRoleIds = roleIds.filter((id) => !baselineAssignedRoles.has(id));
-    const baselineUnassignedCandidateIds = candidateIds.filter((id) => !baselineAssignedCandidates.has(id));
+    const baselineUnassignedRoleIds = roleIds.filter(
+      (id) => !baselineAssignedRoles.has(id),
+    );
+    const baselineUnassignedCandidateIds = candidateIds.filter(
+      (id) => !baselineAssignedCandidates.has(id),
+    );
 
     // 3. Prepare Evaluation Structures for Same TeamEvaluator
     const evalRoles: EvaluationProjectRole[] = roles.map((r) => ({

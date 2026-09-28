@@ -21,7 +21,8 @@ export class TaskQueryDto {
   @IsOptional()
   @IsString()
   @IsIn(['createdAt', 'updatedAt', 'taskNumber', 'priority', 'status'])
-  sortBy?: 'createdAt' | 'updatedAt' | 'taskNumber' | 'priority' | 'status' = 'taskNumber';
+  sortBy?: 'createdAt' | 'updatedAt' | 'taskNumber' | 'priority' | 'status' =
+    'taskNumber';
 
   @IsOptional()
   @IsString()

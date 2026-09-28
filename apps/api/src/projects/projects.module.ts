@@ -6,7 +6,10 @@ import { AuthModule } from '../auth/auth.module';
 import { AiRecommendationService } from '../ai/ai-recommendation.service';
 import { TalentMatchingService } from './talent-matching.service';
 import { ProjectInvitationsService } from './project-invitations.service';
-import { ProjectInvitationsController, UserInvitationsController } from './project-invitations.controller';
+import {
+  ProjectInvitationsController,
+  UserInvitationsController,
+} from './project-invitations.controller';
 import { ProjectRepositoryController } from './project-repository.controller';
 import { ProjectRepositoryService } from './project-repository.service';
 import { ProjectRepositoryRepository } from './project-repository.repository';
@@ -22,9 +25,10 @@ import { TeamEvaluator } from './graph-team-formation/team-evaluator';
 import { BaselineComparisonService } from './graph-team-formation/baseline-comparison.service';
 import { ResearchExperimentRunner } from './graph-team-formation/research-experiment-runner';
 import { TasksModule } from '../tasks/tasks.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, TasksModule],
+  imports: [PrismaModule, AuthModule, TasksModule, NotificationsModule],
   controllers: [
     ProjectsController,
     ProjectInvitationsController,
@@ -70,4 +74,3 @@ import { TasksModule } from '../tasks/tasks.module';
   ],
 })
 export class ProjectsModule {}
-

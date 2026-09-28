@@ -13,10 +13,26 @@ import { BuildRunnersModule } from './build-runners/build-runners.module';
 import { PersonalAccessTokensModule } from './personal-access-tokens/personal-access-tokens.module';
 import { GitHttpModule } from './git-http/git-http.module';
 import { PlaytestModule } from './playtest/playtest.module';
+import { SearchModule } from './search/search.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, ProfileModule, TaxonomyModule, ProjectsModule, AdminModule, PrismaModule, TasksModule, BuildsModule, BuildRunnersModule, PersonalAccessTokensModule, GitHttpModule, PlaytestModule],
-
+  imports: [
+    AuthModule,
+    ProfileModule,
+    TaxonomyModule,
+    ProjectsModule,
+    AdminModule,
+    PrismaModule,
+    TasksModule,
+    BuildsModule,
+    BuildRunnersModule,
+    PersonalAccessTokensModule,
+    GitHttpModule,
+    PlaytestModule,
+    SearchModule,
+    NotificationsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

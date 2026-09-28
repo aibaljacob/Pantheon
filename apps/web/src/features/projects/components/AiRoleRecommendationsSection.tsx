@@ -52,7 +52,7 @@ export const AiRoleRecommendationsSection: React.FC<AiRoleRecommendationsSection
                 AI Staffing Intelligence & Role Recommendations
               </h3>
               <Badge variant="accent" className="normal-case text-[10px]">
-                Autonomous Project Scan
+                AI Recommendation
               </Badge>
             </div>
             <p className="text-xs font-mono text-[#8c887e] mt-0.5">
@@ -136,7 +136,7 @@ export const AiRoleRecommendationsSection: React.FC<AiRoleRecommendationsSection
                       onClick={() => onAcceptRecommendation(draft)}
                       className="inline-flex items-center gap-1.5 rounded-xl border border-[#e6e2d7] bg-[#e6e2df] px-3.5 py-1.5 font-mono text-xs font-semibold text-[#141312] hover:bg-[#ffffff] transition-colors"
                     >
-                      <span>Adopt Role</span>
+                      <span>Review &amp; Open Role</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   )}

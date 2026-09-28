@@ -211,7 +211,9 @@ describe('Builds Module - BuildsService', () => {
     }).compile();
 
     buildsService = module.get<BuildsService>(BuildsService);
-    authService = module.get<ProjectAuthorizationService>(ProjectAuthorizationService);
+    authService = module.get<ProjectAuthorizationService>(
+      ProjectAuthorizationService,
+    );
   });
 
   describe('1 & 2. Build creation & default QUEUED status', () => {
@@ -366,7 +368,10 @@ describe('Builds Module - BuildsService', () => {
       const result = await buildsService.updateBuildStatus(
         mockProjectId,
         mockBuildJob.id,
-        { status: BuildStatus.FAILED, errorMessage: 'Compilation error: Shader missing' },
+        {
+          status: BuildStatus.FAILED,
+          errorMessage: 'Compilation error: Shader missing',
+        },
         mockFounderId,
       );
 
@@ -501,7 +506,11 @@ describe('Builds Module - BuildsService', () => {
       });
 
       await expect(
-        buildsService.cancelBuild(mockProjectId, mockBuildJob.id, mockFounderId),
+        buildsService.cancelBuild(
+          mockProjectId,
+          mockBuildJob.id,
+          mockFounderId,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });

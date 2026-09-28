@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CheckSquare, Flag, ArrowRight, Loader2, Sparkles } from 'lucide-react';
 import { taskService } from '../../services/taskService';
 import type { MilestoneItem, TaskItem } from '../../types';
+import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
 
 interface ProductionProgressCardProps {
   projectId: string;
@@ -14,25 +15,40 @@ export const ProductionProgressCard: React.FC<ProductionProgressCardProps> = ({
   accessToken,
   onNavigateTasks,
 }) => {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const cachedTasks = useWorkspaceStore((state) => state.projects[projectId]?.tasks);
+  const cachedMilestones = useWorkspaceStore((state) => state.projects[projectId]?.milestones);
+  const setTasksStore = useWorkspaceStore((state) => state.setTasks);
+  const setMilestonesStore = useWorkspaceStore((state) => state.setMilestones);
+
+  const [localTasks, setLocalTasks] = useState<TaskItem[]>([]);
+  const [localMilestones, setLocalMilestones] = useState<MilestoneItem[]>([]);
+  const [isFetching, setIsFetching] = useState<boolean>(!cachedTasks || !cachedMilestones);
   const [error, setError] = useState<string | null>(null);
 
+  const tasks = cachedTasks || localTasks;
+  const milestones = cachedMilestones || localMilestones;
+  const isLoading = (!cachedTasks || !cachedMilestones) && isFetching;
+
   useEffect(() => {
+    if (cachedTasks && cachedMilestones) {
+      return;
+    }
+
     let isMounted = true;
 
     async function loadMetrics() {
-      setIsLoading(true);
+      setIsFetching(true);
       setError(null);
       try {
         const [taskData, milestoneData] = await Promise.all([
-          taskService.getTasks(projectId, {}),
-          taskService.getMilestones(projectId),
+          dedupeRequest(`${projectId}:tasks`, () => taskService.getTasks(projectId, {})),
+          dedupeRequest(`${projectId}:milestones`, () => taskService.getMilestones(projectId)),
         ]);
         if (isMounted) {
-          setTasks(taskData);
-          setMilestones(milestoneData);
+          setLocalTasks(taskData);
+          setLocalMilestones(milestoneData);
+          setTasksStore(projectId, taskData);
+          setMilestonesStore(projectId, milestoneData);
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -41,7 +57,7 @@ export const ProductionProgressCard: React.FC<ProductionProgressCardProps> = ({
         }
       } finally {
         if (isMounted) {
-          setIsLoading(false);
+          setIsFetching(false);
         }
       }
     }
@@ -53,7 +69,7 @@ export const ProductionProgressCard: React.FC<ProductionProgressCardProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [projectId, accessToken]);
+  }, [projectId, accessToken, cachedTasks, cachedMilestones, setTasksStore, setMilestonesStore]);
 
   const totalTasks = tasks.length;
   const completedTasks = tasks.filter((t) => t.status === 'DONE').length;

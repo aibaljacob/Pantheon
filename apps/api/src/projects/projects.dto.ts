@@ -1,4 +1,14 @@
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import {
   ProjectMemberStatus,
@@ -413,7 +423,8 @@ export class CandidateProfileSummaryDto {
 export class RecommendedCandidateDto {
   candidate: CandidateProfileSummaryDto;
   totalScore: number;
-  matchGrade: 'EXCELLENT_MATCH' | 'STRONG_MATCH' | 'GOOD_MATCH' | 'POTENTIAL_MATCH';
+  matchGrade:
+    'EXCELLENT_MATCH' | 'STRONG_MATCH' | 'GOOD_MATCH' | 'POTENTIAL_MATCH';
   confidenceLevel: 'HIGH' | 'MEDIUM' | 'LOW';
   matchBreakdown: MatchBreakdownDto;
   matchedSkills: string[];
@@ -421,7 +432,8 @@ export class RecommendedCandidateDto {
   matchedTools: string[];
   missingTools: string[];
   explanation: string;
-  invitationStatus?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+  invitationStatus?:
+    'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
   isTeamMember?: boolean;
   isAssignedToThisRole?: boolean;
 }

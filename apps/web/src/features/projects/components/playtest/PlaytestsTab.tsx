@@ -1,57 +1,73 @@
-import React, { useState, useEffect } from 'react';
-import { Gamepad2, Plus, Calendar, Settings, Play, CheckCircle, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Gamepad2, Plus, Calendar, Play, CheckCircle, RefreshCw } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../../../auth/services/httpClient';
 import { Button } from '../../../../components/ui/Button';
-
-interface PlaytestSession {
-  id: string;
-  title: string;
-  isActive: boolean;
-  startDate: string | null;
-  endDate: string | null;
-  playableBuild: {
-    version: string;
-    platform: string;
-    title: string;
-  };
-  _count: {
-    feedback: number;
-  };
-  createdAt: string;
-}
+import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
+import type { PlaytestSession } from '../../types';
 
 interface PlaytestsTabProps {
   projectId: string;
   isFounder: boolean;
-  currentUser: any;
+  currentUser?: unknown;
 }
 
-export function PlaytestsTab({ projectId, isFounder, currentUser }: PlaytestsTabProps) {
-  const [playtests, setPlaytests] = useState<PlaytestSession[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function PlaytestsTab({ projectId, isFounder }: PlaytestsTabProps) {
+  const cachedPlaytests = useWorkspaceStore((state) => state.projects[projectId]?.playtests);
+  const setCachedPlaytests = useWorkspaceStore((state) => state.setPlaytests);
+
+  const invalidatePlaytests = useWorkspaceStore((state) => state.invalidatePlaytests);
+
+  const [localPlaytests, setLocalPlaytests] = useState<PlaytestSession[]>([]);
+  const [isLoading, setIsLoading] = useState(!cachedPlaytests);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const playtests = cachedPlaytests ?? localPlaytests;
 
   useEffect(() => {
-    loadPlaytests();
-  }, [projectId]);
+    if (cachedPlaytests) return;
+    let ignore = false;
 
-  const loadPlaytests = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await apiClient.get(`/projects/${projectId}/playtests`);
-      setPlaytests(res.data);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Failed to load playtests');
-    } finally {
-      setIsLoading(false);
-    }
+    dedupeRequest(`playtests:${projectId}`, async () => {
+      const res = await apiClient.get<PlaytestSession[]>(`/projects/${projectId}/playtests`);
+      return res.data;
+    })
+      .then((data) => {
+        if (!ignore) {
+          setCachedPlaytests(projectId, data);
+          setLocalPlaytests(data);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          console.error(err);
+          const message = err instanceof Error ? err.message : 'Failed to load playtests';
+          setError(message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId, cachedPlaytests, setCachedPlaytests, refreshTrigger]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    invalidatePlaytests(projectId);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
-  const activePlaytests = playtests.filter(p => p.isActive);
-  const inactivePlaytests = playtests.filter(p => !p.isActive);
+  const activePlaytests = playtests.filter((p) => p.isActive);
+  const inactivePlaytests = playtests.filter((p) => !p.isActive);
 
   return (
     <div className="space-y-6">
@@ -69,18 +85,30 @@ export function PlaytestsTab({ projectId, isFounder, currentUser }: PlaytestsTab
             </p>
           </div>
         </div>
-        {isFounder && (
-          <Link to={`/projects/${projectId}/playtests/new`}>
-            <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
-              New Playtest
-            </Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isRefreshing || isLoading}
+            icon={<RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />}
+            title="Refresh playtests"
+          >
+            Refresh
+          </Button>
+          {isFounder && (
+            <Link to={`/projects/${projectId}/playtests/new`}>
+              <Button variant="primary" icon={<Plus className="h-4 w-4" />}>
+                New Playtest
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
-      {isLoading ? (
+      {isLoading && !cachedPlaytests ? (
         <div className="text-center text-sm font-mono text-[#8c887e] py-12">Loading playtests...</div>
-      ) : error ? (
+      ) : error && !cachedPlaytests ? (
         <div className="text-center text-sm font-mono text-red-400 py-12">{error}</div>
       ) : playtests.length === 0 ? (
         <div className="rounded-3xl border border-[#363433] bg-[#141312] py-20 text-center">

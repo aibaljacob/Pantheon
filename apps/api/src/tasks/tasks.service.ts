@@ -12,11 +12,14 @@ import { TaskQueryDto } from './dto/task-query.dto';
 import { TaskResponseDto } from './dto/task-response.dto';
 import { Prisma, TaskPriority, TaskStatus } from '@prisma/client';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authzService: ProjectAuthorizationService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private mapTaskToResponse(task: any): TaskResponseDto {
@@ -57,10 +60,17 @@ export class TasksService {
     userId: string,
     userRole?: string,
   ): Promise<TaskResponseDto> {
-    const { project } = await this.authzService.assertCanManage(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanManage(
+      projectId,
+      userId,
+      userRole,
+    );
 
     if (dto.assigneeId) {
-      await this.authzService.assertActiveMemberForAssignment(project.id, dto.assigneeId);
+      await this.authzService.assertActiveMemberForAssignment(
+        project.id,
+        dto.assigneeId,
+      );
     }
 
     if (dto.milestoneId) {
@@ -68,7 +78,9 @@ export class TasksService {
         where: { id: dto.milestoneId, projectId: project.id },
       });
       if (!milestone) {
-        throw new BadRequestException('Specified milestone does not exist in this project.');
+        throw new BadRequestException(
+          'Specified milestone does not exist in this project.',
+        );
       }
     }
 
@@ -114,15 +126,31 @@ export class TasksService {
         });
         break;
       } catch (err: any) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002'
+        ) {
           // Unique constraint collision on [projectId, taskNumber], retry
           if (attempt === maxRetries - 1) {
-            throw new BadRequestException('Could not allocate unique task number. Please try again.');
+            throw new BadRequestException(
+              'Could not allocate unique task number. Please try again.',
+            );
           }
           continue;
         }
         throw err;
       }
+    }
+
+    if (createdTask.assigneeId) {
+      await this.notificationsService.createNotification({
+        userId: createdTask.assigneeId,
+        type: 'TASK_ASSIGNED',
+        title: 'Task Assigned',
+        message: `You have been assigned to task ${createdTask.taskCode}: ${createdTask.title}`,
+        entityType: 'Task',
+        entityId: createdTask.id,
+      });
     }
 
     return this.mapTaskToResponse(createdTask);
@@ -134,7 +162,11 @@ export class TasksService {
     userId?: string,
     userRole?: string,
   ): Promise<TaskResponseDto[]> {
-    const { project } = await this.authzService.assertCanView(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const where: Prisma.TaskWhereInput = {
       projectId: project.id,
@@ -189,7 +221,11 @@ export class TasksService {
     userId?: string,
     userRole?: string,
   ): Promise<TaskResponseDto> {
-    const { project } = await this.authzService.assertCanView(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, projectId: project.id },
@@ -223,7 +259,11 @@ export class TasksService {
     userId: string,
     userRole?: string,
   ): Promise<TaskResponseDto> {
-    const { project } = await this.authzService.assertCanView(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const existing = await this.prisma.task.findFirst({
       where: { id: taskId, projectId: project.id },
@@ -257,12 +297,17 @@ export class TasksService {
         userRole,
       );
       if (!isFounder && !isAdmin) {
-        throw new ForbiddenException('Only the founder or administrator can reassign tasks or change milestones.');
+        throw new ForbiddenException(
+          'Only the founder or administrator can reassign tasks or change milestones.',
+        );
       }
     }
 
     if (dto.assigneeId) {
-      await this.authzService.assertActiveMemberForAssignment(project.id, dto.assigneeId);
+      await this.authzService.assertActiveMemberForAssignment(
+        project.id,
+        dto.assigneeId,
+      );
     }
 
     if (dto.milestoneId) {
@@ -270,7 +315,9 @@ export class TasksService {
         where: { id: dto.milestoneId, projectId: project.id },
       });
       if (!milestone) {
-        throw new BadRequestException('Specified milestone does not exist in this project.');
+        throw new BadRequestException(
+          'Specified milestone does not exist in this project.',
+        );
       }
     }
 
@@ -279,11 +326,14 @@ export class TasksService {
       data: {
         title: dto.title !== undefined ? dto.title.trim() : undefined,
         description:
-          dto.description !== undefined ? dto.description.trim() || null : undefined,
+          dto.description !== undefined
+            ? dto.description.trim() || null
+            : undefined,
         status: dto.status !== undefined ? dto.status : undefined,
         priority: dto.priority !== undefined ? dto.priority : undefined,
         assigneeId: dto.assigneeId !== undefined ? dto.assigneeId : undefined,
-        milestoneId: dto.milestoneId !== undefined ? dto.milestoneId : undefined,
+        milestoneId:
+          dto.milestoneId !== undefined ? dto.milestoneId : undefined,
       },
       include: {
         assignee: {
@@ -300,6 +350,17 @@ export class TasksService {
         },
       },
     });
+
+    if (dto.assigneeId && dto.assigneeId !== existing.assigneeId) {
+      await this.notificationsService.createNotification({
+        userId: dto.assigneeId,
+        type: 'TASK_ASSIGNED',
+        title: 'Task Reassigned',
+        message: `You have been assigned to task TASK-${existing.taskNumber}: ${existing.title}`,
+        entityType: 'Task',
+        entityId: existing.id,
+      });
+    }
 
     return this.mapTaskToResponse(updated);
   }
@@ -331,7 +392,13 @@ export class TasksService {
     userId: string,
     userRole?: string,
   ): Promise<TaskResponseDto> {
-    return this.updateTask(projectId, taskId, { milestoneId }, userId, userRole);
+    return this.updateTask(
+      projectId,
+      taskId,
+      { milestoneId },
+      userId,
+      userRole,
+    );
   }
 
   async deleteTask(
@@ -340,7 +407,11 @@ export class TasksService {
     userId: string,
     userRole?: string,
   ): Promise<{ success: boolean; message: string }> {
-    const { project } = await this.authzService.assertCanManage(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanManage(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const existing = await this.prisma.task.findFirst({
       where: { id: taskId, projectId: project.id },
@@ -357,7 +428,10 @@ export class TasksService {
     return { success: true, message: 'Task deleted successfully.' };
   }
 
-  async unassignTasksForMember(projectId: string, memberUserId: string): Promise<void> {
+  async unassignTasksForMember(
+    projectId: string,
+    memberUserId: string,
+  ): Promise<void> {
     await this.prisma.task.updateMany({
       where: {
         projectId,
@@ -369,7 +443,12 @@ export class TasksService {
     });
   }
 
-  async getTaskCommits(projectId: string, taskId: string, userId?: string, userRole?: string) {
+  async getTaskCommits(
+    projectId: string,
+    taskId: string,
+    userId?: string,
+    userRole?: string,
+  ) {
     await this.authzService.assertCanView(projectId, userId, userRole);
 
     const task = await this.prisma.task.findUnique({
@@ -390,12 +469,12 @@ export class TasksService {
         author: {
           include: {
             profile: true,
-          }
-        }
-      }
+          },
+        },
+      },
     });
 
-    return commits.map(commit => ({
+    return commits.map((commit) => ({
       id: commit.id,
       taskId: commit.taskId,
       commitHash: commit.commitHash,
@@ -403,12 +482,14 @@ export class TasksService {
       authorName: commit.authorName,
       branchName: commit.branchName,
       timestamp: commit.timestamp,
-      author: commit.author ? {
-        id: commit.author.id,
-        username: commit.author.username,
-        avatarUrl: commit.author.profile?.avatarUrl,
-        displayName: commit.author.profile?.displayName,
-      } : null,
+      author: commit.author
+        ? {
+            id: commit.author.id,
+            username: commit.author.username,
+            avatarUrl: commit.author.profile?.avatarUrl,
+            displayName: commit.author.profile?.displayName,
+          }
+        : null,
     }));
   }
 }

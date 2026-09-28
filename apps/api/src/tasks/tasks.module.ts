@@ -7,18 +7,12 @@ import { TasksService } from './tasks.service';
 import { MilestonesService } from './milestones.service';
 import { ProjectAuthorizationService } from './project-authorization.service';
 
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, NotificationsModule],
   controllers: [TasksController, MilestonesController],
-  providers: [
-    TasksService,
-    MilestonesService,
-    ProjectAuthorizationService,
-  ],
-  exports: [
-    TasksService,
-    MilestonesService,
-    ProjectAuthorizationService,
-  ],
+  providers: [TasksService, MilestonesService, ProjectAuthorizationService],
+  exports: [TasksService, MilestonesService, ProjectAuthorizationService],
 })
 export class TasksModule {}

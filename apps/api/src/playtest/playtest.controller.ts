@@ -8,11 +8,19 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PlaytestService } from './playtest.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import {
   CreatePlaytestSessionDto,
   UpdatePlaytestSessionDto,
@@ -26,7 +34,9 @@ export class PlaytestController {
   constructor(private readonly playtestService: PlaytestService) {}
 
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new playtest session for a specific build' })
+  @ApiOperation({
+    summary: 'Create a new playtest session for a specific build',
+  })
   @UseGuards(JwtAuthGuard)
   @Post('playable-builds/:buildId/playtests')
   createPlaytest(
@@ -35,7 +45,13 @@ export class PlaytestController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreatePlaytestSessionDto,
   ) {
-    return this.playtestService.createPlaytest(projectId, buildId, dto, user.id, user.role);
+    return this.playtestService.createPlaytest(
+      projectId,
+      buildId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiOperation({ summary: 'Get all playtest sessions for a project' })
@@ -56,7 +72,12 @@ export class PlaytestController {
     @Param('playtestId') playtestId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ) {
-    return this.playtestService.getPlaytest(projectId, playtestId, user?.id, user?.role);
+    return this.playtestService.getPlaytest(
+      projectId,
+      playtestId,
+      user?.id,
+      user?.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -69,7 +90,13 @@ export class PlaytestController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdatePlaytestSessionDto,
   ) {
-    return this.playtestService.updatePlaytest(projectId, playtestId, dto, user.id, user.role);
+    return this.playtestService.updatePlaytest(
+      projectId,
+      playtestId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -81,7 +108,12 @@ export class PlaytestController {
     @Param('playtestId') playtestId: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.playtestService.deletePlaytest(projectId, playtestId, user.id, user.role);
+    return this.playtestService.deletePlaytest(
+      projectId,
+      playtestId,
+      user.id,
+      user.role,
+    );
   }
 
   // ==========================================
@@ -98,7 +130,13 @@ export class PlaytestController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreatePlaytestFeedbackDto,
   ) {
-    return this.playtestService.createFeedback(projectId, playtestId, dto, user.id, user.role);
+    return this.playtestService.createFeedback(
+      projectId,
+      playtestId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -110,7 +148,12 @@ export class PlaytestController {
     @Param('playtestId') playtestId: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.playtestService.getFeedbackList(projectId, playtestId, user.id, user.role);
+    return this.playtestService.getFeedbackList(
+      projectId,
+      playtestId,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -124,7 +167,14 @@ export class PlaytestController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdatePlaytestFeedbackDto,
   ) {
-    return this.playtestService.updateFeedback(projectId, playtestId, feedbackId, dto, user.id, user.role);
+    return this.playtestService.updateFeedback(
+      projectId,
+      playtestId,
+      feedbackId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -137,6 +187,12 @@ export class PlaytestController {
     @Param('feedbackId') feedbackId: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.playtestService.convertFeedbackToTask(projectId, playtestId, feedbackId, user.id, user.role);
+    return this.playtestService.convertFeedbackToTask(
+      projectId,
+      playtestId,
+      feedbackId,
+      user.id,
+      user.role,
+    );
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Sparkles,
   UserCheck,
@@ -28,8 +28,18 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
   roles,
   onRoleAssigned,
 }) => {
-  const openRoles = roles.filter((r) => r.status === 'OPEN' || r.status === 'IN_REVIEW');
-  const [selectedRoleId, setSelectedRoleId] = useState<string>(openRoles[0]?.id || '');
+  const openRoles = useMemo(
+    () => roles.filter((r) => r.status === 'OPEN' || r.status === 'IN_REVIEW'),
+    [roles],
+  );
+  const [rawSelectedRoleId, setSelectedRoleId] = useState<string>('');
+  const selectedRoleId = useMemo(() => {
+    if (rawSelectedRoleId && openRoles.some((r) => r.id === rawSelectedRoleId)) {
+      return rawSelectedRoleId;
+    }
+    return openRoles[0]?.id || '';
+  }, [rawSelectedRoleId, openRoles]);
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<RankedCandidatesResponse | null>(null);
@@ -42,26 +52,35 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
   const accessToken = useAuthStore((state) => state.accessToken);
 
   useEffect(() => {
-    if (openRoles.length > 0 && !openRoles.some((r) => r.id === selectedRoleId)) {
-      setSelectedRoleId(openRoles[0].id);
-    }
-  }, [openRoles, selectedRoleId]);
-
-  const loadCandidates = useCallback(async () => {
+    let isCancelled = false;
     if (!accessToken || !selectedRoleId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetchRecommendedTalent(accessToken, project.id, selectedRoleId, {
-        search: search.trim() || undefined,
-        limit: 10,
-      });
-      setData(response);
-    } catch (err: any) {
-      setError(err.message || 'Unable to load candidate recommendations.');
-    } finally {
-      setLoading(false);
-    }
+
+    Promise.resolve().then(async () => {
+      if (isCancelled) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetchRecommendedTalent(accessToken, project.id, selectedRoleId, {
+          search: search.trim() || undefined,
+          limit: 10,
+        });
+        if (!isCancelled) {
+          setData(response);
+        }
+      } catch (err: unknown) {
+        if (!isCancelled) {
+          setError(err instanceof Error ? err.message : 'Unable to load candidate recommendations.');
+        }
+      } finally {
+        if (!isCancelled) {
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
   }, [accessToken, project.id, selectedRoleId, search]);
 
   const handleRescanTalent = async () => {
@@ -71,8 +90,8 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
     try {
       const response = await rescanRecommendedTalent(accessToken, project.id, selectedRoleId);
       setData(response);
-    } catch (err: any) {
-      setError(err.message || 'Unable to rescan candidate recommendations.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to rescan candidate recommendations.');
     } finally {
       setIsRescanning(false);
     }
@@ -96,16 +115,12 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
       if (onRoleAssigned) {
         onRoleAssigned();
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to assign role to member.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to assign role to member.');
     } finally {
       setAssigningUserId(null);
     }
   };
-
-  useEffect(() => {
-    loadCandidates();
-  }, [loadCandidates]);
 
   if (openRoles.length === 0) {
     return (
@@ -131,7 +146,7 @@ export const RecommendedTalentSection: React.FC<RecommendedTalentSectionProps> =
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-amber-400" />
             <h2 className="font-headline text-xl font-bold text-[#ffffff]">Recommended Talent</h2>
-            <Badge variant="accent" className="normal-case text-[10px]">Deterministic AI Match</Badge>
+            <Badge variant="accent" className="normal-case text-[10px]">AI Talent Matching</Badge>
           </div>
           <p className="mt-1 text-xs text-[#8c887e]">
             Ranked candidate recommendations based on verified role taxonomy, skills, tools, experience, and team member capabilities.

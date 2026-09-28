@@ -40,7 +40,8 @@ export class CooccurrenceService {
 
         // Compute intersection
         let intersectionCount = 0;
-        const [smaller, larger] = usersA.size <= usersB.size ? [usersA, usersB] : [usersB, usersA];
+        const [smaller, larger] =
+          usersA.size <= usersB.size ? [usersA, usersB] : [usersB, usersA];
 
         for (const userId of smaller) {
           if (larger.has(userId)) {
@@ -104,9 +105,16 @@ export class CooccurrenceService {
         userSet.add(userId);
       }
 
-      return CooccurrenceService.computeJaccardFromIndex(skillToUsers, minIntersection, minJaccard);
+      return CooccurrenceService.computeJaccardFromIndex(
+        skillToUsers,
+        minIntersection,
+        minJaccard,
+      );
     } catch (err) {
-      this.logger.error('Failed to compute skill co-occurrences from Prisma:', err);
+      this.logger.error(
+        'Failed to compute skill co-occurrences from Prisma:',
+        err,
+      );
       return [];
     }
   }
@@ -147,9 +155,16 @@ export class CooccurrenceService {
         userSet.add(userId);
       }
 
-      return CooccurrenceService.computeJaccardFromIndex(toolToUsers, minIntersection, minJaccard);
+      return CooccurrenceService.computeJaccardFromIndex(
+        toolToUsers,
+        minIntersection,
+        minJaccard,
+      );
     } catch (err) {
-      this.logger.error('Failed to compute tool co-occurrences from Prisma:', err);
+      this.logger.error(
+        'Failed to compute tool co-occurrences from Prisma:',
+        err,
+      );
       return [];
     }
   }

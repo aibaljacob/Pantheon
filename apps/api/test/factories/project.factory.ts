@@ -20,7 +20,8 @@ export interface TestProjectOptions {
 }
 
 export const createTestProject = (options: TestProjectOptions = {}) => {
-  const id = options.id || `project-uuid-${Math.random().toString(36).substring(2, 9)}`;
+  const id =
+    options.id || `project-uuid-${Math.random().toString(36).substring(2, 9)}`;
   const name = options.name || 'Chronicles of Elyria';
   const slug = options.slug || name.toLowerCase().replace(/\s+/g, '-');
 
@@ -31,7 +32,8 @@ export const createTestProject = (options: TestProjectOptions = {}) => {
     description: 'An expansive open-world multiplayer game with rich physics.',
     coverUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f',
     status: options.status || ProjectStatus.IN_DEVELOPMENT,
-    moderationStatus: options.moderationStatus || ProjectModerationStatus.PUBLISHED,
+    moderationStatus:
+      options.moderationStatus || ProjectModerationStatus.PUBLISHED,
     genre: options.genre ?? 'Action RPG',
     platform: options.platform ?? 'PC',
     gameEngine: options.gameEngine ?? 'Unreal Engine 5',
@@ -53,15 +55,22 @@ export const createTestProject = (options: TestProjectOptions = {}) => {
   };
 };
 
-export const createTestProjectRole = (projectId: string, overrides: any = {}) => {
-  const id = overrides.id || `role-uuid-${Math.random().toString(36).substring(2, 9)}`;
+export const createTestProjectRole = (
+  projectId: string,
+  overrides: any = {},
+) => {
+  const id =
+    overrides.id || `role-uuid-${Math.random().toString(36).substring(2, 9)}`;
   return {
     id,
     projectId,
     roleId: overrides.roleId || 'role-tax-1',
     title: overrides.title || 'Senior Gameplay Engineer',
-    description: overrides.description || 'Lead implementation of player controls and combat loops.',
-    experienceLevel: overrides.experienceLevel || ProjectRoleExperienceLevel.SENIOR,
+    description:
+      overrides.description ||
+      'Lead implementation of player controls and combat loops.',
+    experienceLevel:
+      overrides.experienceLevel || ProjectRoleExperienceLevel.SENIOR,
     commitment: overrides.commitment || ProjectRoleCommitment.FULL_TIME,
     status: overrides.status || ProjectRoleStatus.OPEN,
     assignedMemberId: overrides.assignedMemberId || null,
@@ -76,8 +85,13 @@ export const createTestProjectRole = (projectId: string, overrides: any = {}) =>
   };
 };
 
-export const createTestProjectMember = (projectId: string, userId: string, overrides: any = {}) => {
-  const id = overrides.id || `member-uuid-${Math.random().toString(36).substring(2, 9)}`;
+export const createTestProjectMember = (
+  projectId: string,
+  userId: string,
+  overrides: any = {},
+) => {
+  const id =
+    overrides.id || `member-uuid-${Math.random().toString(36).substring(2, 9)}`;
   return {
     id,
     projectId,

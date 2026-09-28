@@ -1,14 +1,18 @@
-export const createMockGeminiClient = (options: {
-  shouldFail?: boolean;
-  emptyResponse?: boolean;
-  malformedJson?: boolean;
-  mockRoles?: any[];
-} = {}) => {
+export const createMockGeminiClient = (
+  options: {
+    shouldFail?: boolean;
+    emptyResponse?: boolean;
+    malformedJson?: boolean;
+    mockRoles?: any[];
+  } = {},
+) => {
   return {
     models: {
       generateContent: jest.fn().mockImplementation(async () => {
         if (options.shouldFail) {
-          throw new Error('Google Gemini API service unavailable (quota or network timeout)');
+          throw new Error(
+            'Google Gemini API service unavailable (quota or network timeout)',
+          );
         }
 
         if (options.emptyResponse) {

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,9 +22,16 @@ import {
   UserInvitationsResponseDto,
 } from './projects.dto';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class ProjectInvitationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(ProjectInvitationsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async sendInvitation(
     projectId: string,
@@ -46,7 +54,9 @@ export class ProjectInvitationsService {
     const isFounder = project.founderId === inviterId;
     const isAdmin = inviterRole === 'ADMINISTRATOR';
     if (!isFounder && !isAdmin) {
-      throw new ForbiddenException('Only the project founder or administrator can send role invitations.');
+      throw new ForbiddenException(
+        'Only the project founder or administrator can send role invitations.',
+      );
     }
 
     // 2. Validate ProjectRole exists & belongs to project
@@ -60,8 +70,13 @@ export class ProjectInvitationsService {
     }
 
     // Role status check: Must be OPEN or IN_REVIEW
-    if (projectRole.status === ProjectRoleStatus.CLOSED || projectRole.status === ProjectRoleStatus.FILLED) {
-      throw new BadRequestException('Cannot send invitations for a role that is CLOSED or FILLED.');
+    if (
+      projectRole.status === ProjectRoleStatus.CLOSED ||
+      projectRole.status === ProjectRoleStatus.FILLED
+    ) {
+      throw new BadRequestException(
+        'Cannot send invitations for a role that is CLOSED or FILLED.',
+      );
     }
 
     // 3. Validate candidate user
@@ -71,11 +86,15 @@ export class ProjectInvitationsService {
     });
 
     if (!candidateUser || candidateUser.role !== Role.USER) {
-      throw new NotFoundException('Candidate user not found or ineligible for invitations.');
+      throw new NotFoundException(
+        'Candidate user not found or ineligible for invitations.',
+      );
     }
 
     if (candidateUser.id === project.founderId) {
-      throw new BadRequestException('Cannot send an invitation to the project founder.');
+      throw new BadRequestException(
+        'Cannot send an invitation to the project founder.',
+      );
     }
 
     // 4. Validate candidate is not already an active member
@@ -90,23 +109,29 @@ export class ProjectInvitationsService {
 
     if (
       existingMembership &&
-      (!existingMembership.status || existingMembership.status === ProjectMemberStatus.ACTIVE)
+      (!existingMembership.status ||
+        existingMembership.status === ProjectMemberStatus.ACTIVE)
     ) {
-      throw new BadRequestException('Candidate is already an active team member of this project.');
+      throw new BadRequestException(
+        'Candidate is already an active team member of this project.',
+      );
     }
 
     // 5. Prevent duplicate pending invitations for the same project role and candidate
-    const existingPendingInvitation = await this.prisma.projectInvitation.findFirst({
-      where: {
-        projectId,
-        projectRoleId,
-        inviteeId: candidateUser.id,
-        status: ProjectInvitationStatus.PENDING,
-      },
-    });
+    const existingPendingInvitation =
+      await this.prisma.projectInvitation.findFirst({
+        where: {
+          projectId,
+          projectRoleId,
+          inviteeId: candidateUser.id,
+          status: ProjectInvitationStatus.PENDING,
+        },
+      });
 
     if (existingPendingInvitation) {
-      throw new BadRequestException('Candidate already has a pending invitation for this project role.');
+      throw new BadRequestException(
+        'Candidate already has a pending invitation for this project role.',
+      );
     }
 
     // 6. Create ProjectInvitation
@@ -121,10 +146,21 @@ export class ProjectInvitationsService {
       },
     });
 
+    await this.notificationsService.createNotification({
+      userId: candidateUser.id,
+      type: 'INVITATION_RECEIVED',
+      title: 'New Project Invitation',
+      message: `You have been invited to join the project ${project.id}`, // Better to get project name, but id works for now
+      entityType: 'ProjectInvitation',
+      entityId: invitation.id,
+    });
+
     return this.mapToResponseDto(invitation);
   }
 
-  async getUserInvitations(userId: string): Promise<UserInvitationsResponseDto> {
+  async getUserInvitations(
+    userId: string,
+  ): Promise<UserInvitationsResponseDto> {
     const invitationInclude = {
       project: {
         select: {
@@ -152,33 +188,45 @@ export class ProjectInvitationsService {
         select: {
           id: true,
           username: true,
-          profile: { select: { displayName: true, avatarUrl: true, headline: true } },
+          profile: {
+            select: { displayName: true, avatarUrl: true, headline: true },
+          },
         },
       },
       invitee: {
         select: {
           id: true,
           username: true,
-          profile: { select: { displayName: true, avatarUrl: true, headline: true } },
+          profile: {
+            select: { displayName: true, avatarUrl: true, headline: true },
+          },
         },
       },
     };
 
-    const receivedRaw = await this.prisma.projectInvitation.findMany({
-      where: { inviteeId: userId },
-      include: invitationInclude,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const sentRaw = await this.prisma.projectInvitation.findMany({
-      where: { inviterId: userId },
-      include: invitationInclude,
-      orderBy: { createdAt: 'desc' },
-    });
+    const queryStart = performance.now();
+    const [receivedRaw, sentRaw] = await Promise.all([
+      this.prisma.projectInvitation.findMany({
+        where: { inviteeId: userId },
+        include: invitationInclude,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.projectInvitation.findMany({
+        where: { inviterId: userId },
+        include: invitationInclude,
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+    const duration = performance.now() - queryStart;
+    this.logger.debug(
+      `[PERF][INVITATIONS] Parallel query executed in ${duration.toFixed(2)} ms (received: ${receivedRaw.length}, sent: ${sentRaw.length})`,
+    );
 
     const received = receivedRaw.map((inv) => this.mapToDetailDto(inv));
     const sent = sentRaw.map((inv) => this.mapToDetailDto(inv));
-    const pendingCount = received.filter((inv) => inv.status === ProjectInvitationStatus.PENDING).length;
+    const pendingCount = received.filter(
+      (inv) => inv.status === ProjectInvitationStatus.PENDING,
+    ).length;
 
     return {
       received,
@@ -204,7 +252,9 @@ export class ProjectInvitationsService {
     }
 
     if (invitation.inviteeId !== userId) {
-      throw new ForbiddenException('Only the invited candidate can respond to this invitation.');
+      throw new ForbiddenException(
+        'Only the invited candidate can respond to this invitation.',
+      );
     }
 
     if (invitation.status !== ProjectInvitationStatus.PENDING) {
@@ -226,7 +276,10 @@ export class ProjectInvitationsService {
         where: { id: invitationId },
       });
 
-      if (!currentInv || currentInv.status !== ProjectInvitationStatus.PENDING) {
+      if (
+        !currentInv ||
+        currentInv.status !== ProjectInvitationStatus.PENDING
+      ) {
         throw new BadRequestException('Invitation is no longer pending.');
       }
 
@@ -256,12 +309,16 @@ export class ProjectInvitationsService {
 
       if (
         existingMembership &&
-        (!existingMembership.status || existingMembership.status === ProjectMemberStatus.ACTIVE)
+        (!existingMembership.status ||
+          existingMembership.status === ProjectMemberStatus.ACTIVE)
       ) {
-        throw new BadRequestException('Candidate is already an active team member of this project.');
+        throw new BadRequestException(
+          'Candidate is already an active team member of this project.',
+        );
       }
 
-      const memberRoleTitle = currentRole.title || currentRole.role?.name || 'Member';
+      const memberRoleTitle =
+        currentRole.title || currentRole.role?.name || 'Member';
       let memberId: string;
 
       // 4. Create or Reactivate ProjectMember
@@ -325,11 +382,15 @@ export class ProjectInvitationsService {
     const isInviter = invitation.inviterId === userId;
     const isAdmin = userRole === 'ADMINISTRATOR';
     if (!isInviter && !isAdmin) {
-      throw new ForbiddenException('Only the inviter or administrator can cancel this invitation.');
+      throw new ForbiddenException(
+        'Only the inviter or administrator can cancel this invitation.',
+      );
     }
 
     if (invitation.status !== ProjectInvitationStatus.PENDING) {
-      throw new BadRequestException('Only pending invitations can be cancelled.');
+      throw new BadRequestException(
+        'Only pending invitations can be cancelled.',
+      );
     }
 
     const cancelled = await this.prisma.projectInvitation.update({

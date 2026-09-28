@@ -20,8 +20,11 @@ export interface TestUserOptions {
 }
 
 export const createTestUser = (options: TestUserOptions = {}) => {
-  const id = options.id || `user-uuid-${Math.random().toString(36).substring(2, 9)}`;
-  const username = options.username || `testuser_${Math.random().toString(36).substring(2, 7)}`;
+  const id =
+    options.id || `user-uuid-${Math.random().toString(36).substring(2, 9)}`;
+  const username =
+    options.username ||
+    `testuser_${Math.random().toString(36).substring(2, 7)}`;
   const email = options.email || `${username}@example.com`;
 
   return {
@@ -42,9 +45,13 @@ export const createTestUser = (options: TestUserOptions = {}) => {
           userId: id,
           firstName: options.profile.firstName || 'Test',
           lastName: options.profile.lastName || 'User',
-          displayName: options.profile.displayName || `${options.profile.firstName || 'Test'} ${options.profile.lastName || 'User'}`,
+          displayName:
+            options.profile.displayName ||
+            `${options.profile.firstName || 'Test'} ${options.profile.lastName || 'User'}`,
           headline: options.profile.headline || 'Game Developer',
-          bio: options.profile.bio || 'Indie game developer passionate about graphics.',
+          bio:
+            options.profile.bio ||
+            'Indie game developer passionate about graphics.',
           avatarUrl: options.profile.avatarUrl ?? null,
           bannerUrl: options.profile.bannerUrl ?? null,
           location: 'San Francisco, CA',

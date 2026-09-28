@@ -13,7 +13,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { ProfileService } from './profile.service';
 import { AuthService } from '../auth/auth.service';
 import type { UploadedFileFile } from './profile-file.interface';
@@ -347,10 +350,7 @@ export class ProfileController {
 
   @UseGuards(JwtAuthGuard)
   @Delete('me/links/:id')
-  deleteLink(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id') id: string,
-  ) {
+  deleteLink(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
     return this.profileService.deleteLink(user.id, id);
   }
 }

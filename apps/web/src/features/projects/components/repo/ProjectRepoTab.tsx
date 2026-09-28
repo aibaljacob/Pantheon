@@ -1,41 +1,39 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Code,
   GitCommit,
   GitBranch,
-  GitPullRequest,
-  Tag,
   Copy,
   Check,
-  Download,
   Terminal,
   Loader2,
   FolderGit2,
   Globe,
+  Key,
+  CheckSquare,
+  ArrowRight,
+  ShieldCheck,
+  Workflow,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import {
   fetchProjectRepo,
-  createRepoBranch,
-  createRepoPullRequest,
-  mergeRepoPullRequest,
-  createRepoRelease,
   type ProjectRepositoryData,
   type RepoFile,
 } from '../../services/projectRepositoryService';
+import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
 import { RepoCodeBrowser } from './RepoCodeBrowser';
 import { RepoFileViewer } from './RepoFileViewer';
 import { RepoCommitsList } from './RepoCommitsList';
 import { RepoBranchesList } from './RepoBranchesList';
-import { RepoPullRequestsList } from './RepoPullRequestsList';
-import { RepoReleasesList } from './RepoReleasesList';
 
 interface ProjectRepoTabProps {
   projectId: string;
   accessToken?: string | null;
 }
 
-type SubTab = 'code' | 'commits' | 'branches' | 'pulls' | 'releases';
+type SubTab = 'commits' | 'branches' | 'code';
 
 const LANGUAGE_COLORS: Record<string, string> = {
   'C++': '#f34b7d',
@@ -54,99 +52,79 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
   projectId,
   accessToken,
 }) => {
-  const [activeTab, setActiveTab] = useState<SubTab>('code');
-  const [repoData, setRepoData] = useState<ProjectRepositoryData | null>(null);
-  const [currentBranch, setCurrentBranch] = useState<string>('main');
+  const [activeTab, setActiveTab] = useState<SubTab>('commits');
+  const [selectedBranch, setSelectedBranch] = useState<string | undefined>(undefined);
   const [selectedFile, setSelectedFile] = useState<RepoFile | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
-  // Clone Dropdown state
-  const [isCloneOpen, setIsCloneOpen] = useState(false);
-  const [cloneProtocol, setCloneProtocol] = useState<'https' | 'ssh'>('https');
-  const [isCopied, setIsCopied] = useState(false);
+  const branchKey = selectedBranch || '__default__';
+  const cachedRepo = useWorkspaceStore((state) => state.projects[projectId]?.repository?.[branchKey]);
+  const setRepositoryStore = useWorkspaceStore((state) => state.setRepository);
+  const invalidateRepository = useWorkspaceStore((state) => state.invalidateRepository);
 
+  const [localRepoData, setLocalRepoData] = useState<ProjectRepositoryData | null>(null);
+  const repoData = cachedRepo || localRepoData;
+  const [isFetching, setIsFetching] = useState<boolean>(!cachedRepo);
+  const isLoading = !repoData && isFetching;
 
-
-  const loadRepo = async (branch?: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchProjectRepo(projectId, branch, accessToken);
-      setRepoData(data);
-      setCurrentBranch(data.currentBranch);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load project repository.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Copy feedback state
+  const [copiedKind, setCopiedKind] = useState<'url' | 'cmd' | null>(null);
 
   useEffect(() => {
-    loadRepo(currentBranch);
-  }, [projectId, accessToken]);
+    if (cachedRepo && refreshTrigger === 0) {
+      return;
+    }
+
+    let ignore = false;
+
+    dedupeRequest(`${projectId}:repo:${branchKey}`, () =>
+      fetchProjectRepo(projectId, selectedBranch, accessToken),
+    )
+      .then((data) => {
+        if (!ignore) {
+          setLocalRepoData(data);
+          setRepositoryStore(projectId, branchKey, data);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Failed to load project repository.';
+          setError(message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsFetching(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId, selectedBranch, branchKey, accessToken, refreshTrigger, cachedRepo, setRepositoryStore]);
 
   const handleBranchChange = (branch: string) => {
-    setCurrentBranch(branch);
+    setSelectedBranch(branch);
     setSelectedFile(null);
-    loadRepo(branch);
   };
 
-  const handleCopyClone = () => {
-    if (!repoData) return;
-    const url = cloneProtocol === 'https' ? repoData.cloneUrls.https : repoData.cloneUrls.ssh;
-    navigator.clipboard.writeText(url);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+  const handleRetry = () => {
+    setIsFetching(true);
+    invalidateRepository(projectId, branchKey);
+    setRefreshTrigger((prev) => prev + 1);
   };
 
-
-
-  const handleCreateBranch = async (name: string, sourceBranch: string) => {
-    if (!accessToken) throw new Error('Authentication required to create branch.');
-    await createRepoBranch(projectId, { name, sourceBranch }, accessToken);
-    await loadRepo(name);
-  };
-
-  const handleCreatePullRequest = async (
-    title: string,
-    description: string,
-    sourceBranch: string,
-    targetBranch: string,
-  ) => {
-    if (!accessToken) throw new Error('Authentication required to create pull request.');
-    await createRepoPullRequest(
-      projectId,
-      { title, description, sourceBranch, targetBranch },
-      accessToken,
-    );
-    await loadRepo(currentBranch);
-  };
-
-  const handleMergePullRequest = async (prNumber: number) => {
-    if (!accessToken) throw new Error('Authentication required to merge pull request.');
-    await mergeRepoPullRequest(projectId, prNumber, accessToken);
-    await loadRepo(currentBranch);
-  };
-
-  const handleCreateRelease = async (
-    tagName: string,
-    title: string,
-    description: string,
-    targetBranch: string,
-  ) => {
-    if (!accessToken) throw new Error('Authentication required to create release.');
-    await createRepoRelease(
-      projectId,
-      { tagName, title, description, targetBranch },
-      accessToken,
-    );
-    await loadRepo(currentBranch);
+  const handleCopy = (text: string, kind: 'url' | 'cmd') => {
+    navigator.clipboard.writeText(text);
+    setCopiedKind(kind);
+    setTimeout(() => setCopiedKind(null), 2000);
   };
 
   if (isLoading && !repoData) {
     return (
-      <div className="flex h-80 items-center justify-center">
+      <div className="flex h-80 items-center justify-center font-mono">
         <Loader2 className="h-8 w-8 animate-spin text-[#8c887e]" />
       </div>
     );
@@ -157,19 +135,22 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
       <div className="rounded-3xl border border-red-500/30 bg-red-950/20 p-8 text-center space-y-3 font-mono">
         <p className="text-sm font-bold text-red-300">Repository Unavailable</p>
         <p className="text-xs text-[#8c887e]">{error || 'Failed to load repository.'}</p>
-        <Button variant="secondary" size="sm" onClick={() => loadRepo(currentBranch)}>
+        <Button variant="secondary" size="sm" onClick={handleRetry}>
           Retry
         </Button>
       </div>
     );
   }
 
-  const openPrsCount = repoData.pullRequests.filter((p) => p.status === 'OPEN').length;
+  const currentBranch = selectedBranch || repoData.currentBranch || repoData.defaultBranch || 'main';
+
+  const cloneUrl = repoData.cloneUrls.https || `${window.location.origin}/repos/${repoData.slug}.git`;
+  const cloneCmd = `git clone ${cloneUrl}`;
 
   return (
     <div className="space-y-6 font-mono">
-      {/* Top Bar: Repo Slug, Badges, and Clone Dropdown */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 shadow-xl">
+      {/* 1. Header: Repo Identity & Badges */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 shadow-xl">
         <div className="flex items-center gap-3.5">
           <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-3 text-amber-400">
             <FolderGit2 className="h-6 w-6" />
@@ -180,106 +161,152 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
                 studio / {repoData.slug}
               </h2>
               <span className="rounded-full border border-[#48473f] bg-[#141312] px-2.5 py-0.5 text-[10px] text-[#cac6bc] flex items-center gap-1 font-semibold">
-                <Globe className="h-3 w-3 text-amber-400" /> Public Game Repo
+                <Globe className="h-3 w-3 text-amber-400" /> Native Git Repo
               </span>
               {repoData.gameEngine && (
                 <span className="rounded-full border border-amber-500/30 bg-amber-950/20 px-2.5 py-0.5 text-[10px] text-amber-300 font-bold">
                   {repoData.gameEngine}
                 </span>
               )}
+              <span className="rounded-full border border-[#363433] bg-[#141312] px-2 py-0.5 text-[10px] text-[#8c887e]">
+                Default: {repoData.defaultBranch}
+              </span>
             </div>
             <p className="text-xs text-[#8c887e] mt-1">
               Pantheon Studio Source Control & Game Asset Monorepo
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Clone Dropdown Action */}
-        <div className="relative self-start md:self-auto">
-          <button
-            type="button"
-            onClick={() => setIsCloneOpen(!isCloneOpen)}
-            className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/40 px-4 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-900/60 transition-colors shadow-lg"
-          >
-            <Terminal className="h-4 w-4" />
-            <span>Code / Clone</span>
-            <span className="text-[10px]">▾</span>
-          </button>
-
-          {isCloneOpen && (
-            <div className="absolute right-0 top-full mt-2 z-30 w-80 sm:w-96 rounded-2xl border border-[#363433] bg-[#141312] p-4 shadow-2xl space-y-3">
-              <div className="flex items-center justify-between border-b border-[#2b2a29] pb-2">
-                <span className="text-xs font-bold text-[#ffffff]">Clone Repository</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setCloneProtocol('https')}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      cloneProtocol === 'https'
-                        ? 'bg-amber-950/50 text-amber-300 border border-amber-500/40'
-                        : 'text-[#8c887e]'
-                    }`}
-                  >
-                    HTTPS
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCloneProtocol('ssh')}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      cloneProtocol === 'ssh'
-                        ? 'bg-amber-950/50 text-amber-300 border border-amber-500/40'
-                        : 'text-[#8c887e]'
-                    }`}
-                  >
-                    SSH
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 rounded-xl border border-[#2b2a29] bg-[#1c1b1a] p-2">
-                <input
-                  type="text"
-                  readOnly
-                  value={
-                    cloneProtocol === 'https'
-                      ? repoData.cloneUrls.https
-                      : repoData.cloneUrls.ssh
-                  }
-                  className="w-full bg-transparent text-[11px] text-[#e6e2df] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleCopyClone}
-                  className="rounded-lg border border-[#363433] bg-[#141312] p-1.5 text-[#cac6bc] hover:text-[#ffffff] transition-colors"
-                  title="Copy clone URL"
-                >
-                  {isCopied ? (
-                    <Check className="h-3.5 w-3.5 text-emerald-400" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </div>
-
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  alert('Download archive initiated for production build tree.');
-                }}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[#363433] bg-[#1c1b1a] py-2 text-xs text-[#e6e2df] hover:border-[#48473f] hover:text-[#ffffff] transition-colors"
-              >
-                <Download className="h-3.5 w-3.5 text-amber-400" />
-                <span>Download ZIP (Snapshot)</span>
-              </a>
+      {/* 2. "How Pantheon Git Works" Workflow Banner */}
+      <div className="rounded-3xl border border-[#363433] bg-[#141312] p-5 space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#2b2a29] pb-3">
+          <div className="flex items-center gap-2">
+            <Workflow className="h-4 w-4 text-amber-400" />
+            <h3 className="font-headline text-sm font-bold text-[#ffffff]">How Pantheon Git Works</h3>
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-amber-300/90 flex-wrap">
+            <span>Clone</span>
+            <span>→</span>
+            <span>Develop Locally</span>
+            <span>→</span>
+            <span>Commit</span>
+            <span>→</span>
+            <span>Push</span>
+            <span>→</span>
+            <span>Build</span>
+            <span>→</span>
+            <span>Playtest</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-[#cac6bc] leading-relaxed">
+          <p>
+            Pantheon uses standard native Git repositories. Work on your game project locally using your preferred game engine (Godot, Unreal, Unity) and push commits directly back to Pantheon.
+          </p>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-950/10 p-3 text-[11px] space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-amber-300">
+              <CheckSquare className="h-3.5 w-3.5" />
+              <span>Task ↔ Commit Linkage</span>
             </div>
-          )}
+            <p className="text-[#cac6bc]">
+              Tag commit messages with <code className="text-amber-300 font-bold bg-[#1c1b1a] px-1 py-0.2 rounded border border-[#363433]">[TASK-X]</code> (e.g. <span className="text-[#ffffff]">&quot;feat: player jump physics [TASK-4]&quot;</span>) to automatically associate code changes with project tasks.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Languages Distribution Bar */}
+      {/* 3. Primary Section: Clone & Connect Locally */}
+      <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-5 shadow-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2b2a29] pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Terminal className="h-4 w-4 text-emerald-400" />
+              <h3 className="font-headline text-base font-bold text-[#ffffff]">
+                Clone &amp; Connect Locally
+              </h3>
+            </div>
+            <p className="text-xs text-[#8c887e] mt-0.5">
+              Clone this repository and work locally with Git. Pushes authenticate via Git Smart HTTP.
+            </p>
+          </div>
+          <Link
+            to="/settings"
+            className="inline-flex items-center gap-1.5 text-xs text-[#cac6bc] hover:text-[#ffffff] transition-colors self-start sm:self-auto"
+          >
+            <Key className="h-3.5 w-3.5 text-amber-400" />
+            <span>Manage Access Tokens</span>
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+
+        {/* Clone Command Bar */}
+        <div className="space-y-2">
+          <label className="text-[10px] uppercase tracking-wider text-[#8c887e] font-semibold block">
+            Git Smart HTTP Clone Command
+          </label>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-2xl border border-[#2b2a29] bg-[#141312] p-2">
+            <span className="text-xs text-amber-400 select-none pl-2 hidden sm:inline">$</span>
+            <input
+              type="text"
+              readOnly
+              value={cloneCmd}
+              className="w-full bg-transparent px-2 py-1 text-xs text-[#e6e2df] focus:outline-none font-mono"
+            />
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleCopy(cloneCmd, 'cmd')}
+                icon={copiedKind === 'cmd' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+              >
+                {copiedKind === 'cmd' ? 'Copied' : 'Copy Command'}
+              </Button>
+              <button
+                type="button"
+                onClick={() => handleCopy(cloneUrl, 'url')}
+                className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-3 py-1.5 text-xs text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+                title="Copy raw URL"
+              >
+                {copiedKind === 'url' ? 'URL Copied' : 'Copy URL'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Authentication Credentials Breakdown */}
+        <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 space-y-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#ffffff]">
+            <ShieldCheck className="h-4 w-4 text-emerald-400" />
+            <span>Git Authentication Credentials</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-[#8c887e]">Protocol</span>
+              <p className="font-bold text-[#ffffff]">Smart HTTP (HTTPS)</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-[#8c887e]">Username</span>
+              <p className="font-bold text-[#ffffff]">Your Pantheon username or email</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase text-[#8c887e]">Password</span>
+              <p className="font-bold text-amber-300">Your Personal Access Token (PAT)</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-[#8c887e] pt-1 leading-relaxed">
+            When your terminal or Git client prompts for credentials, provide your Pantheon username and paste your Personal Access Token as the password. Token requires <code className="text-amber-300 bg-[#1c1b1a] px-1 py-0.2 rounded border border-[#363433]">repo:read</code> to clone and <code className="text-amber-300 bg-[#1c1b1a] px-1 py-0.2 rounded border border-[#363433]">repo:write</code> to push.
+          </p>
+        </div>
+      </div>
+
+      {/* 4. Repository Metadata & Languages */}
       {Object.keys(repoData.languages).length > 0 && (
         <div className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a] p-4 space-y-2.5">
+          <div className="flex items-center justify-between text-xs text-[#8c887e]">
+            <span>Languages &amp; Assets</span>
+            <span>{repoData.stats.totalFiles} files · {repoData.stats.totalCommits} commits</span>
+          </div>
           <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-[#141312]">
             {Object.entries(repoData.languages).map(([lang, pct]) => (
               <div
@@ -307,146 +334,94 @@ export const ProjectRepoTab: React.FC<ProjectRepoTabProps> = ({
         </div>
       )}
 
-      {/* Repository Sub-Tabs Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto border-b border-[#2b2a29] pb-3 text-xs">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('code');
-            setSelectedFile(null);
-          }}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
-            activeTab === 'code'
-              ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-              : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-          }`}
-        >
-          <Code className="h-3.5 w-3.5 text-amber-400" />
-          <span>Code</span>
-          <span className="text-[10px] text-[#8c887e] font-normal">
-            ({repoData.stats.totalFiles})
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('commits')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
-            activeTab === 'commits'
-              ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-              : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-          }`}
-        >
-          <GitCommit className="h-3.5 w-3.5 text-amber-400" />
-          <span>Commits</span>
-          <span className="text-[10px] text-[#8c887e] font-normal">
-            ({repoData.stats.totalCommits})
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('branches')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
-            activeTab === 'branches'
-              ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-              : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-          }`}
-        >
-          <GitBranch className="h-3.5 w-3.5 text-amber-400" />
-          <span>Branches</span>
-          <span className="text-[10px] text-[#8c887e] font-normal">
-            ({repoData.stats.totalBranches})
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('pulls')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
-            activeTab === 'pulls'
-              ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-              : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-          }`}
-        >
-          <GitPullRequest className="h-3.5 w-3.5 text-amber-400" />
-          <span>Pull Requests</span>
-          {openPrsCount > 0 && (
-            <span className="rounded-full bg-amber-500/30 text-amber-300 px-1.5 py-0.2 text-[9px] font-bold">
-              {openPrsCount}
+      {/* 5. Repository Inspection Navigation (Commits, Branches, Source) */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 overflow-x-auto border-b border-[#2b2a29] pb-3 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('commits')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
+              activeTab === 'commits'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <GitCommit className="h-3.5 w-3.5 text-amber-400" />
+            <span>Recent Commits</span>
+            <span className="text-[10px] text-[#8c887e] font-normal">
+              ({repoData.stats.totalCommits})
             </span>
-          )}
-        </button>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveTab('releases')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
-            activeTab === 'releases'
-              ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-              : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-          }`}
-        >
-          <Tag className="h-3.5 w-3.5 text-amber-400" />
-          <span>Releases</span>
-          <span className="text-[10px] text-[#8c887e] font-normal">
-            ({repoData.stats.totalReleases})
-          </span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('branches')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
+              activeTab === 'branches'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <GitBranch className="h-3.5 w-3.5 text-amber-400" />
+            <span>Branches</span>
+            <span className="text-[10px] text-[#8c887e] font-normal">
+              ({repoData.stats.totalBranches})
+            </span>
+          </button>
 
-      {/* Sub-View Content */}
-      {activeTab === 'code' && (
-        selectedFile ? (
-          <RepoFileViewer
-            file={selectedFile}
-            branch={currentBranch}
-            onBack={() => setSelectedFile(null)}
-          />
-        ) : (
-          <RepoCodeBrowser
-            files={repoData.files}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('code');
+              setSelectedFile(null);
+            }}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 transition-all ${
+              activeTab === 'code'
+                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+            }`}
+          >
+            <Code className="h-3.5 w-3.5 text-amber-400" />
+            <span>Browse Source</span>
+            <span className="text-[10px] text-[#8c887e] font-normal">
+              ({repoData.stats.totalFiles})
+            </span>
+          </button>
+        </div>
+
+        {/* 6. Sub-View Content */}
+        {activeTab === 'commits' && (
+          <RepoCommitsList commits={repoData.recentCommits} />
+        )}
+
+        {activeTab === 'branches' && (
+          <RepoBranchesList
             branches={repoData.branches}
             currentBranch={currentBranch}
             onSelectBranch={handleBranchChange}
-            onOpenCreateBranch={() => setActiveTab('branches')}
-            onSelectFile={(f) => setSelectedFile(f)}
-            latestCommit={repoData.recentCommits[0]}
-            totalCommits={repoData.stats.totalCommits}
           />
-        )
-      )}
+        )}
 
-      {activeTab === 'commits' && (
-        <RepoCommitsList commits={repoData.recentCommits} />
-      )}
-
-      {activeTab === 'branches' && (
-        <RepoBranchesList
-          branches={repoData.branches}
-          currentBranch={currentBranch}
-          onSelectBranch={handleBranchChange}
-          onCreateBranch={handleCreateBranch}
-        />
-      )}
-
-      {activeTab === 'pulls' && (
-        <RepoPullRequestsList
-          pullRequests={repoData.pullRequests}
-          branches={repoData.branches}
-          onCreatePullRequest={handleCreatePullRequest}
-          onMergePullRequest={handleMergePullRequest}
-        />
-      )}
-
-      {activeTab === 'releases' && (
-        <RepoReleasesList
-          releases={repoData.releases}
-          branches={repoData.branches}
-          onCreateRelease={handleCreateRelease}
-        />
-      )}
-
+        {activeTab === 'code' && (
+          selectedFile ? (
+            <RepoFileViewer
+              file={selectedFile}
+              branch={currentBranch}
+              onBack={() => setSelectedFile(null)}
+            />
+          ) : (
+            <RepoCodeBrowser
+              files={repoData.files}
+              branches={repoData.branches}
+              currentBranch={currentBranch}
+              onSelectBranch={handleBranchChange}
+              onSelectFile={(f) => setSelectedFile(f)}
+              latestCommit={repoData.recentCommits[0]}
+              totalCommits={repoData.stats.totalCommits}
+            />
+          )
+        )}
+      </div>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { GitBranch, GitCommit } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import type { RepoBranch } from '../../services/projectRepositoryService';
@@ -7,42 +7,36 @@ interface RepoBranchesListProps {
   branches: RepoBranch[];
   currentBranch: string;
   onSelectBranch: (branch: string) => void;
-  onCreateBranch: (name: string, sourceBranch: string) => Promise<void>;
 }
 
 export const RepoBranchesList: React.FC<RepoBranchesListProps> = ({
   branches,
   currentBranch,
   onSelectBranch,
-  onCreateBranch,
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newBranchName, setNewBranchName] = useState('');
-  const [sourceBranch, setSourceBranch] = useState(currentBranch || 'main');
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newBranchName.trim()) return;
-
-    setIsCreating(true);
-    setError(null);
-    try {
-      await onCreateBranch(newBranchName.trim(), sourceBranch);
-      setIsModalOpen(false);
-      setNewBranchName('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to create branch.');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   return (
     <div className="space-y-4 font-mono">
       <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3 text-xs text-[#8c887e]">
         <span>Repository Branches ({branches.length})</span>
+      </div>
+
+      {/* Git Branch Management Guidance */}
+      <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 text-xs space-y-1.5">
+        <p className="font-bold text-[#ffffff] flex items-center gap-2">
+          <GitBranch className="h-4 w-4 text-amber-400" />
+          Native Git Branch Workflow
+        </p>
+        <p className="text-[#8c887e] text-[11px] leading-relaxed">
+          Branches are managed using your local Git client and synchronized when you push. To create and publish a new branch, run:
+        </p>
+        <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+          <code className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-amber-300">
+            git checkout -b &lt;branch-name&gt;
+          </code>
+          <code className="rounded-lg border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-amber-300">
+            git push -u origin &lt;branch-name&gt;
+          </code>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -91,59 +85,6 @@ export const RepoBranchesList: React.FC<RepoBranchesListProps> = ({
           </div>
         ))}
       </div>
-
-      {/* Create Branch Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="relative w-full max-w-md rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4 shadow-2xl font-mono">
-            <h4 className="font-headline text-base font-bold text-[#ffffff]">Create New Branch</h4>
-
-            {error && (
-              <div className="rounded-xl border border-red-500/30 bg-red-950/30 p-2.5 text-xs text-red-300">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[#8c887e] mb-1">Branch Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="feature/weapon-recoil"
-                  value={newBranchName}
-                  onChange={(e) => setNewBranchName(e.target.value)}
-                  className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3 py-2 text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[#8c887e] mb-1">Source Branch</label>
-                <select
-                  value={sourceBranch}
-                  onChange={(e) => setSourceBranch(e.target.value)}
-                  className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3 py-2 text-[#e6e2df] focus:border-[#e6e2df] focus:outline-none"
-                >
-                  {branches.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2 border-t border-[#2b2a29]">
-                <Button variant="secondary" size="sm" type="button" onClick={() => setIsModalOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="primary" size="sm" type="submit" disabled={isCreating}>
-                  {isCreating ? 'Creating...' : 'Create Branch'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

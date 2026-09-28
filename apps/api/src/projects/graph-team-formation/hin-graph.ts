@@ -1,4 +1,9 @@
-import { HINEdge, HINEdgeType, HINNode, HINNodeType } from './graph-team-formation.types';
+import {
+  HINEdge,
+  HINEdgeType,
+  HINNode,
+  HINNodeType,
+} from './graph-team-formation.types';
 
 export class HINGraph {
   private nodes: Map<string, HINNode> = new Map();

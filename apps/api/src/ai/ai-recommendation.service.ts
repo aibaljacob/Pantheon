@@ -4,7 +4,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { GoogleGenAI, Type } from '@google/genai';
-import type { ProjectRoleCommitment, ProjectRoleExperienceLevel} from '@prisma/client';
+import type {
+  ProjectRoleCommitment,
+  ProjectRoleExperienceLevel,
+} from '@prisma/client';
 
 export interface TaxonomyItemRef {
   id: string;
@@ -57,7 +60,9 @@ export class AiRecommendationService {
     if (apiKey) {
       this.aiClient = new GoogleGenAI({ apiKey });
     } else {
-      this.logger.warn('GEMINI_API_KEY is not configured in environment variables.');
+      this.logger.warn(
+        'GEMINI_API_KEY is not configured in environment variables.',
+      );
     }
   }
 
@@ -68,8 +73,15 @@ export class AiRecommendationService {
     toolsTaxonomy: TaxonomyItemRef[],
   ): Promise<ValidatedAiRecommendation[]> {
     if (!this.aiClient) {
-      this.logger.warn('Gemini client not configured. Using deterministic taxonomy recommendation engine.');
-      return this.generateFallbackRecommendations(project, rolesTaxonomy, skillsTaxonomy, toolsTaxonomy);
+      this.logger.warn(
+        'Gemini client not configured. Using deterministic taxonomy recommendation engine.',
+      );
+      return this.generateFallbackRecommendations(
+        project,
+        rolesTaxonomy,
+        skillsTaxonomy,
+        toolsTaxonomy,
+      );
     }
 
     const rolesListStr = rolesTaxonomy
@@ -145,7 +157,12 @@ ${toolsListStr}
                       },
                       commitment: {
                         type: Type.STRING,
-                        enum: ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'REV_SHARE'],
+                        enum: [
+                          'FULL_TIME',
+                          'PART_TIME',
+                          'CONTRACT',
+                          'REV_SHARE',
+                        ],
                       },
                       skillIds: {
                         type: Type.ARRAY,
@@ -194,12 +211,22 @@ ${toolsListStr}
         this.logger.warn(
           `Gemini API unavailable or errored (${err.message}). Falling back to studio taxonomy recommendation heuristics.`,
         );
-        return this.generateFallbackRecommendations(project, rolesTaxonomy, skillsTaxonomy, toolsTaxonomy);
+        return this.generateFallbackRecommendations(
+          project,
+          rolesTaxonomy,
+          skillsTaxonomy,
+          toolsTaxonomy,
+        );
       }
     }
 
     if (!responseText) {
-      return this.generateFallbackRecommendations(project, rolesTaxonomy, skillsTaxonomy, toolsTaxonomy);
+      return this.generateFallbackRecommendations(
+        project,
+        rolesTaxonomy,
+        skillsTaxonomy,
+        toolsTaxonomy,
+      );
     }
 
     try {
@@ -279,7 +306,12 @@ ${toolsListStr}
       return validated;
     } catch (parseErr: any) {
       this.logger.error('Failed to parse AI output:', parseErr);
-      return this.generateFallbackRecommendations(project, rolesTaxonomy, skillsTaxonomy, toolsTaxonomy);
+      return this.generateFallbackRecommendations(
+        project,
+        rolesTaxonomy,
+        skillsTaxonomy,
+        toolsTaxonomy,
+      );
     }
   }
 
@@ -289,8 +321,12 @@ ${toolsListStr}
     skillsTaxonomy: TaxonomyItemRef[],
     toolsTaxonomy: TaxonomyItemRef[],
   ): ValidatedAiRecommendation[] {
-    const existingSet = new Set(project.existingRoleNames.map((n) => n.toLowerCase()));
-    const availableRoles = rolesTaxonomy.filter((r) => !existingSet.has(r.name.toLowerCase()));
+    const existingSet = new Set(
+      project.existingRoleNames.map((n) => n.toLowerCase()),
+    );
+    const availableRoles = rolesTaxonomy.filter(
+      (r) => !existingSet.has(r.name.toLowerCase()),
+    );
 
     const preferredKeywords = [
       'Programmer',
@@ -303,7 +339,9 @@ ${toolsListStr}
 
     const selectedRoles: TaxonomyItemRef[] = [];
     for (const kw of preferredKeywords) {
-      const matched = availableRoles.find((r) => r.name.toLowerCase().includes(kw.toLowerCase()));
+      const matched = availableRoles.find((r) =>
+        r.name.toLowerCase().includes(kw.toLowerCase()),
+      );
       if (matched && !selectedRoles.some((s) => s.id === matched.id)) {
         selectedRoles.push(matched);
         if (selectedRoles.length >= 3) break;
@@ -317,8 +355,12 @@ ${toolsListStr}
     const fallbackRecommendations: ValidatedAiRecommendation[] = [];
 
     for (const r of selectedRoles) {
-      const skills = skillsTaxonomy.slice(0, 2).map((s) => ({ id: s.id, name: s.name }));
-      const tools = toolsTaxonomy.slice(0, 2).map((t) => ({ id: t.id, name: t.name }));
+      const skills = skillsTaxonomy
+        .slice(0, 2)
+        .map((s) => ({ id: s.id, name: s.name }));
+      const tools = toolsTaxonomy
+        .slice(0, 2)
+        .map((t) => ({ id: t.id, name: t.name }));
 
       let reasoning = `Recommended to establish core production foundations for ${project.name} during the ${project.status.toLowerCase().replace('_', ' ')} phase.`;
       if (r.name.toLowerCase().includes('prog')) {
@@ -334,8 +376,8 @@ ${toolsListStr}
         roleName: r.name,
         title: r.name,
         description: `Key contributor responsible for ${r.name.toLowerCase()} deliverables on ${project.name}.`,
-        experienceLevel: 'MID' as ProjectRoleExperienceLevel,
-        commitment: 'FULL_TIME' as ProjectRoleCommitment,
+        experienceLevel: 'MID',
+        commitment: 'FULL_TIME',
         skillIds: skills.map((s) => s.id),
         toolIds: tools.map((t) => t.id),
         requiredSkills: skills,

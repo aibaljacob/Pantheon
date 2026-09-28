@@ -363,3 +363,20 @@ export interface CreatePlayableBuildInput {
   releaseNotes?: string;
 }
 
+export interface PlaytestSession {
+  id: string;
+  title: string;
+  isActive: boolean;
+  startDate: string | null;
+  endDate: string | null;
+  playableBuild: {
+    version: string;
+    platform: string;
+    title: string;
+  };
+  _count: {
+    feedback: number;
+  };
+  createdAt: string;
+}
+

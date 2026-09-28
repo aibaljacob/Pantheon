@@ -16,7 +16,8 @@ export class MilestonesService {
   private mapMilestoneWithProgress(milestone: any): MilestoneResponseDto {
     const totalTasks = milestone.tasks?.length || 0;
     const completedTasks =
-      milestone.tasks?.filter((t: any) => t.status === TaskStatus.DONE).length || 0;
+      milestone.tasks?.filter((t: any) => t.status === TaskStatus.DONE)
+        .length || 0;
     const progressPercentage =
       totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
@@ -41,7 +42,11 @@ export class MilestonesService {
     userId: string,
     userRole?: string,
   ): Promise<MilestoneResponseDto> {
-    const { project } = await this.authzService.assertCanManage(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanManage(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const created = await this.prisma.milestone.create({
       data: {
@@ -65,11 +70,19 @@ export class MilestonesService {
     userId?: string,
     userRole?: string,
   ): Promise<MilestoneResponseDto[]> {
-    const { project } = await this.authzService.assertCanView(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const milestones = await this.prisma.milestone.findMany({
       where: { projectId: project.id },
-      orderBy: [{ isCompleted: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [
+        { isCompleted: 'asc' },
+        { dueDate: 'asc' },
+        { createdAt: 'desc' },
+      ],
       include: {
         tasks: {
           select: { id: true, status: true },
@@ -86,7 +99,11 @@ export class MilestonesService {
     userId?: string,
     userRole?: string,
   ): Promise<MilestoneResponseDto> {
-    const { project } = await this.authzService.assertCanView(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const milestone = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, projectId: project.id },
@@ -111,7 +128,11 @@ export class MilestonesService {
     userId: string,
     userRole?: string,
   ): Promise<MilestoneResponseDto> {
-    const { project } = await this.authzService.assertCanManage(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanManage(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const existing = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, projectId: project.id },
@@ -126,14 +147,17 @@ export class MilestonesService {
       data: {
         title: dto.title !== undefined ? dto.title.trim() : undefined,
         description:
-          dto.description !== undefined ? dto.description.trim() || null : undefined,
+          dto.description !== undefined
+            ? dto.description.trim() || null
+            : undefined,
         dueDate:
           dto.dueDate !== undefined
             ? dto.dueDate
               ? new Date(dto.dueDate)
               : null
             : undefined,
-        isCompleted: dto.isCompleted !== undefined ? dto.isCompleted : undefined,
+        isCompleted:
+          dto.isCompleted !== undefined ? dto.isCompleted : undefined,
       },
       include: {
         tasks: {
@@ -151,7 +175,11 @@ export class MilestonesService {
     userId: string,
     userRole?: string,
   ): Promise<{ success: boolean; message: string }> {
-    const { project } = await this.authzService.assertCanManage(projectId, userId, userRole);
+    const { project } = await this.authzService.assertCanManage(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const existing = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, projectId: project.id },

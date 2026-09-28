@@ -8,6 +8,6 @@ import { PlaytestService } from './playtest.service';
 @Module({
   imports: [PrismaModule, AuthModule, TasksModule],
   controllers: [PlaytestController],
-  providers: [PlaytestService]
+  providers: [PlaytestService],
 })
 export class PlaytestModule {}

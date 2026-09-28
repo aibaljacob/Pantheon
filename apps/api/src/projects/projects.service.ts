@@ -49,13 +49,18 @@ export class ProjectsService {
     return baseSlug || 'project';
   }
 
-  async createProject(userId: string, dto: CreateProjectDto): Promise<DashboardProjectDto> {
+  async createProject(
+    userId: string,
+    dto: CreateProjectDto,
+  ): Promise<DashboardProjectDto> {
     if (dto.genre?.trim()) {
       const genreExists = await this.prisma.genre.findFirst({
         where: { name: dto.genre.trim(), isActive: true },
       });
       if (!genreExists) {
-        throw new BadRequestException(`Unrecognized genre taxonomy value: "${dto.genre}"`);
+        throw new BadRequestException(
+          `Unrecognized genre taxonomy value: "${dto.genre}"`,
+        );
       }
     }
 
@@ -64,7 +69,9 @@ export class ProjectsService {
         where: { name: dto.platform.trim(), isActive: true },
       });
       if (!platformExists) {
-        throw new BadRequestException(`Unrecognized platform taxonomy value: "${dto.platform}"`);
+        throw new BadRequestException(
+          `Unrecognized platform taxonomy value: "${dto.platform}"`,
+        );
       }
     }
 
@@ -73,7 +80,9 @@ export class ProjectsService {
         where: { name: dto.gameEngine.trim(), isActive: true },
       });
       if (!engineExists) {
-        throw new BadRequestException(`Unrecognized game engine taxonomy value: "${dto.gameEngine}"`);
+        throw new BadRequestException(
+          `Unrecognized game engine taxonomy value: "${dto.gameEngine}"`,
+        );
       }
     }
 
@@ -138,7 +147,9 @@ export class ProjectsService {
     };
   }
 
-  async getUserDashboardProjects(userId: string): Promise<DashboardProjectsResponseDto> {
+  async getUserDashboardProjects(
+    userId: string,
+  ): Promise<DashboardProjectsResponseDto> {
     // Retrieve projects where current user is founder OR active member
     const projects = await this.prisma.project.findMany({
       where: {
@@ -147,7 +158,19 @@ export class ProjectsService {
           { members: { some: { userId, status: ProjectMemberStatus.ACTIVE } } },
         ],
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        coverUrl: true,
+        status: true,
+        moderationStatus: true,
+        genre: true,
+        platform: true,
+        gameEngine: true,
+        founderId: true,
+        updatedAt: true,
         members: {
           where: { status: ProjectMemberStatus.ACTIVE },
           select: {
@@ -155,8 +178,13 @@ export class ProjectsService {
             role: true,
             status: true,
             projectRole: {
-              include: {
-                role: true,
+              select: {
+                title: true,
+                role: {
+                  select: {
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -176,7 +204,10 @@ export class ProjectsService {
       } else {
         const memberRecord = p.members.find((m) => m.userId === userId);
         if (memberRecord) {
-          const roleTitle = memberRecord.projectRole?.title || memberRecord.projectRole?.role?.name || memberRecord.role;
+          const roleTitle =
+            memberRecord.projectRole?.title ||
+            memberRecord.projectRole?.role?.name ||
+            memberRecord.role;
           userRole = roleTitle ? `${roleTitle} · Member` : 'Member';
         }
       }
@@ -206,7 +237,9 @@ export class ProjectsService {
     };
   }
 
-  async getPublicProjects(search?: string): Promise<DashboardProjectsResponseDto> {
+  async getPublicProjects(
+    search?: string,
+  ): Promise<DashboardProjectsResponseDto> {
     // Database-level filter: ONLY return PUBLISHED projects
     const where: any = {
       moderationStatus: ProjectModerationStatus.PUBLISHED,
@@ -273,7 +306,20 @@ export class ProjectsService {
       where: {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        coverUrl: true,
+        status: true,
+        moderationStatus: true,
+        genre: true,
+        platform: true,
+        gameEngine: true,
+        founderId: true,
+        createdAt: true,
+        updatedAt: true,
         founder: {
           select: {
             id: true,
@@ -290,7 +336,14 @@ export class ProjectsService {
         },
         members: {
           where: { status: ProjectMemberStatus.ACTIVE },
-          include: {
+          select: {
+            id: true,
+            userId: true,
+            role: true,
+            projectRoleId: true,
+            status: true,
+            joinedAt: true,
+            leftAt: true,
             user: {
               select: {
                 id: true,
@@ -307,13 +360,17 @@ export class ProjectsService {
               },
             },
             projectRole: {
-              include: {
-                role: true,
+              select: {
+                id: true,
+                title: true,
+                role: { select: { name: true } },
               },
             },
             assignedRoles: {
-              include: {
-                role: true,
+              select: {
+                id: true,
+                title: true,
+                role: { select: { name: true } },
               },
             },
           },
@@ -326,13 +383,17 @@ export class ProjectsService {
       throw new NotFoundException('Project not found.');
     }
 
-    const isFounder = Boolean(currentUserId && project.founderId === currentUserId);
+    const isFounder = Boolean(
+      currentUserId && project.founderId === currentUserId,
+    );
     const isMember = Boolean(
       currentUserId &&
-        (isFounder ||
-          project.members.some(
-            (m) => m.userId === currentUserId && m.status === ProjectMemberStatus.ACTIVE,
-          )),
+      (isFounder ||
+        project.members.some(
+          (m) =>
+            m.userId === currentUserId &&
+            m.status === ProjectMemberStatus.ACTIVE,
+        )),
     );
     const isAdmin = currentUserRole === Role.ADMINISTRATOR;
 
@@ -351,7 +412,13 @@ export class ProjectsService {
     const [allProjectRoles, acceptedApps, acceptedInvs] = await Promise.all([
       this.prisma.projectRole.findMany({
         where: { projectId: project.id },
-        include: { role: true },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          assignedMemberId: true,
+          role: { select: { name: true } },
+        },
       }),
       this.prisma.projectApplication.findMany({
         where: { projectId: project.id, status: 'ACCEPTED' as any },
@@ -378,9 +445,14 @@ export class ProjectsService {
       }
       for (const pr of allProjectRoles) {
         if (!roleMap.has(pr.id)) {
-          const isDirect = pr.assignedMemberId === m.id || pr.assignedMemberId === m.userId;
-          const isApp = acceptedApps.some((a) => a.applicantId === m.userId && a.projectRoleId === pr.id);
-          const isInv = acceptedInvs.some((i) => i.inviteeId === m.userId && i.projectRoleId === pr.id);
+          const isDirect =
+            pr.assignedMemberId === m.id || pr.assignedMemberId === m.userId;
+          const isApp = acceptedApps.some(
+            (a) => a.applicantId === m.userId && a.projectRoleId === pr.id,
+          );
+          const isInv = acceptedInvs.some(
+            (i) => i.inviteeId === m.userId && i.projectRoleId === pr.id,
+          );
           const isTitle =
             pr.status === ProjectRoleStatus.FILLED &&
             !pr.assignedMemberId &&
@@ -401,7 +473,11 @@ export class ProjectsService {
       const primaryRoleTitle =
         primaryRole?.title ||
         primaryRole?.role?.name ||
-        (m.role && m.role !== 'Member' ? m.role : isFounderMember ? 'Founder' : 'Member');
+        (m.role && m.role !== 'Member'
+          ? m.role
+          : isFounderMember
+            ? 'Founder'
+            : 'Member');
 
       return {
         id: m.id,
@@ -413,7 +489,8 @@ export class ProjectsService {
         role: primaryRoleTitle,
         projectRoleId: primaryRole?.id || m.projectRoleId || null,
         projectRoleTitle: primaryRole?.title || m.projectRole?.title || null,
-        projectRoleName: primaryRole?.role?.name || m.projectRole?.role?.name || null,
+        projectRoleName:
+          primaryRole?.role?.name || m.projectRole?.role?.name || null,
         status: m.status,
         joinedAt: m.joinedAt.toISOString(),
         leftAt: m.leftAt ? m.leftAt.toISOString() : null,
@@ -460,7 +537,9 @@ export class ProjectsService {
     }
 
     if (existing.founderId !== userId) {
-      throw new ForbiddenException('Only the project founder can edit project details.');
+      throw new ForbiddenException(
+        'Only the project founder can edit project details.',
+      );
     }
 
     // Taxonomy validations if updated
@@ -469,7 +548,9 @@ export class ProjectsService {
         where: { name: dto.genre.trim(), isActive: true },
       });
       if (!genreExists) {
-        throw new BadRequestException(`Unrecognized genre taxonomy value: "${dto.genre}"`);
+        throw new BadRequestException(
+          `Unrecognized genre taxonomy value: "${dto.genre}"`,
+        );
       }
     }
 
@@ -478,7 +559,9 @@ export class ProjectsService {
         where: { name: dto.platform.trim(), isActive: true },
       });
       if (!platformExists) {
-        throw new BadRequestException(`Unrecognized platform taxonomy value: "${dto.platform}"`);
+        throw new BadRequestException(
+          `Unrecognized platform taxonomy value: "${dto.platform}"`,
+        );
       }
     }
 
@@ -487,7 +570,9 @@ export class ProjectsService {
         where: { name: dto.gameEngine.trim(), isActive: true },
       });
       if (!engineExists) {
-        throw new BadRequestException(`Unrecognized game engine taxonomy value: "${dto.gameEngine}"`);
+        throw new BadRequestException(
+          `Unrecognized game engine taxonomy value: "${dto.gameEngine}"`,
+        );
       }
     }
 
@@ -511,11 +596,17 @@ export class ProjectsService {
       data: {
         ...(dto.name && { name: dto.name.trim(), slug }),
         ...(dto.description && { description: dto.description.trim() }),
-        ...(dto.coverUrl !== undefined && { coverUrl: dto.coverUrl?.trim() || null }),
+        ...(dto.coverUrl !== undefined && {
+          coverUrl: dto.coverUrl?.trim() || null,
+        }),
         ...(dto.status && { status: dto.status }),
         ...(dto.genre !== undefined && { genre: dto.genre?.trim() || null }),
-        ...(dto.platform !== undefined && { platform: dto.platform?.trim() || null }),
-        ...(dto.gameEngine !== undefined && { gameEngine: dto.gameEngine?.trim() || null }),
+        ...(dto.platform !== undefined && {
+          platform: dto.platform?.trim() || null,
+        }),
+        ...(dto.gameEngine !== undefined && {
+          gameEngine: dto.gameEngine?.trim() || null,
+        }),
       },
     });
 
@@ -536,7 +627,9 @@ export class ProjectsService {
     }
 
     if (project.founderId !== userId) {
-      throw new ForbiddenException('Only the project founder can manage open roles.');
+      throw new ForbiddenException(
+        'Only the project founder can manage open roles.',
+      );
     }
 
     // Validate ProfessionalRole taxonomy ID
@@ -544,7 +637,9 @@ export class ProjectsService {
       where: { id: dto.roleId, isActive: true },
     });
     if (!professionalRole) {
-      throw new BadRequestException(`Unrecognized or inactive ProfessionalRole ID: "${dto.roleId}"`);
+      throw new BadRequestException(
+        `Unrecognized or inactive ProfessionalRole ID: "${dto.roleId}"`,
+      );
     }
 
     // Validate Skill IDs if provided
@@ -554,7 +649,9 @@ export class ProjectsService {
         where: { id: { in: uniqueSkillIds }, isActive: true },
       });
       if (skillsCount !== uniqueSkillIds.length) {
-        throw new BadRequestException('One or more skill IDs are invalid or inactive taxonomy entries.');
+        throw new BadRequestException(
+          'One or more skill IDs are invalid or inactive taxonomy entries.',
+        );
       }
     }
 
@@ -565,7 +662,9 @@ export class ProjectsService {
         where: { id: { in: uniqueToolIds }, isActive: true },
       });
       if (toolsCount !== uniqueToolIds.length) {
-        throw new BadRequestException('One or more tool IDs are invalid or inactive taxonomy entries.');
+        throw new BadRequestException(
+          'One or more tool IDs are invalid or inactive taxonomy entries.',
+        );
       }
     }
 
@@ -602,8 +701,13 @@ export class ProjectsService {
     );
 
     // Sync saved AI recommendations to remove the created role if it was recommended
-    if ((project as any).savedAiRecommendations && Array.isArray((project as any).savedAiRecommendations)) {
-      const remaining = ((project as any).savedAiRecommendations as any[]).filter(
+    if (
+      (project as any).savedAiRecommendations &&
+      Array.isArray((project as any).savedAiRecommendations)
+    ) {
+      const remaining = (
+        (project as any).savedAiRecommendations as any[]
+      ).filter(
         (r) => r.roleId !== dto.roleId && r.roleName !== professionalRole.name,
       );
       await (this.prisma.project as any)
@@ -624,7 +728,10 @@ export class ProjectsService {
   ): Promise<ProjectRoleResponseDto[]> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      include: {
+      select: {
+        id: true,
+        founderId: true,
+        moderationStatus: true,
         members: { select: { userId: true } },
       },
     });
@@ -633,9 +740,12 @@ export class ProjectsService {
       throw new NotFoundException('Project not found.');
     }
 
-    const isFounder = Boolean(currentUserId && project.founderId === currentUserId);
+    const isFounder = Boolean(
+      currentUserId && project.founderId === currentUserId,
+    );
     const isMember = Boolean(
-      currentUserId && (isFounder || project.members.some((m) => m.userId === currentUserId)),
+      currentUserId &&
+      (isFounder || project.members.some((m) => m.userId === currentUserId)),
     );
     const isAdmin = currentUserRole === Role.ADMINISTRATOR;
 
@@ -711,7 +821,9 @@ export class ProjectsService {
       }),
     ]);
 
-    return roles.map((r) => this.mapProjectRoleToDto(r, allMembers, acceptedApps, acceptedInvs));
+    return roles.map((r) =>
+      this.mapProjectRoleToDto(r, allMembers, acceptedApps, acceptedInvs),
+    );
   }
 
   async updateProjectRole(
@@ -729,7 +841,9 @@ export class ProjectsService {
     }
 
     if (project.founderId !== userId) {
-      throw new ForbiddenException('Only the project founder can manage open roles.');
+      throw new ForbiddenException(
+        'Only the project founder can manage open roles.',
+      );
     }
 
     const existingRole = await this.prisma.projectRole.findFirst({
@@ -745,7 +859,9 @@ export class ProjectsService {
         where: { id: dto.roleId, isActive: true },
       });
       if (!professionalRole) {
-        throw new BadRequestException(`Unrecognized or inactive ProfessionalRole ID: "${dto.roleId}"`);
+        throw new BadRequestException(
+          `Unrecognized or inactive ProfessionalRole ID: "${dto.roleId}"`,
+        );
       }
     }
 
@@ -757,7 +873,9 @@ export class ProjectsService {
           where: { id: { in: uniqueSkillIds }, isActive: true },
         });
         if (skillsCount !== uniqueSkillIds.length) {
-          throw new BadRequestException('One or more skill IDs are invalid or inactive taxonomy entries.');
+          throw new BadRequestException(
+            'One or more skill IDs are invalid or inactive taxonomy entries.',
+          );
         }
       }
     }
@@ -770,50 +888,71 @@ export class ProjectsService {
           where: { id: { in: uniqueToolIds }, isActive: true },
         });
         if (toolsCount !== uniqueToolIds.length) {
-          throw new BadRequestException('One or more tool IDs are invalid or inactive taxonomy entries.');
+          throw new BadRequestException(
+            'One or more tool IDs are invalid or inactive taxonomy entries.',
+          );
         }
       }
     }
 
     // Transaction-backed update with diffing on skill/tool junction tables
-    const updatedRole = await this.prisma.$transaction(async (tx) => {
-      if (uniqueSkillIds !== undefined) {
-        await tx.projectRoleSkill.deleteMany({ where: { projectRoleId: roleId } });
-        if (uniqueSkillIds.length > 0) {
-          await tx.projectRoleSkill.createMany({
-            data: uniqueSkillIds.map((skillId) => ({ projectRoleId: roleId, skillId })),
+    const updatedRole = await this.prisma.$transaction(
+      async (tx) => {
+        if (uniqueSkillIds !== undefined) {
+          await tx.projectRoleSkill.deleteMany({
+            where: { projectRoleId: roleId },
           });
+          if (uniqueSkillIds.length > 0) {
+            await tx.projectRoleSkill.createMany({
+              data: uniqueSkillIds.map((skillId) => ({
+                projectRoleId: roleId,
+                skillId,
+              })),
+            });
+          }
         }
-      }
 
-      if (uniqueToolIds !== undefined) {
-        await tx.projectRoleTool.deleteMany({ where: { projectRoleId: roleId } });
-        if (uniqueToolIds.length > 0) {
-          await tx.projectRoleTool.createMany({
-            data: uniqueToolIds.map((toolId) => ({ projectRoleId: roleId, toolId })),
+        if (uniqueToolIds !== undefined) {
+          await tx.projectRoleTool.deleteMany({
+            where: { projectRoleId: roleId },
           });
+          if (uniqueToolIds.length > 0) {
+            await tx.projectRoleTool.createMany({
+              data: uniqueToolIds.map((toolId) => ({
+                projectRoleId: roleId,
+                toolId,
+              })),
+            });
+          }
         }
-      }
 
-      const roleRecord = await tx.projectRole.update({
-        where: { id: roleId },
-        data: {
-          ...(dto.roleId && { roleId: dto.roleId }),
-          ...(dto.title !== undefined && { title: dto.title?.trim() || null }),
-          ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
-          ...(dto.experienceLevel && { experienceLevel: dto.experienceLevel }),
-          ...(dto.commitment && { commitment: dto.commitment }),
-          ...(dto.status && { status: dto.status }),
-        },
-        include: {
-          role: true,
-          requiredSkills: { include: { skill: true } },
-          requiredTools: { include: { tool: true } },
-        },
-      });
+        const roleRecord = await tx.projectRole.update({
+          where: { id: roleId },
+          data: {
+            ...(dto.roleId && { roleId: dto.roleId }),
+            ...(dto.title !== undefined && {
+              title: dto.title?.trim() || null,
+            }),
+            ...(dto.description !== undefined && {
+              description: dto.description?.trim() || null,
+            }),
+            ...(dto.experienceLevel && {
+              experienceLevel: dto.experienceLevel,
+            }),
+            ...(dto.commitment && { commitment: dto.commitment }),
+            ...(dto.status && { status: dto.status }),
+          },
+          include: {
+            role: true,
+            requiredSkills: { include: { skill: true } },
+            requiredTools: { include: { tool: true } },
+          },
+        });
 
-      return roleRecord;
-    }, { timeout: 15000 });
+        return roleRecord;
+      },
+      { timeout: 15000 },
+    );
 
     return this.mapProjectRoleToDto(updatedRole);
   }
@@ -832,7 +971,9 @@ export class ProjectsService {
     }
 
     if (project.founderId !== userId) {
-      throw new ForbiddenException('Only the project founder can manage open roles.');
+      throw new ForbiddenException(
+        'Only the project founder can manage open roles.',
+      );
     }
 
     const existingRole = await this.prisma.projectRole.findFirst({
@@ -860,14 +1001,20 @@ export class ProjectsService {
       roleRecord.assignedMember || roleRecord.primaryMembers?.[0] || null;
 
     if (!assignedMember && roleRecord.status === ProjectRoleStatus.FILLED) {
-      const matchedApp = acceptedApps.find((a) => a.projectRoleId === roleRecord.id);
+      const matchedApp = acceptedApps.find(
+        (a) => a.projectRoleId === roleRecord.id,
+      );
       if (matchedApp) {
-        assignedMember = allMembers.find((m) => m.userId === matchedApp.applicantId) || null;
+        assignedMember =
+          allMembers.find((m) => m.userId === matchedApp.applicantId) || null;
       }
       if (!assignedMember) {
-        const matchedInv = acceptedInvs.find((i) => i.projectRoleId === roleRecord.id);
+        const matchedInv = acceptedInvs.find(
+          (i) => i.projectRoleId === roleRecord.id,
+        );
         if (matchedInv) {
-          assignedMember = allMembers.find((m) => m.userId === matchedInv.inviteeId) || null;
+          assignedMember =
+            allMembers.find((m) => m.userId === matchedInv.inviteeId) || null;
         }
       }
       if (!assignedMember) {
@@ -883,7 +1030,9 @@ export class ProjectsService {
       }
     }
 
-    const assignedMemberId = assignedMember ? assignedMember.id : (roleRecord.assignedMemberId || null);
+    const assignedMemberId = assignedMember
+      ? assignedMember.id
+      : roleRecord.assignedMemberId || null;
     const assignedMemberName =
       assignedMember?.user?.profile?.displayName ||
       assignedMember?.user?.username ||
@@ -1001,24 +1150,28 @@ export class ProjectsService {
     const enhancedRecommendedRoles = await Promise.all(
       recommendedRoles.map(async (draft) => {
         try {
-          const topCandidates = await this.talentMatchingService.getRankedCandidatesForRoleSpec(
-            projectId,
-            {
-              roleId: draft.roleId,
-              roleName: draft.roleName,
-              experienceLevel: draft.experienceLevel,
-              commitment: draft.commitment,
-              requiredSkills: draft.requiredSkills || [],
-              requiredTools: draft.requiredTools || [],
-            },
-            3,
-          );
+          const topCandidates =
+            await this.talentMatchingService.getRankedCandidatesForRoleSpec(
+              projectId,
+              {
+                roleId: draft.roleId,
+                roleName: draft.roleName,
+                experienceLevel: draft.experienceLevel,
+                commitment: draft.commitment,
+                requiredSkills: draft.requiredSkills || [],
+                requiredTools: draft.requiredTools || [],
+              },
+              3,
+            );
           return {
             ...draft,
             topCandidates,
           };
         } catch (matchErr) {
-          this.logger.warn(`Failed to match candidates for role ${draft.roleName}:`, matchErr);
+          this.logger.warn(
+            `Failed to match candidates for role ${draft.roleName}:`,
+            matchErr,
+          );
           return {
             ...draft,
             topCandidates: [],
@@ -1036,7 +1189,10 @@ export class ProjectsService {
         },
       });
     } catch (saveErr) {
-      this.logger.warn(`Failed to persist AI role recommendations for project ${projectId}:`, saveErr);
+      this.logger.warn(
+        `Failed to persist AI role recommendations for project ${projectId}:`,
+        saveErr,
+      );
     }
 
     return { recommendedRoles: enhancedRecommendedRoles };

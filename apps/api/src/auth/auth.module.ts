@@ -9,6 +9,7 @@ import { MailService } from './mail.service';
 import { AdminAuthGuard } from './admin-auth.guard';
 import { OptionalJwtAuthGuard } from './optional-jwt-auth.guard';
 import { getAuthJwtSecret } from './auth.constants';
+import { AuthSessionCache } from './auth-session.cache';
 
 @Module({
   imports: [
@@ -20,7 +21,21 @@ import { getAuthJwtSecret } from './auth.constants';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, MailService, GoogleStrategy, GoogleAuthGuard, AdminAuthGuard, OptionalJwtAuthGuard],
-  exports: [AuthService, MailService, AdminAuthGuard, OptionalJwtAuthGuard],
+  providers: [
+    AuthService,
+    AuthSessionCache,
+    MailService,
+    GoogleStrategy,
+    GoogleAuthGuard,
+    AdminAuthGuard,
+    OptionalJwtAuthGuard,
+  ],
+  exports: [
+    AuthService,
+    AuthSessionCache,
+    MailService,
+    AdminAuthGuard,
+    OptionalJwtAuthGuard,
+  ],
 })
 export class AuthModule {}

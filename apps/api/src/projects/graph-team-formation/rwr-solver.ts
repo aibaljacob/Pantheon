@@ -72,11 +72,14 @@ export class RWRSolver {
     options: RWROptions = {},
   ): RWRDistributionResult {
     const alpha = options.alpha ?? RWRSolver.DEFAULT_ALPHA;
-    const maxIterations = options.maxIterations ?? RWRSolver.DEFAULT_MAX_ITERATIONS;
+    const maxIterations =
+      options.maxIterations ?? RWRSolver.DEFAULT_MAX_ITERATIONS;
     const epsilon = options.epsilon ?? RWRSolver.DEFAULT_EPSILON;
 
     if (!graph.hasNode(restartNodeId)) {
-      throw new Error(`Restart node '${restartNodeId}' does not exist in the HIN graph.`);
+      throw new Error(
+        `Restart node '${restartNodeId}' does not exist in the HIN graph.`,
+      );
     }
 
     const restartNode = graph.getNode(restartNodeId)!;
@@ -202,7 +205,11 @@ export class RWRSolver {
     roleNodeId: string,
     options: RWROptions = {},
   ): CandidateGraphAffinity[] {
-    const result = this.computeStationaryDistribution(graph, roleNodeId, options);
+    const result = this.computeStationaryDistribution(
+      graph,
+      roleNodeId,
+      options,
+    );
     return result.candidateAffinities;
   }
 }

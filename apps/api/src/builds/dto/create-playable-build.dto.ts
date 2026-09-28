@@ -1,19 +1,34 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BuildPlatform } from '@prisma/client';
 
 export class CreatePlayableBuildDto {
-  @ApiProperty({ description: 'Human-readable version string', example: 'v0.1.0' })
+  @ApiProperty({
+    description: 'Human-readable version string',
+    example: 'v0.1.0',
+  })
   @IsString()
   @IsNotEmpty()
   version: string;
 
-  @ApiProperty({ description: 'Title of the playable build release', example: 'Alpha Combat Prototype' })
+  @ApiProperty({
+    description: 'Title of the playable build release',
+    example: 'Alpha Combat Prototype',
+  })
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ enum: BuildPlatform, description: 'Platform for the playable build' })
+  @ApiProperty({
+    enum: BuildPlatform,
+    description: 'Platform for the playable build',
+  })
   @IsEnum(BuildPlatform)
   @IsNotEmpty()
   platform: BuildPlatform;
@@ -28,7 +43,9 @@ export class CreatePlayableBuildDto {
   @IsString()
   milestoneId?: string;
 
-  @ApiPropertyOptional({ description: 'Storage path/URI to the packaged build artifact' })
+  @ApiPropertyOptional({
+    description: 'Storage path/URI to the packaged build artifact',
+  })
   @IsOptional()
   @IsString()
   storagePath?: string;

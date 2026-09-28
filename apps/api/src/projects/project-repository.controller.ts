@@ -8,10 +8,18 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { ProjectRepositoryService } from './project-repository.service';
 import {
   CommitFileDto,
@@ -27,7 +35,10 @@ export class ProjectRepositoryController {
   constructor(private readonly repositoryService: ProjectRepositoryService) {}
 
   @ApiOperation({ summary: 'Get repository data for a project' })
-  @ApiResponse({ status: 200, description: 'Returns repository tree, branches, commits, stats, and files' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns repository tree, branches, commits, stats, and files',
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id/repo')
   getRepository(
@@ -38,8 +49,13 @@ export class ProjectRepositoryController {
     return this.repositoryService.getRepository(projectId, user, branch);
   }
 
-  @ApiOperation({ summary: 'Get raw content of a specific file in the repository' })
-  @ApiResponse({ status: 200, description: 'Returns file content, size, and commit info' })
+  @ApiOperation({
+    summary: 'Get raw content of a specific file in the repository',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns file content, size, and commit info',
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id/repo/file')
   getFileContent(
@@ -104,7 +120,10 @@ export class ProjectRepositoryController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new pull request' })
-  @ApiResponse({ status: 201, description: 'Pull request created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Pull request created successfully',
+  })
   @UseGuards(JwtAuthGuard)
   @Post(':id/repo/pulls')
   createPullRequest(
@@ -133,7 +152,11 @@ export class ProjectRepositoryController {
       id: user.id,
       username: user.username,
     };
-    return this.repositoryService.mergePullRequest(projectId, parseInt(prNumber, 10), author);
+    return this.repositoryService.mergePullRequest(
+      projectId,
+      parseInt(prNumber, 10),
+      author,
+    );
   }
 
   @ApiBearerAuth()

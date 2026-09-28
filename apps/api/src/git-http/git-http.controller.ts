@@ -27,10 +27,14 @@ export class GitHttpController {
     const user = (req as any).user;
     const pat = (req as any).pat;
     const runner = (req as any).runner;
-    this.gitService.handleInfoRefs(slug, service, user, pat, runner, req, res).catch((err) => {
-      console.error('Git HTTP info-refs error:', err);
-      res.status(err.status || 500).send(err.message || 'Internal Server Error');
-    });
+    this.gitService
+      .handleInfoRefs(slug, service, user, pat, runner, req, res)
+      .catch((err) => {
+        console.error('Git HTTP info-refs error:', err);
+        res
+          .status(err.status || 500)
+          .send(err.message || 'Internal Server Error');
+      });
   }
 
   @Post(':slug.git/git-upload-pack')
@@ -42,10 +46,14 @@ export class GitHttpController {
     const user = (req as any).user;
     const pat = (req as any).pat;
     const runner = (req as any).runner;
-    this.gitService.handleUploadPack(slug, user, pat, runner, req, res).catch((err) => {
-      console.error('Git HTTP upload-pack error:', err);
-      res.status(err.status || 500).send(err.message || 'Internal Server Error');
-    });
+    this.gitService
+      .handleUploadPack(slug, user, pat, runner, req, res)
+      .catch((err) => {
+        console.error('Git HTTP upload-pack error:', err);
+        res
+          .status(err.status || 500)
+          .send(err.message || 'Internal Server Error');
+      });
   }
 
   @Post(':slug.git/git-receive-pack')
@@ -57,9 +65,13 @@ export class GitHttpController {
     const user = (req as any).user;
     const pat = (req as any).pat;
     const runner = (req as any).runner;
-    this.gitService.handleReceivePack(slug, user, pat, runner, req, res).catch((err) => {
-      console.error('Git HTTP receive-pack error:', err);
-      res.status(err.status || 500).send(err.message || 'Internal Server Error');
-    });
+    this.gitService
+      .handleReceivePack(slug, user, pat, runner, req, res)
+      .catch((err) => {
+        console.error('Git HTTP receive-pack error:', err);
+        res
+          .status(err.status || 500)
+          .send(err.message || 'Internal Server Error');
+      });
   }
 }

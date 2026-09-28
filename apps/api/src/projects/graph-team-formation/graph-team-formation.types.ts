@@ -166,7 +166,11 @@ export interface TeamSkillRedundancy {
   uniqueSkillsCount: number; // Total distinct skills in team
   totalSkillInstances: number; // Total skill claims across all members
   redundancyRatio: number; // totalSkillInstances / max(1, uniqueSkillsCount)
-  redundantSkills: { skillId: string; memberCount: number; redundancy: number }[];
+  redundantSkills: {
+    skillId: string;
+    memberCount: number;
+    redundancy: number;
+  }[];
 }
 
 export interface TeamCollaborationStrength {

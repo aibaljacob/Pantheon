@@ -5,7 +5,6 @@ import {
   FileCode,
   FileSpreadsheet,
   GitBranch,
-  Plus,
   ChevronRight,
   BookOpen,
   CornerLeftUp,
@@ -17,8 +16,6 @@ interface RepoCodeBrowserProps {
   branches: RepoBranch[];
   currentBranch: string;
   onSelectBranch: (branch: string) => void;
-  onOpenCreateBranch: () => void;
-
   onSelectFile: (file: RepoFile) => void;
   latestCommit?: RepoCommit;
   totalCommits: number;
@@ -40,8 +37,6 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
   branches,
   currentBranch,
   onSelectBranch,
-  onOpenCreateBranch,
-
   onSelectFile,
   latestCommit,
   totalCommits,
@@ -99,7 +94,7 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
 
   return (
     <div className="space-y-5 font-mono">
-      {/* Top Bar: Branch Selector & Add File Button */}
+      {/* Top Bar: Branch Selector & Inspection Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         {/* Branch Selector Dropdown */}
         <div className="relative">
@@ -117,16 +112,6 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
             <div className="absolute left-0 top-full mt-2 z-30 w-64 rounded-2xl border border-[#363433] bg-[#141312] p-2 shadow-2xl space-y-2">
               <div className="px-2 pt-1 pb-1 border-b border-[#2b2a29] flex items-center justify-between">
                 <span className="text-[10px] uppercase text-[#8c887e] font-semibold">Switch Branch</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsBranchDropdownOpen(false);
-                    onOpenCreateBranch();
-                  }}
-                  className="inline-flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300"
-                >
-                  <Plus className="h-3 w-3" /> New
-                </button>
               </div>
               <input
                 type="text"
@@ -165,7 +150,9 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
           )}
         </div>
 
-
+        <span className="text-xs text-[#8c887e]">
+          Read-only source tree. Develop locally and push via Git.
+        </span>
       </div>
 
       {/* Latest Commit Header Strip */}

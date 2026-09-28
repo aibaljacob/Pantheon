@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectMembersService } from './project-members.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -66,7 +70,9 @@ describe('ProjectMembersService', () => {
         id: mockProjectId,
         founderId: mockFounderId,
         moderationStatus: ProjectModerationStatus.PUBLISHED,
-        members: [{ userId: mockFounderId, status: ProjectMemberStatus.ACTIVE }],
+        members: [
+          { userId: mockFounderId, status: ProjectMemberStatus.ACTIVE },
+        ],
       });
 
       const now = new Date();
@@ -119,7 +125,11 @@ describe('ProjectMembersService', () => {
         },
       ]);
 
-      const result = await service.getTeamMembers(mockProjectId, mockFounderId, Role.USER);
+      const result = await service.getTeamMembers(
+        mockProjectId,
+        mockFounderId,
+        Role.USER,
+      );
 
       expect(result.projectId).toBe(mockProjectId);
       expect(result.activeCount).toBe(1);
@@ -145,7 +155,9 @@ describe('ProjectMembersService', () => {
         id: mockProjectId,
         founderId: mockFounderId,
         moderationStatus: ProjectModerationStatus.PENDING_REVIEW,
-        members: [{ userId: mockFounderId, status: ProjectMemberStatus.ACTIVE }],
+        members: [
+          { userId: mockFounderId, status: ProjectMemberStatus.ACTIVE },
+        ],
       });
 
       await expect(
@@ -191,18 +203,22 @@ describe('ProjectMembersService', () => {
           username: 'aaron_artist',
           profile: { displayName: 'Aaron George' },
         },
-        projectRole: { title: 'Technical Artist', role: { name: 'Technical Artist' } },
+        projectRole: {
+          title: 'Technical Artist',
+          role: { name: 'Technical Artist' },
+        },
       });
 
-      const result = await service.removeMember(mockProjectId, mockMemberId, mockFounderId);
+      const result = await service.removeMember(
+        mockProjectId,
+        mockMemberId,
+        mockFounderId,
+      );
 
       expect(prismaMock.projectRole.updateMany).toHaveBeenCalledWith({
         where: {
           projectId: mockProjectId,
-          OR: [
-            { assignedMemberId: mockMemberId },
-            { id: mockProjectRoleId },
-          ],
+          OR: [{ assignedMemberId: mockMemberId }, { id: mockProjectRoleId }],
         },
         data: {
           assignedMemberId: null,
@@ -248,7 +264,11 @@ describe('ProjectMembersService', () => {
       });
 
       await expect(
-        service.removeMember(mockProjectId, 'founder-membership-id', mockFounderId),
+        service.removeMember(
+          mockProjectId,
+          'founder-membership-id',
+          mockFounderId,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -303,15 +323,15 @@ describe('ProjectMembersService', () => {
         leftAt: new Date(),
       });
 
-      const result = await service.leaveProject(mockProjectId, mockMemberUserId);
+      const result = await service.leaveProject(
+        mockProjectId,
+        mockMemberUserId,
+      );
 
       expect(prismaMock.projectRole.updateMany).toHaveBeenCalledWith({
         where: {
           projectId: mockProjectId,
-          OR: [
-            { assignedMemberId: mockMemberId },
-            { id: mockProjectRoleId },
-          ],
+          OR: [{ assignedMemberId: mockMemberId }, { id: mockProjectRoleId }],
         },
         data: {
           assignedMemberId: null,
@@ -337,9 +357,9 @@ describe('ProjectMembersService', () => {
         founderId: mockFounderId,
       });
 
-      await expect(service.leaveProject(mockProjectId, mockFounderId)).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.leaveProject(mockProjectId, mockFounderId),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException if user is not an active member', async () => {
@@ -350,9 +370,9 @@ describe('ProjectMembersService', () => {
 
       prismaMock.projectMember.findUnique.mockResolvedValue(null);
 
-      await expect(service.leaveProject(mockProjectId, 'random-user')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.leaveProject(mockProjectId, 'random-user'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -402,8 +422,18 @@ describe('ProjectMembersService', () => {
           username: 'aaron_artist',
           profile: { displayName: 'Aaron George' },
         },
-        projectRole: { id: mockNewRoleId, title: '3D Modeler', role: { name: '3D Modeler' } },
-        assignedRoles: [{ id: mockNewRoleId, title: '3D Modeler', role: { name: '3D Modeler' } }],
+        projectRole: {
+          id: mockNewRoleId,
+          title: '3D Modeler',
+          role: { name: '3D Modeler' },
+        },
+        assignedRoles: [
+          {
+            id: mockNewRoleId,
+            title: '3D Modeler',
+            role: { name: '3D Modeler' },
+          },
+        ],
       });
 
       const result = await service.assignMemberRoles(
@@ -420,7 +450,10 @@ describe('ProjectMembersService', () => {
 
       expect(prismaMock.projectRole.update).toHaveBeenCalledWith({
         where: { id: mockNewRoleId },
-        data: { assignedMemberId: mockMemberId, status: ProjectRoleStatus.FILLED },
+        data: {
+          assignedMemberId: mockMemberId,
+          status: ProjectRoleStatus.FILLED,
+        },
       });
 
       expect(result.projectRoleId).toBe(mockNewRoleId);
@@ -442,12 +475,9 @@ describe('ProjectMembersService', () => {
       prismaMock.projectRole.findMany.mockResolvedValue([]); // not found in project
 
       await expect(
-        service.assignMemberRoles(
-          mockProjectId,
-          mockMemberId,
-          mockFounderId,
-          { roleIds: ['foreign-role-id'] },
-        ),
+        service.assignMemberRoles(mockProjectId, mockMemberId, mockFounderId, {
+          roleIds: ['foreign-role-id'],
+        }),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -474,12 +504,9 @@ describe('ProjectMembersService', () => {
       ]);
 
       await expect(
-        service.assignMemberRoles(
-          mockProjectId,
-          mockMemberId,
-          mockFounderId,
-          { roleIds: [mockNewRoleId] },
-        ),
+        service.assignMemberRoles(mockProjectId, mockMemberId, mockFounderId, {
+          roleIds: [mockNewRoleId],
+        }),
       ).rejects.toThrow(BadRequestException);
     });
   });

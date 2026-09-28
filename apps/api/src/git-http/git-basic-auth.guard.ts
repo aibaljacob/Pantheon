@@ -17,17 +17,25 @@ export class GitBasicAuthGuard implements CanActivate {
     const authHeader = request.headers.authorization;
 
     if (!authHeader) {
-      request.res?.setHeader('WWW-Authenticate', 'Basic realm="Pantheon Git Repository"');
+      request.res?.setHeader(
+        'WWW-Authenticate',
+        'Basic realm="Pantheon Git Repository"',
+      );
       throw new UnauthorizedException('Basic authentication required');
     }
 
     if (!authHeader.startsWith('Basic ')) {
-      request.res?.setHeader('WWW-Authenticate', 'Basic realm="Pantheon Git Repository"');
+      request.res?.setHeader(
+        'WWW-Authenticate',
+        'Basic realm="Pantheon Git Repository"',
+      );
       throw new UnauthorizedException('Invalid authentication method');
     }
 
     const b64auth = authHeader.split(' ')[1];
-    const [username, token] = Buffer.from(b64auth, 'base64').toString().split(':');
+    const [username, token] = Buffer.from(b64auth, 'base64')
+      .toString()
+      .split(':');
 
     if (!token) {
       throw new UnauthorizedException('Invalid token format');
@@ -78,10 +86,12 @@ export class GitBasicAuthGuard implements CanActivate {
     (request as any).pat = patRecord;
 
     // Update lastUsedAt asynchronously
-    this.prisma.personalAccessToken.update({
-      where: { id: patRecord.id },
-      data: { lastUsedAt: new Date() },
-    }).catch(() => {});
+    this.prisma.personalAccessToken
+      .update({
+        where: { id: patRecord.id },
+        data: { lastUsedAt: new Date() },
+      })
+      .catch(() => {});
 
     return true;
   }

@@ -7,6 +7,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { ThemeSwitcher } from '../features/theme/ThemeSwitcher';
+import { PersonalAccessTokensSection } from '../features/settings/components/PersonalAccessTokensSection';
 
 export const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,6 +55,9 @@ export const SettingsPage: React.FC = () => {
             </div>
           </div>
         </Card>
+
+        {/* Personal Access Tokens for Git Smart HTTP */}
+        <PersonalAccessTokensSection />
 
         <div className="grid gap-6 xl:grid-cols-2">
           {/* Account Card */}

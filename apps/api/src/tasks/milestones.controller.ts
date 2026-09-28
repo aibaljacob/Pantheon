@@ -8,10 +8,18 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { MilestonesService } from './milestones.service';
 import { CreateMilestoneDto } from './dto/create-milestone.dto';
 import { UpdateMilestoneDto } from './dto/update-milestone.dto';
@@ -32,22 +40,39 @@ export class MilestonesController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateMilestoneDto,
   ): Promise<MilestoneResponseDto> {
-    return this.milestonesService.createMilestone(projectId, dto, user.id, user.role);
+    return this.milestonesService.createMilestone(
+      projectId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 
-  @ApiOperation({ summary: 'Get all milestones for a project with progress statistics' })
-  @ApiResponse({ status: 200, description: 'Returns array of milestones with progress' })
+  @ApiOperation({
+    summary: 'Get all milestones for a project with progress statistics',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns array of milestones with progress',
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get()
   getMilestones(
     @Param('projectId') projectId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ): Promise<MilestoneResponseDto[]> {
-    return this.milestonesService.getMilestones(projectId, user?.id, user?.role);
+    return this.milestonesService.getMilestones(
+      projectId,
+      user?.id,
+      user?.role,
+    );
   }
 
   @ApiOperation({ summary: 'Get a single milestone by ID' })
-  @ApiResponse({ status: 200, description: 'Returns single milestone with progress' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns single milestone with progress',
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':milestoneId')
   getMilestone(
@@ -55,7 +80,12 @@ export class MilestonesController {
     @Param('milestoneId') milestoneId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ): Promise<MilestoneResponseDto> {
-    return this.milestonesService.getMilestone(projectId, milestoneId, user?.id, user?.role);
+    return this.milestonesService.getMilestone(
+      projectId,
+      milestoneId,
+      user?.id,
+      user?.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -88,6 +118,11 @@ export class MilestonesController {
     @Param('milestoneId') milestoneId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ success: boolean; message: string }> {
-    return this.milestonesService.deleteMilestone(projectId, milestoneId, user.id, user.role);
+    return this.milestonesService.deleteMilestone(
+      projectId,
+      milestoneId,
+      user.id,
+      user.role,
+    );
   }
 }

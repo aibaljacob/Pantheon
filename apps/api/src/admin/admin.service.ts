@@ -88,15 +88,20 @@ export class AdminService {
   }
 
   // 2. USER MANAGEMENT
-  async getPaginatedUsers(query: AdminUsersQueryDto): Promise<AdminPaginatedUsersResponseDto> {
+  async getPaginatedUsers(
+    query: AdminUsersQueryDto,
+  ): Promise<AdminPaginatedUsersResponseDto> {
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 10;
     const skip = (page - 1) * limit;
 
     const where: any = {};
 
-    if (query.role && (query.role === 'USER' || query.role === 'ADMINISTRATOR')) {
-      where.role = query.role as Role;
+    if (
+      query.role &&
+      (query.role === 'USER' || query.role === 'ADMINISTRATOR')
+    ) {
+      where.role = query.role;
     }
 
     if (query.emailVerified !== undefined && query.emailVerified !== '') {
@@ -198,19 +203,30 @@ export class AdminService {
   }
 
   // 3. PROJECT MANAGEMENT
-  async getPaginatedProjects(query: AdminProjectsQueryDto): Promise<AdminPaginatedProjectsResponseDto> {
+  async getPaginatedProjects(
+    query: AdminProjectsQueryDto,
+  ): Promise<AdminPaginatedProjectsResponseDto> {
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 10;
     const skip = (page - 1) * limit;
 
     const where: any = {};
 
-    if (query.status && Object.values(ProjectStatus).includes(query.status as ProjectStatus)) {
+    if (
+      query.status &&
+      Object.values(ProjectStatus).includes(query.status as ProjectStatus)
+    ) {
       where.status = query.status as ProjectStatus;
     }
 
-    if (query.moderationStatus && Object.values(ProjectModerationStatus).includes(query.moderationStatus as ProjectModerationStatus)) {
-      where.moderationStatus = query.moderationStatus as ProjectModerationStatus;
+    if (
+      query.moderationStatus &&
+      Object.values(ProjectModerationStatus).includes(
+        query.moderationStatus as ProjectModerationStatus,
+      )
+    ) {
+      where.moderationStatus =
+        query.moderationStatus as ProjectModerationStatus;
     }
 
     if (query.search && query.search.trim()) {
@@ -290,7 +306,9 @@ export class AdminService {
     };
   }
 
-  async getProjectAdminDetails(projectId: string): Promise<AdminProjectDetailDto> {
+  async getProjectAdminDetails(
+    projectId: string,
+  ): Promise<AdminProjectDetailDto> {
     const p = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: {
@@ -369,9 +387,15 @@ export class AdminService {
           timezone: p.founder.profile.timezone,
           experienceYears: p.founder.profile.experienceYears,
           availability: p.founder.profile.availability,
-          roles: (p.founder.profile.identity?.roles || []).map((r) => r.role.name),
-          skills: (p.founder.profile.identity?.skills || []).map((s) => s.skill.name),
-          tools: (p.founder.profile.identity?.tools || []).map((t) => t.tool.name),
+          roles: (p.founder.profile.identity?.roles || []).map(
+            (r) => r.role.name,
+          ),
+          skills: (p.founder.profile.identity?.skills || []).map(
+            (s) => s.skill.name,
+          ),
+          tools: (p.founder.profile.identity?.tools || []).map(
+            (t) => t.tool.name,
+          ),
           gameEngines: (p.founder.profile.identity?.gameEngines || []).map(
             (e) => e.engine.name,
           ),
@@ -435,7 +459,9 @@ export class AdminService {
   }
 
   async approveProject(projectId: string): Promise<AdminProjectDetailDto> {
-    const existing = await this.prisma.project.findUnique({ where: { id: projectId } });
+    const existing = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
     if (!existing) {
       throw new NotFoundException('Project record not found.');
     }
@@ -449,7 +475,9 @@ export class AdminService {
   }
 
   async rejectProject(projectId: string): Promise<AdminProjectDetailDto> {
-    const existing = await this.prisma.project.findUnique({ where: { id: projectId } });
+    const existing = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
     if (!existing) {
       throw new NotFoundException('Project record not found.');
     }
@@ -525,7 +553,10 @@ export class AdminService {
     };
   }
 
-  async createTaxonomyEntry(type: string, dto: CreateTaxonomyEntryDto): Promise<AdminTaxonomyItemDto> {
+  async createTaxonomyEntry(
+    type: string,
+    dto: CreateTaxonomyEntryDto,
+  ): Promise<AdminTaxonomyItemDto> {
     const model = this.getTaxonomyModel(type);
     const name = dto.name.trim();
 
@@ -567,7 +598,9 @@ export class AdminService {
       where: { id },
       data: {
         ...(dto.name && { name: dto.name.trim() }),
-        ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
+        ...(dto.description !== undefined && {
+          description: dto.description?.trim() || null,
+        }),
       },
     });
 
@@ -580,7 +613,11 @@ export class AdminService {
     };
   }
 
-  async toggleTaxonomyActive(type: string, id: string, isActive: boolean): Promise<AdminTaxonomyItemDto> {
+  async toggleTaxonomyActive(
+    type: string,
+    id: string,
+    isActive: boolean,
+  ): Promise<AdminTaxonomyItemDto> {
     const model = this.getTaxonomyModel(type);
 
     const existing = await model.findUnique({ where: { id } });
@@ -639,7 +676,8 @@ export class AdminService {
     });
 
     return activityItems.sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+      (a, b) =>
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
   }
 }

@@ -9,7 +9,13 @@ import {
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BuildRunnersService } from './build-runners.service';
 import { RegisterRunnerDto } from './dto/register-runner.dto';
@@ -24,7 +30,10 @@ export class BuildRunnersController {
   constructor(private readonly buildRunnersService: BuildRunnersService) {}
 
   @ApiOperation({ summary: 'Register a new local build runner' })
-  @ApiResponse({ status: 201, description: 'Runner registered. Token is returned ONCE.' })
+  @ApiResponse({
+    status: 201,
+    description: 'Runner registered. Token is returned ONCE.',
+  })
   @Post('register')
   registerRunner(@Body() dto: RegisterRunnerDto) {
     return this.buildRunnersService.registerRunner(dto);
@@ -38,15 +47,22 @@ export class BuildRunnersController {
     return this.buildRunnersService.heartbeat(req.runner.id);
   }
 
-  @ApiOperation({ summary: 'Claim the oldest queued build job for this runner platform' })
-  @ApiResponse({ status: 200, description: 'Returns the claimed job or null if no jobs.' })
+  @ApiOperation({
+    summary: 'Claim the oldest queued build job for this runner platform',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the claimed job or null if no jobs.',
+  })
   @UseGuards(BuildRunnerAuthGuard)
   @Post('jobs/claim')
   claimJob(@Request() req: any) {
     return this.buildRunnersService.claimJob(req.runner.id);
   }
 
-  @ApiOperation({ summary: 'Update the status, logs, or errors of a claimed job' })
+  @ApiOperation({
+    summary: 'Update the status, logs, or errors of a claimed job',
+  })
   @ApiResponse({ status: 200, description: 'Job updated.' })
   @UseGuards(BuildRunnerAuthGuard)
   @Patch('jobs/:jobId/status')
@@ -95,27 +111,27 @@ export class BuildRunnersController {
 
     // After uploading, register this as a PlayableBuild for the project.
     // Convert BigInt to string in response to avoid JSON stringify errors
-    
+
     // The storagePath should be a URL the frontend can download from.
     // Since we statically serve /uploads in main.ts, the path is /uploads/fileName
     const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
 
-    const playableBuild = await this.buildRunnersService.saveArtifactAsPlayableBuild(
-      jobId, 
-      fileUrl, 
-      file.size,
-      fileChecksum,
-    );
-    
-    return { 
-      success: true, 
-      filePath, 
-      fileName, 
+    const playableBuild =
+      await this.buildRunnersService.saveArtifactAsPlayableBuild(
+        jobId,
+        fileUrl,
+        file.size,
+        fileChecksum,
+      );
+
+    return {
+      success: true,
+      filePath,
+      fileName,
       playableBuild: {
         ...playableBuild,
-        fileSizeBytes: playableBuild.fileSizeBytes?.toString()
-      }
+        fileSizeBytes: playableBuild.fileSizeBytes?.toString(),
+      },
     };
   }
 }
-

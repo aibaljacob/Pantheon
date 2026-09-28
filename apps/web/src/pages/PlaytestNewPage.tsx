@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { apiClient } from '../features/auth/services/httpClient';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { useAuthStore } from '../features/auth/store/authStore';
-import { Gamepad2, ArrowLeft, Terminal } from 'lucide-react';
+import { Gamepad2, ArrowLeft } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { useWorkspaceStore } from '../features/projects/store/workspaceStore';
 
 interface PlayableBuild {
   id: string;
@@ -16,7 +17,7 @@ interface PlayableBuild {
 export function PlaytestNewPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { currentUser } = useAuthStore();
   
   const [builds, setBuilds] = useState<PlayableBuild[]>([]);
   const [selectedBuildId, setSelectedBuildId] = useState<string>('');
@@ -26,21 +27,30 @@ export function PlaytestNewPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadBuilds();
-  }, [projectId]);
+    if (!projectId) return;
+    let ignore = false;
 
-  const loadBuilds = async () => {
-    try {
-      const res = await apiClient.get(`/projects/${projectId}/playable-builds`);
-      setBuilds(res.data);
-      if (res.data.length > 0) {
-        setSelectedBuildId(res.data[0].id);
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Failed to load playable builds.');
-    }
-  };
+    apiClient
+      .get<PlayableBuild[]>(`/projects/${projectId}/playable-builds`)
+      .then((res) => {
+        if (!ignore) {
+          setBuilds(res.data);
+          if (res.data.length > 0) {
+            setSelectedBuildId(res.data[0].id);
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          console.error(err);
+          setError('Failed to load playable builds.');
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,22 +62,26 @@ export function PlaytestNewPage() {
     try {
       setIsSubmitting(true);
       setError(null);
-      const res = await apiClient.post(`/projects/${projectId}/playable-builds/${selectedBuildId}/playtests`, {
+      await apiClient.post(`/projects/${projectId}/playable-builds/${selectedBuildId}/playtests`, {
         title,
         instructions
       });
+      if (projectId) {
+        useWorkspaceStore.getState().invalidatePlaytests(projectId);
+      }
       navigate(`/projects/${projectId}?tab=playtests`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to create playtest.');
+      const message = err instanceof Error ? err.message : 'Failed to create playtest.';
+      setError(message);
       setIsSubmitting(false);
     }
   };
 
-  if (!user) return null;
+  if (!currentUser) return null;
 
   return (
-    <DashboardLayout user={user}>
+    <DashboardLayout user={currentUser}>
       <div className="max-w-3xl mx-auto py-8 space-y-6">
         <Link 
           to={`/projects/${projectId}?tab=playtests`} 
@@ -149,8 +163,8 @@ export function PlaytestNewPage() {
               <Link to={`/projects/${projectId}?tab=playtests`}>
                 <Button variant="ghost" type="button">Cancel</Button>
               </Link>
-              <Button variant="primary" type="submit" isLoading={isSubmitting} disabled={builds.length === 0}>
-                Create Playtest
+              <Button variant="primary" type="submit" disabled={isSubmitting || builds.length === 0}>
+                {isSubmitting ? 'Creating...' : 'Create Playtest'}
               </Button>
             </div>
           </form>

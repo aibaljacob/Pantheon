@@ -79,16 +79,27 @@ export class TeamEvaluator {
     const roleCoverage = this.calculateRoleCoverage(roles, assignedRoleIds);
 
     // B. Skill Coverage
-    const skillCoverage = this.calculateSkillCoverage(roles, assignedCandidateIds, candidateMap);
+    const skillCoverage = this.calculateSkillCoverage(
+      roles,
+      assignedCandidateIds,
+      candidateMap,
+    );
 
     // C. Tool Coverage
-    const toolCoverage = this.calculateToolCoverage(roles, assignedCandidateIds, candidateMap);
+    const toolCoverage = this.calculateToolCoverage(
+      roles,
+      assignedCandidateIds,
+      candidateMap,
+    );
 
     // D. Assignment Utility
     const assignmentUtility = this.calculateAssignmentUtility(realAssignments);
 
     // E. Skill Redundancy
-    const skillRedundancy = this.calculateSkillRedundancy(assignedCandidateIds, candidateMap);
+    const skillRedundancy = this.calculateSkillRedundancy(
+      assignedCandidateIds,
+      candidateMap,
+    );
 
     // F. Collaboration Strength
     const collaborationStrength = this.calculateCollaborationStrength(
@@ -104,7 +115,10 @@ export class TeamEvaluator {
     );
 
     // H. Conflict-Free Rate
-    const conflictFreeRate = this.calculateConflictFreeRate(realAssignments, roles.length);
+    const conflictFreeRate = this.calculateConflictFreeRate(
+      realAssignments,
+      roles.length,
+    );
 
     return {
       roleCoverage,
@@ -346,7 +360,11 @@ export class TeamEvaluator {
 
     const uniqueSkillsCount = skillCounts.size;
     let totalRedundancy = 0;
-    const redundantSkills: { skillId: string; memberCount: number; redundancy: number }[] = [];
+    const redundantSkills: {
+      skillId: string;
+      memberCount: number;
+      redundancy: number;
+    }[] = [];
 
     for (const [skillId, count] of skillCounts.entries()) {
       if (count > 1) {
@@ -360,7 +378,9 @@ export class TeamEvaluator {
     redundantSkills.sort((a, b) => b.redundancy - a.redundancy);
 
     const redundancyRatio =
-      uniqueSkillsCount === 0 ? 1.0 : Number((totalSkillInstances / uniqueSkillsCount).toFixed(4));
+      uniqueSkillsCount === 0
+        ? 1.0
+        : Number((totalSkillInstances / uniqueSkillsCount).toFixed(4));
 
     return {
       totalRedundancy,
@@ -397,7 +417,10 @@ export class TeamEvaluator {
 
     for (let i = 0; i < K; i++) {
       for (let j = i + 1; j < K; j++) {
-        const pairKey = TeamEvaluator.makePairKey(candidateList[i], candidateList[j]);
+        const pairKey = TeamEvaluator.makePairKey(
+          candidateList[i],
+          candidateList[j],
+        );
         const weight = collaborationWeights?.get(pairKey) ?? 0;
 
         if (weight > 0) {
@@ -450,8 +473,14 @@ export class TeamEvaluator {
     const assignedCandidateCounts = new Map<string, number>();
 
     for (const a of realAssignments) {
-      assignedRoleCounts.set(a.roleId, (assignedRoleCounts.get(a.roleId) || 0) + 1);
-      assignedCandidateCounts.set(a.candidateId, (assignedCandidateCounts.get(a.candidateId) || 0) + 1);
+      assignedRoleCounts.set(
+        a.roleId,
+        (assignedRoleCounts.get(a.roleId) || 0) + 1,
+      );
+      assignedCandidateCounts.set(
+        a.candidateId,
+        (assignedCandidateCounts.get(a.candidateId) || 0) + 1,
+      );
     }
 
     let roleConflicts = 0;

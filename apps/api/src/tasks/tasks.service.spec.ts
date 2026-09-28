@@ -7,6 +7,7 @@ import {
 import { TasksService } from './tasks.service';
 import { MilestonesService } from './milestones.service';
 import { ProjectAuthorizationService } from './project-authorization.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   Prisma,
@@ -59,9 +60,7 @@ describe('Tasks & Milestones Module', () => {
           if (args.where?.id === mockProjectId) {
             return Promise.resolve({
               founderId: mockFounderId,
-              members: [
-                { status: ProjectMemberStatus.ACTIVE },
-              ],
+              members: [{ status: ProjectMemberStatus.ACTIVE }],
             });
           }
           return Promise.resolve(null);
@@ -91,12 +90,20 @@ describe('Tasks & Milestones Module', () => {
         MilestonesService,
         ProjectAuthorizationService,
         { provide: PrismaService, useValue: prismaMock },
+        {
+          provide: NotificationsService,
+          useValue: {
+            createNotification: jest.fn().mockResolvedValue({}),
+          },
+        },
       ],
     }).compile();
 
     tasksService = module.get<TasksService>(TasksService);
     milestonesService = module.get<MilestonesService>(MilestonesService);
-    authzService = module.get<ProjectAuthorizationService>(ProjectAuthorizationService);
+    authzService = module.get<ProjectAuthorizationService>(
+      ProjectAuthorizationService,
+    );
   });
 
   // ==========================================
@@ -121,7 +128,10 @@ describe('Tasks & Milestones Module', () => {
 
       const result = await tasksService.createTask(
         mockProjectId,
-        { title: 'Initial player movement', description: 'Implement WASD controller' },
+        {
+          title: 'Initial player movement',
+          description: 'Implement WASD controller',
+        },
         mockFounderId,
       );
 
@@ -201,7 +211,11 @@ describe('Tasks & Milestones Module', () => {
         },
       ]);
 
-      const tasks = await tasksService.getTasks(mockProjectId, {}, mockMemberId);
+      const tasks = await tasksService.getTasks(
+        mockProjectId,
+        {},
+        mockMemberId,
+      );
       expect(tasks).toHaveLength(1);
       expect(tasks[0].taskCode).toBe('TASK-1');
     });
@@ -377,7 +391,11 @@ describe('Tasks & Milestones Module', () => {
       });
       prismaMock.task.delete.mockResolvedValueOnce({ id: 'task-1' });
 
-      const res = await tasksService.deleteTask(mockProjectId, 'task-1', mockFounderId);
+      const res = await tasksService.deleteTask(
+        mockProjectId,
+        'task-1',
+        mockFounderId,
+      );
       expect(res.success).toBe(true);
     });
 
@@ -466,7 +484,11 @@ describe('Tasks & Milestones Module', () => {
         updatedAt: new Date(),
       });
 
-      const ms = await milestonesService.getMilestone(mockProjectId, 'ms-1', mockMemberId);
+      const ms = await milestonesService.getMilestone(
+        mockProjectId,
+        'ms-1',
+        mockMemberId,
+      );
       expect(ms.progressPercentage).toBe(100);
       expect(ms.completedTasks).toBe(2);
     });
@@ -536,7 +558,10 @@ describe('Tasks & Milestones Module', () => {
   // ==========================================
   describe('Project Access Control Rules', () => {
     it('21. should permit Founder full management access', async () => {
-      const access = await authzService.assertCanManage(mockProjectId, mockFounderId);
+      const access = await authzService.assertCanManage(
+        mockProjectId,
+        mockFounderId,
+      );
       expect(access.isFounder).toBe(true);
     });
 
@@ -550,7 +575,10 @@ describe('Tasks & Milestones Module', () => {
     });
 
     it('23. should permit Active Member to view but not manage milestones', async () => {
-      const viewAccess = await authzService.assertCanView(mockProjectId, mockMemberId);
+      const viewAccess = await authzService.assertCanView(
+        mockProjectId,
+        mockMemberId,
+      );
       expect(viewAccess.isMember).toBe(true);
 
       await expect(

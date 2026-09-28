@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   UserCheck,
@@ -10,6 +10,7 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -20,6 +21,7 @@ import {
   respondToProjectApplication,
   type FounderApplicationDetail,
 } from '../services/projectApplicationService';
+import { useWorkspaceStore, dedupeRequest } from '../store/workspaceStore';
 
 interface FounderApplicationsSectionProps {
   projectId: string;
@@ -32,33 +34,60 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
   onApplicationProcessed,
   onMemberAdded,
 }) => {
-  const [applications, setApplications] = useState<FounderApplicationDetail[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const cachedApplications = useWorkspaceStore((state) => state.projects[projectId]?.applications);
+  const setCachedApplications = useWorkspaceStore((state) => state.setApplications);
+  const invalidateTeam = useWorkspaceStore((state) => state.invalidateTeam);
+  const invalidateRoles = useWorkspaceStore((state) => state.invalidateRoles);
+  const invalidateApplications = useWorkspaceStore((state) => state.invalidateApplications);
+
+  const [localApplications, setLocalApplications] = useState<FounderApplicationDetail[]>([]);
+  const [loading, setLoading] = useState<boolean>(!cachedApplications);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED'>('ALL');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const accessToken = useAuthStore((state) => state.accessToken);
-
-  const loadApplications = useCallback(async () => {
-    if (!accessToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchProjectApplications(accessToken, projectId);
-      setApplications(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load applications.');
-    } finally {
-      setLoading(false);
-    }
-  }, [accessToken, projectId]);
+  const applications = cachedApplications ?? localApplications;
 
   useEffect(() => {
-    loadApplications();
-  }, [loadApplications]);
+    if (!accessToken || cachedApplications) return;
+    let ignore = false;
+
+    dedupeRequest(`applications:${projectId}`, () => fetchProjectApplications(accessToken, projectId))
+      .then((data) => {
+        if (!ignore) {
+          setCachedApplications(projectId, data);
+          setLocalApplications(data);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Failed to load applications.';
+          setError(message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [accessToken, projectId, cachedApplications, setCachedApplications, refreshTrigger]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    invalidateApplications(projectId);
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   const handleRespond = async (applicationId: string, action: 'ACCEPT' | 'REJECT', applicantName: string) => {
     if (!accessToken) return;
@@ -76,13 +105,19 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
 
     try {
       await respondToProjectApplication(accessToken, applicationId, action);
-      await loadApplications();
+      invalidateApplications(projectId);
+      if (action === 'ACCEPT') {
+        invalidateTeam(projectId);
+        invalidateRoles(projectId);
+      }
+      setRefreshTrigger((prev) => prev + 1);
       onApplicationProcessed?.();
       if (action === 'ACCEPT') {
         onMemberAdded?.();
       }
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to respond to application.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to respond to application.';
+      setActionError(message);
     } finally {
       setProcessingId(null);
     }
@@ -116,22 +151,34 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
           </p>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex items-center gap-1.5 rounded-2xl border border-[#2b2a29] bg-[#141312] p-1.5 text-xs">
-          {(['ALL', 'PENDING', 'ACCEPTED', 'REJECTED'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setFilter(tab)}
-              className={`rounded-xl px-3 py-1.5 transition-colors ${
-                filter === tab
-                  ? 'bg-[#201f1e] font-bold text-[#ffffff] shadow-md border border-[#363433]'
-                  : 'text-[#8c887e] hover:text-[#e6e2df]'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        {/* Filter Tabs & Refresh */}
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+            icon={<RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />}
+            title="Refresh candidate applications"
+          >
+            Refresh
+          </Button>
+          <div className="flex items-center gap-1.5 rounded-2xl border border-[#2b2a29] bg-[#141312] p-1.5 text-xs">
+            {(['ALL', 'PENDING', 'ACCEPTED', 'REJECTED'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setFilter(tab)}
+                className={`rounded-xl px-3 py-1.5 transition-colors ${
+                  filter === tab
+                    ? 'bg-[#201f1e] font-bold text-[#ffffff] shadow-md border border-[#363433]'
+                    : 'text-[#8c887e] hover:text-[#e6e2df]'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -7,9 +7,17 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { ProjectApplicationsService } from './project-applications.service';
 import {
   CandidateApplicationDetailDto,
@@ -22,7 +30,9 @@ import {
 @ApiTags('Project Applications')
 @Controller()
 export class ProjectApplicationsController {
-  constructor(private readonly applicationsService: ProjectApplicationsService) {}
+  constructor(
+    private readonly applicationsService: ProjectApplicationsService,
+  ) {}
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Apply to an open project role' })
@@ -35,7 +45,13 @@ export class ProjectApplicationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateProjectApplicationDto,
   ): Promise<ProjectApplicationResponseDto> {
-    return this.applicationsService.applyToRole(projectId, roleId, user.id, user.role, dto);
+    return this.applicationsService.applyToRole(
+      projectId,
+      roleId,
+      user.id,
+      user.role,
+      dto,
+    );
   }
 
   @ApiBearerAuth()
@@ -62,7 +78,9 @@ export class ProjectApplicationsController {
   }
 
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get all applications for a project (Founder/Admin only)' })
+  @ApiOperation({
+    summary: 'Get all applications for a project (Founder/Admin only)',
+  })
   @ApiResponse({ status: 200, type: [FounderApplicationDetailDto] })
   @UseGuards(JwtAuthGuard)
   @Get('projects/:id/applications')
@@ -70,11 +88,17 @@ export class ProjectApplicationsController {
     @Param('id') projectId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<FounderApplicationDetailDto[]> {
-    return this.applicationsService.getProjectApplications(projectId, user.id, user.role);
+    return this.applicationsService.getProjectApplications(
+      projectId,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Accept or reject an application (Founder/Admin only)' })
+  @ApiOperation({
+    summary: 'Accept or reject an application (Founder/Admin only)',
+  })
   @ApiResponse({ status: 200, type: ProjectApplicationResponseDto })
   @UseGuards(JwtAuthGuard)
   @Patch('applications/:id/respond')
@@ -83,6 +107,11 @@ export class ProjectApplicationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: RespondProjectApplicationDto,
   ): Promise<ProjectApplicationResponseDto> {
-    return this.applicationsService.respondToApplication(id, user.id, user.role, dto);
+    return this.applicationsService.respondToApplication(
+      id,
+      user.id,
+      user.role,
+      dto,
+    );
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Mail,
@@ -23,33 +23,42 @@ import {
 import type { UserInvitationDetail, UserInvitationsResponse } from '../../projects/services/talentMatchingService';
 
 export const DashboardInvitationsSection: React.FC = () => {
+  const accessToken = useAuthStore((state) => state.accessToken);
   const [activeTab, setActiveTab] = useState<'pending' | 'received_history' | 'sent'>('pending');
   const [data, setData] = useState<UserInvitationsResponse | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(Boolean(accessToken));
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const accessToken = useAuthStore((state) => state.accessToken);
-
-  const loadInvitations = useCallback(async () => {
-    if (!accessToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetchUserInvitations(accessToken);
-      setData(res);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load invitations.');
-    } finally {
-      setLoading(false);
-    }
-  }, [accessToken]);
-
   useEffect(() => {
-    loadInvitations();
-  }, [loadInvitations]);
+    if (!accessToken) return;
+    let ignore = false;
+
+    fetchUserInvitations(accessToken)
+      .then((res) => {
+        if (!ignore) {
+          setData(res);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Failed to load invitations.';
+          setError(message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [accessToken]);
 
   const handleRespond = async (invitationId: string, action: 'ACCEPT' | 'REJECT', projectName: string) => {
     if (!accessToken) return;
@@ -74,8 +83,9 @@ export const DashboardInvitationsSection: React.FC = () => {
         const pendingCount = newReceived.filter((i) => i.status === 'PENDING').length;
         return { ...prev, received: newReceived, pendingCount };
       });
-    } catch (err: any) {
-      setActionError(err.message || `Failed to ${action.toLowerCase()} invitation.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : `Failed to ${action.toLowerCase()} invitation.`;
+      setActionError(msg);
     } finally {
       setProcessingId(null);
     }
@@ -99,8 +109,9 @@ export const DashboardInvitationsSection: React.FC = () => {
         );
         return { ...prev, sent: newSent };
       });
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to cancel invitation.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to cancel invitation.';
+      setActionError(msg);
     } finally {
       setProcessingId(null);
     }

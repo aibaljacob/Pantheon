@@ -193,7 +193,9 @@ export class ProfileService {
     const totalStart = performance.now();
 
     const sqlStart = performance.now();
-    const result = await this.prisma.$queryRaw<Array<{ data: RawProfileQueryResult }>>`
+    const result = await this.prisma.$queryRaw<
+      Array<{ data: RawProfileQueryResult }>
+    >`
       SELECT json_build_object(
         'user', json_build_object(
           'id', u."id",
@@ -348,13 +350,19 @@ export class ProfileService {
       data: {
         ...(dto.firstName !== undefined && { firstName: dto.firstName.trim() }),
         ...(dto.lastName !== undefined && { lastName: dto.lastName.trim() }),
-        ...(dto.displayName !== undefined && { displayName: dto.displayName.trim() }),
+        ...(dto.displayName !== undefined && {
+          displayName: dto.displayName.trim(),
+        }),
         ...(dto.headline !== undefined && { headline: dto.headline.trim() }),
         ...(dto.bio !== undefined && { bio: dto.bio.trim() }),
         ...(dto.location !== undefined && { location: dto.location.trim() }),
         ...(dto.timezone !== undefined && { timezone: dto.timezone.trim() }),
-        ...(dto.experienceYears !== undefined && { experienceYears: dto.experienceYears }),
-        ...(dto.availability !== undefined && { availability: dto.availability.trim() }),
+        ...(dto.experienceYears !== undefined && {
+          experienceYears: dto.experienceYears,
+        }),
+        ...(dto.availability !== undefined && {
+          availability: dto.availability.trim(),
+        }),
       },
     });
 
@@ -378,7 +386,9 @@ export class ProfileService {
     });
 
     const duration = performance.now() - start;
-    this.logger.debug(`[PERF][PROFILE] getOwnIdentity total: ${duration.toFixed(2)} ms`);
+    this.logger.debug(
+      `[PERF][PROFILE] getOwnIdentity total: ${duration.toFixed(2)} ms`,
+    );
 
     if (!profile || !profile.identity) {
       return {
@@ -411,7 +421,11 @@ export class ProfileService {
     const valStart = performance.now();
     await Promise.all([
       this.validateTaxonomyIds(roleIds, 'professionalRole', 'Role'),
-      this.validateTaxonomyIds(specializationIds, 'specialization', 'Specialization'),
+      this.validateTaxonomyIds(
+        specializationIds,
+        'specialization',
+        'Specialization',
+      ),
       this.validateTaxonomyIds(skillIds, 'skill', 'Skill'),
       this.validateTaxonomyIds(toolIds, 'tool', 'Tool'),
       this.validateTaxonomyIds(gameEngineIds, 'gameEngine', 'Game Engine'),
@@ -461,7 +475,9 @@ export class ProfileService {
       async (tx) => {
         if (dto.roleIds !== undefined) {
           const existingIds = new Set(identity.roles.map((r) => r.roleId));
-          const toDelete = Array.from(existingIds).filter((id) => !roleIds.includes(id));
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !roleIds.includes(id),
+          );
           const toCreate = roleIds.filter((id) => !existingIds.has(id));
 
           if (toDelete.length > 0) {
@@ -473,21 +489,33 @@ export class ProfileService {
           if (toCreate.length > 0) {
             hasChanges = true;
             await tx.userRole.createMany({
-              data: toCreate.map((roleId) => ({ profileId: identity.id, roleId })),
+              data: toCreate.map((roleId) => ({
+                profileId: identity.id,
+                roleId,
+              })),
               skipDuplicates: true,
             });
           }
         }
 
         if (dto.specializationIds !== undefined) {
-          const existingIds = new Set(identity.specializations.map((s) => s.specializationId));
-          const toDelete = Array.from(existingIds).filter((id) => !specializationIds.includes(id));
-          const toCreate = specializationIds.filter((id) => !existingIds.has(id));
+          const existingIds = new Set(
+            identity.specializations.map((s) => s.specializationId),
+          );
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !specializationIds.includes(id),
+          );
+          const toCreate = specializationIds.filter(
+            (id) => !existingIds.has(id),
+          );
 
           if (toDelete.length > 0) {
             hasChanges = true;
             await tx.userSpecialization.deleteMany({
-              where: { profileId: identity.id, specializationId: { in: toDelete } },
+              where: {
+                profileId: identity.id,
+                specializationId: { in: toDelete },
+              },
             });
           }
           if (toCreate.length > 0) {
@@ -504,7 +532,9 @@ export class ProfileService {
 
         if (dto.skillIds !== undefined) {
           const existingIds = new Set(identity.skills.map((s) => s.skillId));
-          const toDelete = Array.from(existingIds).filter((id) => !skillIds.includes(id));
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !skillIds.includes(id),
+          );
           const toCreate = skillIds.filter((id) => !existingIds.has(id));
 
           if (toDelete.length > 0) {
@@ -516,7 +546,10 @@ export class ProfileService {
           if (toCreate.length > 0) {
             hasChanges = true;
             await tx.userSkill.createMany({
-              data: toCreate.map((skillId) => ({ profileId: identity.id, skillId })),
+              data: toCreate.map((skillId) => ({
+                profileId: identity.id,
+                skillId,
+              })),
               skipDuplicates: true,
             });
           }
@@ -524,7 +557,9 @@ export class ProfileService {
 
         if (dto.toolIds !== undefined) {
           const existingIds = new Set(identity.tools.map((t) => t.toolId));
-          const toDelete = Array.from(existingIds).filter((id) => !toolIds.includes(id));
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !toolIds.includes(id),
+          );
           const toCreate = toolIds.filter((id) => !existingIds.has(id));
 
           if (toDelete.length > 0) {
@@ -536,15 +571,22 @@ export class ProfileService {
           if (toCreate.length > 0) {
             hasChanges = true;
             await tx.userTool.createMany({
-              data: toCreate.map((toolId) => ({ profileId: identity.id, toolId })),
+              data: toCreate.map((toolId) => ({
+                profileId: identity.id,
+                toolId,
+              })),
               skipDuplicates: true,
             });
           }
         }
 
         if (dto.gameEngineIds !== undefined) {
-          const existingIds = new Set(identity.gameEngines.map((e) => e.engineId));
-          const toDelete = Array.from(existingIds).filter((id) => !gameEngineIds.includes(id));
+          const existingIds = new Set(
+            identity.gameEngines.map((e) => e.engineId),
+          );
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !gameEngineIds.includes(id),
+          );
           const toCreate = gameEngineIds.filter((id) => !existingIds.has(id));
 
           if (toDelete.length > 0) {
@@ -556,7 +598,10 @@ export class ProfileService {
           if (toCreate.length > 0) {
             hasChanges = true;
             await tx.userGameEngine.createMany({
-              data: toCreate.map((engineId) => ({ profileId: identity.id, engineId })),
+              data: toCreate.map((engineId) => ({
+                profileId: identity.id,
+                engineId,
+              })),
               skipDuplicates: true,
             });
           }
@@ -564,7 +609,9 @@ export class ProfileService {
 
         if (dto.genreIds !== undefined) {
           const existingIds = new Set(identity.genres.map((g) => g.genreId));
-          const toDelete = Array.from(existingIds).filter((id) => !genreIds.includes(id));
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !genreIds.includes(id),
+          );
           const toCreate = genreIds.filter((id) => !existingIds.has(id));
 
           if (toDelete.length > 0) {
@@ -576,15 +623,22 @@ export class ProfileService {
           if (toCreate.length > 0) {
             hasChanges = true;
             await tx.userGenre.createMany({
-              data: toCreate.map((genreId) => ({ profileId: identity.id, genreId })),
+              data: toCreate.map((genreId) => ({
+                profileId: identity.id,
+                genreId,
+              })),
               skipDuplicates: true,
             });
           }
         }
 
         if (dto.platformIds !== undefined) {
-          const existingIds = new Set(identity.platforms.map((p) => p.platformId));
-          const toDelete = Array.from(existingIds).filter((id) => !platformIds.includes(id));
+          const existingIds = new Set(
+            identity.platforms.map((p) => p.platformId),
+          );
+          const toDelete = Array.from(existingIds).filter(
+            (id) => !platformIds.includes(id),
+          );
           const toCreate = platformIds.filter((id) => !existingIds.has(id));
 
           if (toDelete.length > 0) {
@@ -596,7 +650,10 @@ export class ProfileService {
           if (toCreate.length > 0) {
             hasChanges = true;
             await tx.userPlatform.createMany({
-              data: toCreate.map((platformId) => ({ profileId: identity.id, platformId })),
+              data: toCreate.map((platformId) => ({
+                profileId: identity.id,
+                platformId,
+              })),
               skipDuplicates: true,
             });
           }
@@ -618,13 +675,21 @@ export class ProfileService {
     const refetchDuration = performance.now() - refetchStart;
 
     const totalDuration = performance.now() - totalStart;
-    this.logger.debug(`[PERF][PROFILE] updateIdentity validation: ${valDuration.toFixed(2)} ms`);
-    this.logger.debug(`[PERF][PROFILE] updateIdentity lookup: ${lookDuration.toFixed(2)} ms`);
+    this.logger.debug(
+      `[PERF][PROFILE] updateIdentity validation: ${valDuration.toFixed(2)} ms`,
+    );
+    this.logger.debug(
+      `[PERF][PROFILE] updateIdentity lookup: ${lookDuration.toFixed(2)} ms`,
+    );
     this.logger.debug(
       `[PERF][PROFILE] updateIdentity transaction: ${txDuration.toFixed(2)} ms (hasChanges=${hasChanges})`,
     );
-    this.logger.debug(`[PERF][PROFILE] updateIdentity refetch: ${refetchDuration.toFixed(2)} ms`);
-    this.logger.debug(`[PERF][PROFILE] updateIdentity total: ${totalDuration.toFixed(2)} ms`);
+    this.logger.debug(
+      `[PERF][PROFILE] updateIdentity refetch: ${refetchDuration.toFixed(2)} ms`,
+    );
+    this.logger.debug(
+      `[PERF][PROFILE] updateIdentity total: ${totalDuration.toFixed(2)} ms`,
+    );
 
     return this.formatFormattedIdentity(updated);
   }
@@ -811,7 +876,11 @@ export class ProfileService {
     });
   }
 
-  async updateExperience(userId: string, experienceId: string, dto: UpdateExperienceDto) {
+  async updateExperience(
+    userId: string,
+    experienceId: string,
+    dto: UpdateExperienceDto,
+  ) {
     const profile = await this.ensureProfileExists(userId);
 
     const existing = await this.prisma.userExperience.findFirst({
@@ -819,7 +888,9 @@ export class ProfileService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Experience record not found or not owned by user.');
+      throw new NotFoundException(
+        'Experience record not found or not owned by user.',
+      );
     }
 
     return this.prisma.userExperience.update({
@@ -827,13 +898,18 @@ export class ProfileService {
       data: {
         ...(dto.position && { position: dto.position.trim() }),
         ...(dto.company && { company: dto.company.trim() }),
-        ...(dto.location !== undefined && { location: dto.location?.trim() || null }),
+        ...(dto.location !== undefined && {
+          location: dto.location?.trim() || null,
+        }),
         ...(dto.startDate && { startDate: dto.startDate.trim() }),
         ...(dto.isCurrent !== undefined && {
           isCurrent: dto.isCurrent,
-          endDate: dto.isCurrent ? null : dto.endDate?.trim() || existing.endDate,
+          endDate: dto.isCurrent
+            ? null
+            : dto.endDate?.trim() || existing.endDate,
         }),
-        ...(dto.endDate !== undefined && !dto.isCurrent && { endDate: dto.endDate?.trim() || null }),
+        ...(dto.endDate !== undefined &&
+          !dto.isCurrent && { endDate: dto.endDate?.trim() || null }),
         ...(dto.description && { description: dto.description.trim() }),
         ...(dto.technologies && { technologies: dto.technologies }),
       },
@@ -848,7 +924,9 @@ export class ProfileService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Experience record not found or not owned by user.');
+      throw new NotFoundException(
+        'Experience record not found or not owned by user.',
+      );
     }
 
     await this.prisma.userExperience.delete({ where: { id: experienceId } });
@@ -882,7 +960,11 @@ export class ProfileService {
     });
   }
 
-  async updateEducation(userId: string, educationId: string, dto: UpdateEducationDto) {
+  async updateEducation(
+    userId: string,
+    educationId: string,
+    dto: UpdateEducationDto,
+  ) {
     const profile = await this.ensureProfileExists(userId);
 
     const existing = await this.prisma.userEducation.findFirst({
@@ -890,7 +972,9 @@ export class ProfileService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Education record not found or not owned by user.');
+      throw new NotFoundException(
+        'Education record not found or not owned by user.',
+      );
     }
 
     return this.prisma.userEducation.update({
@@ -899,8 +983,12 @@ export class ProfileService {
         ...(dto.institution && { institution: dto.institution.trim() }),
         ...(dto.degree && { degree: dto.degree.trim() }),
         ...(dto.startDate && { startDate: dto.startDate.trim() }),
-        ...(dto.endDate !== undefined && { endDate: dto.endDate?.trim() || null }),
-        ...(dto.description !== undefined && { description: dto.description?.trim() || null }),
+        ...(dto.endDate !== undefined && {
+          endDate: dto.endDate?.trim() || null,
+        }),
+        ...(dto.description !== undefined && {
+          description: dto.description?.trim() || null,
+        }),
       },
     });
   }
@@ -913,7 +1001,9 @@ export class ProfileService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Education record not found or not owned by user.');
+      throw new NotFoundException(
+        'Education record not found or not owned by user.',
+      );
     }
 
     await this.prisma.userEducation.delete({ where: { id: educationId } });
@@ -953,7 +1043,11 @@ export class ProfileService {
     });
   }
 
-  async updatePortfolioItem(userId: string, itemId: string, dto: UpdatePortfolioItemDto) {
+  async updatePortfolioItem(
+    userId: string,
+    itemId: string,
+    dto: UpdatePortfolioItemDto,
+  ) {
     const profile = await this.ensureProfileExists(userId);
 
     const existing = await this.prisma.userPortfolioItem.findFirst({
@@ -961,14 +1055,18 @@ export class ProfileService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Portfolio item not found or not owned by user.');
+      throw new NotFoundException(
+        'Portfolio item not found or not owned by user.',
+      );
     }
 
     return this.prisma.userPortfolioItem.update({
       where: { id: itemId },
       data: {
         ...(dto.title && { title: dto.title.trim() }),
-        ...(dto.coverUrl !== undefined && { coverUrl: dto.coverUrl?.trim() || null }),
+        ...(dto.coverUrl !== undefined && {
+          coverUrl: dto.coverUrl?.trim() || null,
+        }),
         ...(dto.description && { description: dto.description.trim() }),
         ...(dto.role && { role: dto.role.trim() }),
         ...(dto.technologies && { technologies: dto.technologies }),
@@ -977,7 +1075,9 @@ export class ProfileService {
         ...(dto.genre && { genre: dto.genre.trim() }),
         ...(dto.platform && { platform: dto.platform.trim() }),
         ...(dto.status && { status: dto.status.trim() }),
-        ...(dto.projectUrl !== undefined && { projectUrl: dto.projectUrl?.trim() || null }),
+        ...(dto.projectUrl !== undefined && {
+          projectUrl: dto.projectUrl?.trim() || null,
+        }),
       },
     });
   }
@@ -990,7 +1090,9 @@ export class ProfileService {
     });
 
     if (!existing) {
-      throw new NotFoundException('Portfolio item not found or not owned by user.');
+      throw new NotFoundException(
+        'Portfolio item not found or not owned by user.',
+      );
     }
 
     await this.prisma.userPortfolioItem.delete({ where: { id: itemId } });
@@ -1229,7 +1331,9 @@ export class ProfileService {
     let score = 0;
 
     // 1. Basic Details (50 points)
-    const hasName = Boolean(profile.displayName || (profile.firstName && profile.lastName));
+    const hasName = Boolean(
+      profile.displayName || (profile.firstName && profile.lastName),
+    );
     if (hasName) score += 10;
     if (profile.headline && profile.headline.trim().length > 0) score += 10;
     if (profile.bio && profile.bio.trim().length > 0) score += 10;
@@ -1243,14 +1347,16 @@ export class ProfileService {
     const hasSkills = Boolean(identity?.skills && identity.skills.length > 0);
     const hasEnginesOrTools = Boolean(
       (identity?.gameEngines && identity.gameEngines.length > 0) ||
-      (identity?.tools && identity.tools.length > 0)
+      (identity?.tools && identity.tools.length > 0),
     );
     if (hasRoles) score += 5;
     if (hasSkills) score += 5;
     if (hasEnginesOrTools) score += 5;
 
     // 3. Work Experience / Education (15 points)
-    const hasExp = Boolean(profile.experiences && profile.experiences.length > 0);
+    const hasExp = Boolean(
+      profile.experiences && profile.experiences.length > 0,
+    );
     const hasEdu = Boolean(profile.education && profile.education.length > 0);
     if (hasExp || hasEdu) score += 15;
 

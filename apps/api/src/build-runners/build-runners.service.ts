@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterRunnerDto } from './dto/register-runner.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
@@ -40,7 +46,7 @@ export class BuildRunnersService {
     const runner = await this.prisma.buildRunner.findUnique({
       where: { id: runnerId },
     });
-    
+
     if (!runner) return false;
     return bcrypt.compare(token, runner.tokenHash);
   }
@@ -69,7 +75,7 @@ export class BuildRunnersService {
     // 2. Find oldest QUEUED job for this platform
     // In PostgreSQL we can use a transaction or simply rely on Prisma's atomic update if possible.
     // For simplicity, we find one first, then try to update it.
-    
+
     // To prevent race conditions, we can do an updateMany where status is QUEUED
     // But updateMany doesn't support returning the updated row in a clean way without taking the whole list.
     // Since this is a prototype, we'll do findFirst then update, handling potential concurrency with a small risk.
@@ -81,7 +87,7 @@ export class BuildRunnersService {
       orderBy: { createdAt: 'asc' },
       include: {
         project: true,
-      }
+      },
     });
 
     if (!job) {
@@ -91,7 +97,7 @@ export class BuildRunnersService {
     // Try to claim it
     try {
       const updatedJob = await this.prisma.buildJob.update({
-        where: { 
+        where: {
           id: job.id,
         },
         data: {
@@ -101,7 +107,7 @@ export class BuildRunnersService {
         },
         include: {
           project: true,
-        }
+        },
       });
       return { job: updatedJob };
     } catch (error) {
@@ -117,7 +123,8 @@ export class BuildRunnersService {
     });
 
     if (!job) throw new NotFoundException('Job not found');
-    if (job.buildRunnerId !== runnerId) throw new UnauthorizedException('Job belongs to another runner');
+    if (job.buildRunnerId !== runnerId)
+      throw new UnauthorizedException('Job belongs to another runner');
 
     const updateData: any = {
       status: dto.status,
@@ -130,7 +137,11 @@ export class BuildRunnersService {
       updateData.errorMessage = dto.errorMessage;
     }
 
-    if (dto.status === BuildStatus.SUCCESS || dto.status === BuildStatus.FAILED || dto.status === BuildStatus.CANCELLED) {
+    if (
+      dto.status === BuildStatus.SUCCESS ||
+      dto.status === BuildStatus.FAILED ||
+      dto.status === BuildStatus.CANCELLED
+    ) {
       if (!job.completedAt) {
         updateData.completedAt = new Date();
       }
@@ -142,7 +153,12 @@ export class BuildRunnersService {
     });
   }
 
-  async saveArtifactAsPlayableBuild(jobId: string, filePath: string, fileSize: number, fileChecksum?: string) {
+  async saveArtifactAsPlayableBuild(
+    jobId: string,
+    filePath: string,
+    fileSize: number,
+    fileChecksum?: string,
+  ) {
     const job = await this.prisma.buildJob.findUnique({
       where: { id: jobId },
       include: { project: true },
@@ -150,10 +166,10 @@ export class BuildRunnersService {
 
     if (!job) throw new NotFoundException('Job not found');
 
-    const version = job.commitHash 
-      ? `git-${job.commitHash.substring(0, 7)}` 
+    const version = job.commitHash
+      ? `git-${job.commitHash.substring(0, 7)}`
       : `build-${jobId.substring(0, 8)}`;
-      
+
     return this.prisma.playableBuild.create({
       data: {
         projectId: job.projectId,
@@ -170,4 +186,3 @@ export class BuildRunnersService {
     });
   }
 }
-

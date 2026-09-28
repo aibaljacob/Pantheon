@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Bell, MessageSquare, Search, ChevronDown, Menu, LogOut, UserRound, Settings } from 'lucide-react';
+import { ChevronDown, Menu, LogOut, UserRound, Settings } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { DashboardUser } from '../types';
 import { useAuthStore } from '../../auth/store/authStore';
 import { UserAvatar } from '../../auth/components/UserAvatar';
 import { ThemeSwitcher } from '../../theme/ThemeSwitcher';
+import { GlobalSearch } from './GlobalSearch';
+import { NotificationsDropdown } from './NotificationsDropdown';
 
 interface DashboardHeaderProps {
   user: DashboardUser;
@@ -25,15 +27,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({ user, onOpenSi
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="relative hidden flex-1 items-center lg:flex">
-          <Search className="pointer-events-none absolute left-4 h-4 w-4 text-pantheon-dim" />
-          <input type="search" aria-label="Global search" placeholder="Search projects, tasks, people, assets..." className="h-12 w-full rounded-2xl border border-pantheon-border bg-pantheon-low pl-11 pr-28 text-sm text-pantheon-ivory placeholder:text-pantheon-dim focus:border-pantheon-border-light focus:outline-none focus:ring-2 focus:ring-pantheon-border/40" />
-          <span className="pointer-events-none absolute right-4 rounded-full border border-pantheon-border bg-pantheon-bg px-2 py-1 text-[10px] font-mono uppercase tracking-wider text-pantheon-dim">Cmd+K</span>
-        </div>
+        <GlobalSearch />
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <button type="button" aria-label="Notifications" className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-pantheon-border bg-pantheon-low text-pantheon-ivory transition-colors hover:border-pantheon-border-light"><Bell className="h-4 w-4" />{user.unreadNotifications ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border border-pantheon-bg bg-pantheon-ivory" /> : null}</button>
-          <button type="button" aria-label="Messages" className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-pantheon-border bg-pantheon-low text-pantheon-ivory transition-colors hover:border-pantheon-border-light"><MessageSquare className="h-4 w-4" />{user.unreadMessages ? <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full border border-pantheon-bg bg-pantheon-muted" /> : null}</button>
+          <NotificationsDropdown />
           <ThemeSwitcher variant="compact" />
 
           <div className="relative">

@@ -1,4 +1,11 @@
-import { IsBoolean, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class AdminDashboardMetricsDto {
@@ -223,7 +230,11 @@ export class ToggleTaxonomyActiveDto {
 
 export class AdminActivityItemDto {
   id: string;
-  type: 'USER_REGISTERED' | 'PROJECT_CREATED' | 'MEMBER_JOINED' | 'TAXONOMY_UPDATED';
+  type:
+    | 'USER_REGISTERED'
+    | 'PROJECT_CREATED'
+    | 'MEMBER_JOINED'
+    | 'TAXONOMY_UPDATED';
   title: string;
   description: string;
   timestamp: string;

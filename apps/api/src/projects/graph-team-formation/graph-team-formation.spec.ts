@@ -50,8 +50,18 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
     });
 
     it('should add bidirectional edges by default and compute out-degree weights', () => {
-      graph.addNode({ id: 'cand:u1', rawId: 'u1', type: 'CANDIDATE', label: 'Alice' });
-      graph.addNode({ id: 'skill:s1', rawId: 's1', type: 'SKILL', label: 'C#' });
+      graph.addNode({
+        id: 'cand:u1',
+        rawId: 'u1',
+        type: 'CANDIDATE',
+        label: 'Alice',
+      });
+      graph.addNode({
+        id: 'skill:s1',
+        rawId: 's1',
+        type: 'SKILL',
+        label: 'C#',
+      });
 
       graph.addEdge({
         source: 'cand:u1',
@@ -76,7 +86,12 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
     });
 
     it('should prevent adding edges between non-existent nodes', () => {
-      graph.addNode({ id: 'cand:u1', rawId: 'u1', type: 'CANDIDATE', label: 'Alice' });
+      graph.addNode({
+        id: 'cand:u1',
+        rawId: 'u1',
+        type: 'CANDIDATE',
+        label: 'Alice',
+      });
 
       expect(() => {
         graph.addEdge({
@@ -144,7 +159,11 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
         ['skill_b', setB],
       ]);
 
-      const cooccurrences = CooccurrenceService.computeJaccardFromIndex(indexMap, 3, 0.15);
+      const cooccurrences = CooccurrenceService.computeJaccardFromIndex(
+        indexMap,
+        3,
+        0.15,
+      );
       expect(cooccurrences.length).toBe(0);
     });
   });
@@ -169,12 +188,22 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
               experienceLevel: 'SENIOR',
               commitment: 'FULL_TIME',
               status: 'OPEN',
-              role: { id: 'tax-role-gameplay-prog', name: 'Gameplay Programmer' },
+              role: {
+                id: 'tax-role-gameplay-prog',
+                name: 'Gameplay Programmer',
+              },
               requiredSkills: [
                 { skill: { id: 'skill-cpp', name: 'C++' } },
-                { skill: { id: 'skill-gameplay', name: 'Gameplay Architecture' } },
+                {
+                  skill: {
+                    id: 'skill-gameplay',
+                    name: 'Gameplay Architecture',
+                  },
+                },
               ],
-              requiredTools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine 5' } }],
+              requiredTools: [
+                { tool: { id: 'tool-unreal', name: 'Unreal Engine 5' } },
+              ],
             },
           ],
         },
@@ -189,13 +218,24 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
               experienceYears: 7,
               availability: 'Full-time collaboration',
               identity: {
-                roles: [{ role: { id: 'tax-role-gameplay-prog', name: 'Gameplay Programmer' } }],
+                roles: [
+                  {
+                    role: {
+                      id: 'tax-role-gameplay-prog',
+                      name: 'Gameplay Programmer',
+                    },
+                  },
+                ],
                 skills: [
                   { skill: { id: 'skill-cpp', name: 'C++' } },
                   { skill: { id: 'skill-hlsl', name: 'HLSL Shaders' } },
                 ],
-                tools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine 5' } }],
-                gameEngines: [{ engine: { id: 'engine-unreal', name: 'Unreal Engine' } }],
+                tools: [
+                  { tool: { id: 'tool-unreal', name: 'Unreal Engine 5' } },
+                ],
+                gameEngines: [
+                  { engine: { id: 'engine-unreal', name: 'Unreal Engine' } },
+                ],
                 genres: [{ genre: { id: 'genre-rpg', name: 'RPG' } }],
                 platforms: [{ platform: { id: 'plat-pc', name: 'PC' } }],
               },
@@ -219,8 +259,12 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
               lastName: 'Ross',
               experienceYears: 4,
               identity: {
-                roles: [{ role: { id: 'tax-role-3d-artist', name: '3D Artist' } }],
-                skills: [{ skill: { id: 'skill-3d-modeling', name: '3D Modeling' } }],
+                roles: [
+                  { role: { id: 'tax-role-3d-artist', name: '3D Artist' } },
+                ],
+                skills: [
+                  { skill: { id: 'skill-3d-modeling', name: '3D Modeling' } },
+                ],
                 tools: [{ tool: { id: 'tool-blender', name: 'Blender' } }],
                 gameEngines: [],
                 genres: [],
@@ -256,10 +300,28 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
 
       // 2. Verify Explicit Edge Types
       const roleOut = graph.getOutEdges('role:role-01');
-      expect(roleOut.some((e) => e.type === 'REQUIRES_ROLE' && e.target === 'proj:proj-100')).toBe(true);
-      expect(roleOut.some((e) => e.type === 'ROLE_TAXONOMY' && e.target === 'tax_role:tax-role-gameplay-prog')).toBe(true);
-      expect(roleOut.some((e) => e.type === 'REQUIRES_SKILL' && e.target === 'skill:skill-cpp')).toBe(true);
-      expect(roleOut.some((e) => e.type === 'REQUIRES_TOOL' && e.target === 'tool:tool-unreal')).toBe(true);
+      expect(
+        roleOut.some(
+          (e) => e.type === 'REQUIRES_ROLE' && e.target === 'proj:proj-100',
+        ),
+      ).toBe(true);
+      expect(
+        roleOut.some(
+          (e) =>
+            e.type === 'ROLE_TAXONOMY' &&
+            e.target === 'tax_role:tax-role-gameplay-prog',
+        ),
+      ).toBe(true);
+      expect(
+        roleOut.some(
+          (e) => e.type === 'REQUIRES_SKILL' && e.target === 'skill:skill-cpp',
+        ),
+      ).toBe(true);
+      expect(
+        roleOut.some(
+          (e) => e.type === 'REQUIRES_TOOL' && e.target === 'tool:tool-unreal',
+        ),
+      ).toBe(true);
 
       // 3. Verify Candidate Skills with Depth Weighting
       // Alice has C++ mentioned in 2 portfolio items: weight = 1.0 + 0.1 * 2 = 1.2
@@ -277,16 +339,23 @@ describe('Graph Team Formation - Phase 1 (HIN Graph & Builder)', () => {
 
       // 5. Verify Skill Co-occurrence Edge
       const cppOut = graph.getOutEdges('skill:skill-cpp');
-      const cooccurEdge = cppOut.find((e) => e.target === 'skill:skill-gameplay');
+      const cooccurEdge = cppOut.find(
+        (e) => e.target === 'skill:skill-gameplay',
+      );
       expect(cooccurEdge).toBeDefined();
       expect(cooccurEdge?.type).toBe('SKILL_COOCCURRENCE');
       expect(cooccurEdge?.weight).toBeCloseTo(0.45);
 
       // 6. Verify 2-hop path connectivity: Role -> Skill -> Candidate
-      const reqSkills = graph.getOutEdgesByType('role:role-01', 'REQUIRES_SKILL');
+      const reqSkills = graph.getOutEdgesByType(
+        'role:role-01',
+        'REQUIRES_SKILL',
+      );
       const targetSkill = reqSkills[0].target; // 'skill:skill-cpp'
       const skillNeighbors = graph.getAdjacentNodes(targetSkill);
-      const connectedCandidate = skillNeighbors.find((n) => n.node.type === 'CANDIDATE' && n.node.id === 'cand:cand-alice');
+      const connectedCandidate = skillNeighbors.find(
+        (n) => n.node.type === 'CANDIDATE' && n.node.id === 'cand:cand-alice',
+      );
       expect(connectedCandidate).toBeDefined();
     });
   });

@@ -17,7 +17,9 @@ export class AdminAuthGuard implements CanActivate {
     }
 
     if (user.role !== 'ADMINISTRATOR') {
-      throw new ForbiddenException('Access denied. Administrator privileges required.');
+      throw new ForbiddenException(
+        'Access denied. Administrator privileges required.',
+      );
     }
 
     return true;

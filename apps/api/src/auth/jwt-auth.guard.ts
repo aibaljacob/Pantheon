@@ -20,7 +20,9 @@ export class JwtAuthGuard implements CanActivate {
 
     const [scheme, token] = authorization.split(' ');
     if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Invalid authorization format. Bearer token required.');
+      throw new UnauthorizedException(
+        'Invalid authorization format. Bearer token required.',
+      );
     }
 
     try {
@@ -32,7 +34,9 @@ export class JwtAuthGuard implements CanActivate {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      throw new UnauthorizedException('Invalid or expired authentication session.');
+      throw new UnauthorizedException(
+        'Invalid or expired authentication session.',
+      );
     }
   }
 }

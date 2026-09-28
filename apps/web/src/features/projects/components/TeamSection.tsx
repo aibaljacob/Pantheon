@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, History, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../../auth/store/authStore';
 import { fetchProjectTeam } from '../services/projectService';
+import { useWorkspaceStore, dedupeRequest } from '../store/workspaceStore';
 import type { ProjectActiveTeamMember, ProjectFormerTeamMember, ProjectRoleItem } from '../types';
 import { ActiveMemberCard } from './ActiveMemberCard';
 import { FormerMemberCard } from './FormerMemberCard';
@@ -27,35 +28,65 @@ export const TeamSection: React.FC<TeamSectionProps> = ({
   const currentUser = useAuthStore((state) => state.currentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
 
-  const [activeMembers, setActiveMembers] = useState<ProjectActiveTeamMember[]>([]);
-  const [formerMembers, setFormerMembers] = useState<ProjectFormerTeamMember[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const cachedTeam = useWorkspaceStore((state) => state.projects[projectId]?.team);
+  const setTeamStore = useWorkspaceStore((state) => state.setTeam);
+  const invalidateTeam = useWorkspaceStore((state) => state.invalidateTeam);
+
+  const [localActive, setLocalActive] = useState<ProjectActiveTeamMember[]>([]);
+  const [localFormer, setLocalFormer] = useState<ProjectFormerTeamMember[]>([]);
+  const [isFetching, setIsFetching] = useState<boolean>(!cachedTeam);
   const [error, setError] = useState<string | null>(null);
+
+  const activeMembers = cachedTeam?.activeMembers ?? localActive;
+  const formerMembers = cachedTeam?.formerMembers ?? localFormer;
+  const isLoading = !cachedTeam && isFetching;
 
   const [reassigningMember, setReassigningMember] = useState<ProjectActiveTeamMember | null>(null);
   const [removingMember, setRemovingMember] = useState<ProjectActiveTeamMember | null>(null);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-
-  const loadTeam = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchProjectTeam(projectId, accessToken);
-      setActiveMembers(data.activeMembers);
-      setFormerMembers(data.formerMembers);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load team members.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    loadTeam();
-  }, [projectId, accessToken]);
+    if (cachedTeam && refreshTrigger === 0) {
+      return;
+    }
+
+    let ignore = false;
+
+    dedupeRequest(`${projectId}:team`, () => fetchProjectTeam(projectId, accessToken))
+      .then((data) => {
+        if (!ignore) {
+          setLocalActive(data.activeMembers);
+          setLocalFormer(data.formerMembers);
+          setTeamStore(projectId, data);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Failed to load team members.';
+          setError(message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsFetching(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId, accessToken, refreshTrigger, cachedTeam, setTeamStore]);
+
+  const handleRefresh = () => {
+    setIsFetching(true);
+    invalidateTeam(projectId);
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   const handleActionSuccess = () => {
-    loadTeam();
+    handleRefresh();
     onTeamUpdated?.();
   };
 
@@ -85,7 +116,7 @@ export const TeamSection: React.FC<TeamSectionProps> = ({
             </span>
           )}
           <button
-            onClick={loadTeam}
+            onClick={handleRefresh}
             disabled={isLoading}
             className="rounded-xl border border-[#363433] bg-[#201f1e] p-2 text-[#8c887e] hover:text-[#ffffff] hover:border-[#48473f] transition-colors"
             title="Refresh team roster"

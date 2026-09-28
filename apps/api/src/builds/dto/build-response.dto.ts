@@ -86,7 +86,9 @@ export class BuildJobResponseDto {
   @ApiPropertyOptional()
   completedAt?: string | null;
 
-  @ApiPropertyOptional({ description: 'Duration in seconds if started and completed' })
+  @ApiPropertyOptional({
+    description: 'Duration in seconds if started and completed',
+  })
   durationSeconds?: number | null;
 
   @ApiProperty()

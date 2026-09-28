@@ -7,11 +7,15 @@ export class CommitFileDto {
   @IsNotEmpty()
   path: string;
 
-  @ApiProperty({ example: '// GameState implementation\n#include "GameState.h"' })
+  @ApiProperty({
+    example: '// GameState implementation\n#include "GameState.h"',
+  })
   @IsString()
   content: string;
 
-  @ApiProperty({ example: 'feat(core): implement match timer and win condition logic' })
+  @ApiProperty({
+    example: 'feat(core): implement match timer and win condition logic',
+  })
   @IsString()
   @IsNotEmpty()
   commitMessage: string;
@@ -52,12 +56,17 @@ export class CreateBranchDto {
 }
 
 export class CreatePullRequestDto {
-  @ApiProperty({ example: 'feat: Atmospheric Post-Processing & Lighting Polish' })
+  @ApiProperty({
+    example: 'feat: Atmospheric Post-Processing & Lighting Polish',
+  })
   @IsString()
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: 'Implements Volumetric Fog, ACES Tonemapping, and Lumen reflection overrides.' })
+  @ApiProperty({
+    example:
+      'Implements Volumetric Fog, ACES Tonemapping, and Lumen reflection overrides.',
+  })
   @IsString()
   @IsNotEmpty()
   description: string;
@@ -84,7 +93,10 @@ export class CreateReleaseDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: 'Includes core combat abilities, AI enemy waves, and initial map blockout.' })
+  @ApiProperty({
+    example:
+      'Includes core combat abilities, AI enemy waves, and initial map blockout.',
+  })
   @IsString()
   @IsNotEmpty()
   description: string;

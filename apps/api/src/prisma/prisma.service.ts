@@ -1,4 +1,9 @@
-import { Injectable, OnModuleDestroy, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleDestroy,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
@@ -17,7 +22,9 @@ export class PrismaService
         return;
       } catch (err: any) {
         if (attempt === retries) {
-          this.logger.error(`Failed to connect to Database after ${retries} attempts.`);
+          this.logger.error(
+            `Failed to connect to Database after ${retries} attempts.`,
+          );
           throw err;
         }
         this.logger.warn(

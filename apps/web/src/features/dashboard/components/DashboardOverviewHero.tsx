@@ -62,7 +62,7 @@ export const DashboardOverviewHero: React.FC<DashboardOverviewHeroProps> = ({ us
             </h1>
 
             <p className="text-sm leading-relaxed text-[#cac6bc] font-sans">
-              Manage your game development identity, review profile completeness, and access studio workspace settings.
+              Manage your game development identity, track production milestones, and review studio collaborations.
             </p>
 
             <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-[#8c887e] pt-1">
@@ -70,11 +70,6 @@ export const DashboardOverviewHero: React.FC<DashboardOverviewHeroProps> = ({ us
                 <User className="h-3.5 w-3.5 text-[#e6e2df]" />
                 @{user.username}
               </span>
-              <span>·</span>
-              {/* <span className="flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                Auth Provider: {user.provider || 'LOCAL'}
-              </span> */}
             </div>
           </div>
 

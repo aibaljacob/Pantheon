@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  OnModuleInit,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -46,7 +51,12 @@ export class ProfileStorageService implements OnModuleInit {
     return this.writeUniqueFile(file, 'portfolio');
   }
 
-  async saveResume(file: UploadedFileFile): Promise<{ downloadUrl: string; fileName: string; fileSize: string; fileType: string }> {
+  async saveResume(file: UploadedFileFile): Promise<{
+    downloadUrl: string;
+    fileName: string;
+    fileSize: string;
+    fileType: string;
+  }> {
     const allowedMimeTypes = [
       'application/pdf',
       'application/msword',
@@ -59,7 +69,8 @@ export class ProfileStorageService implements OnModuleInit {
 
     const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);
     const fileSizeStr = `${sizeInMb} MB`;
-    const fileTypeStr = file.mimetype === 'application/pdf' ? 'PDF Document' : 'Word Document';
+    const fileTypeStr =
+      file.mimetype === 'application/pdf' ? 'PDF Document' : 'Word Document';
 
     return {
       downloadUrl,
@@ -104,7 +115,9 @@ export class ProfileStorageService implements OnModuleInit {
 
     if (file.size > maxSize) {
       const mb = maxSize / (1024 * 1024);
-      throw new BadRequestException(`${label} file size must not exceed ${mb} MB.`);
+      throw new BadRequestException(
+        `${label} file size must not exceed ${mb} MB.`,
+      );
     }
 
     if (!allowedMimes.includes(file.mimetype)) {
@@ -118,7 +131,9 @@ export class ProfileStorageService implements OnModuleInit {
     file: UploadedFileFile,
     folder: 'avatars' | 'banners' | 'resumes' | 'portfolio',
   ): Promise<string> {
-    const ext = path.extname(file.originalname) || this.getExtensionFromMime(file.mimetype);
+    const ext =
+      path.extname(file.originalname) ||
+      this.getExtensionFromMime(file.mimetype);
     const safeFilename = `${randomUUID()}${ext}`;
     const destinationDir = path.join(this.baseUploadDir, folder);
     const destinationPath = path.join(destinationDir, safeFilename);

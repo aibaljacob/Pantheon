@@ -6,7 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, ProjectRoleStatus, ProjectRoleExperienceLevel, ProjectRoleCommitment, ProjectMemberStatus } from '@prisma/client';
+import {
+  Role,
+  ProjectRoleStatus,
+  ProjectRoleExperienceLevel,
+  ProjectRoleCommitment,
+  ProjectMemberStatus,
+} from '@prisma/client';
 import {
   CandidateQueryDto,
   CandidateProfileSummaryDto,
@@ -41,7 +47,11 @@ export class TalentMatchingService {
 
   scoreCandidate(
     candidateUser: any,
-    project: { gameEngine?: string | null; genre?: string | null; platform?: string | null },
+    project: {
+      gameEngine?: string | null;
+      genre?: string | null;
+      platform?: string | null;
+    },
     roleSpec: RoleMatchSpecification,
     invitationStatus: RecommendedCandidateDto['invitationStatus'] = 'NONE',
   ): RecommendedCandidateDto {
@@ -59,9 +69,12 @@ export class TalentMatchingService {
     const candidateToolIds = new Set(candidateTools.map((t: any) => t.id));
     const candidateToolNames = candidateTools.map((t: any) => t.name);
 
-    const candidateEngines = identity?.gameEngines.map((e: any) => e.engine.name) || [];
-    const candidateGenres = identity?.genres.map((g: any) => g.genre.name) || [];
-    const candidatePlatforms = identity?.platforms.map((p: any) => p.platform.name) || [];
+    const candidateEngines =
+      identity?.gameEngines.map((e: any) => e.engine.name) || [];
+    const candidateGenres =
+      identity?.genres.map((g: any) => g.genre.name) || [];
+    const candidatePlatforms =
+      identity?.platforms.map((p: any) => p.platform.name) || [];
 
     // A. Role Score (Max 25)
     let roleScore = 0;
@@ -87,7 +100,9 @@ export class TalentMatchingService {
           missingSkillsList.push(reqSkill.name);
         }
       }
-      skillScore = Math.round((matchedCount / requiredSkills.length) * MATCHING_WEIGHTS.SKILLS);
+      skillScore = Math.round(
+        (matchedCount / requiredSkills.length) * MATCHING_WEIGHTS.SKILLS,
+      );
     }
 
     // C. Tool Alignment (Max 15)
@@ -106,14 +121,19 @@ export class TalentMatchingService {
           missingToolsList.push(reqTool.name);
         }
       }
-      toolScore = Math.round((matchedCount / requiredTools.length) * MATCHING_WEIGHTS.TOOLS);
+      toolScore = Math.round(
+        (matchedCount / requiredTools.length) * MATCHING_WEIGHTS.TOOLS,
+      );
     }
 
     // D. Experience Match (Max 15)
     let experienceScore = 0;
     let experienceUnspecified = false;
 
-    if (profile.experienceYears === null || profile.experienceYears === undefined) {
+    if (
+      profile.experienceYears === null ||
+      profile.experienceYears === undefined
+    ) {
       experienceScore = 7.5;
       experienceUnspecified = true;
     } else {
@@ -121,15 +141,21 @@ export class TalentMatchingService {
       const targetLevel = roleSpec.experienceLevel;
 
       if (
-        (targetLevel === ProjectRoleExperienceLevel.JUNIOR && exp >= 0 && exp <= 2) ||
-        (targetLevel === ProjectRoleExperienceLevel.MID && exp >= 3 && exp <= 5) ||
+        (targetLevel === ProjectRoleExperienceLevel.JUNIOR &&
+          exp >= 0 &&
+          exp <= 2) ||
+        (targetLevel === ProjectRoleExperienceLevel.MID &&
+          exp >= 3 &&
+          exp <= 5) ||
         (targetLevel === ProjectRoleExperienceLevel.SENIOR && exp >= 6) ||
         (targetLevel === ProjectRoleExperienceLevel.LEAD && exp >= 8)
       ) {
         experienceScore = MATCHING_WEIGHTS.EXPERIENCE;
       } else if (
         (targetLevel === ProjectRoleExperienceLevel.JUNIOR && exp <= 3) ||
-        (targetLevel === ProjectRoleExperienceLevel.MID && exp >= 2 && exp <= 6) ||
+        (targetLevel === ProjectRoleExperienceLevel.MID &&
+          exp >= 2 &&
+          exp <= 6) ||
         (targetLevel === ProjectRoleExperienceLevel.SENIOR && exp >= 4) ||
         (targetLevel === ProjectRoleExperienceLevel.LEAD && exp >= 6)
       ) {
@@ -151,24 +177,41 @@ export class TalentMatchingService {
 
     if (!candAvail) {
       availabilityScore = 6;
-    } else if (candAvail.includes('not available') || candAvail.includes('busy')) {
+    } else if (
+      candAvail.includes('not available') ||
+      candAvail.includes('busy')
+    ) {
       availabilityScore = 3;
     } else if (
-      (roleSpec.commitment === ProjectRoleCommitment.FULL_TIME && (candAvail.includes('full') || candAvail.includes('collaboration'))) ||
-      (roleSpec.commitment === ProjectRoleCommitment.PART_TIME && (candAvail.includes('part') || candAvail.includes('collaboration'))) ||
-      (roleSpec.commitment === ProjectRoleCommitment.CONTRACT && (candAvail.includes('contract') || candAvail.includes('collaboration'))) ||
-      (roleSpec.commitment === ProjectRoleCommitment.REV_SHARE && (candAvail.includes('rev') || candAvail.includes('collaboration')))
+      (roleSpec.commitment === ProjectRoleCommitment.FULL_TIME &&
+        (candAvail.includes('full') || candAvail.includes('collaboration'))) ||
+      (roleSpec.commitment === ProjectRoleCommitment.PART_TIME &&
+        (candAvail.includes('part') || candAvail.includes('collaboration'))) ||
+      (roleSpec.commitment === ProjectRoleCommitment.CONTRACT &&
+        (candAvail.includes('contract') ||
+          candAvail.includes('collaboration'))) ||
+      (roleSpec.commitment === ProjectRoleCommitment.REV_SHARE &&
+        (candAvail.includes('rev') || candAvail.includes('collaboration')))
     ) {
       availabilityScore = MATCHING_WEIGHTS.AVAILABILITY;
-    } else if (candAvail.includes('collaboration') || candAvail.includes('available')) {
+    } else if (
+      candAvail.includes('collaboration') ||
+      candAvail.includes('available')
+    ) {
       availabilityScore = 8;
     }
 
     // F. Project Context Match (Max 10)
     let contextScore = 0;
-    const portfolioEngines = (profile.portfolio || []).map((p: any) => p.gameEngine).filter(Boolean);
-    const portfolioGenres = (profile.portfolio || []).map((p: any) => p.genre).filter(Boolean);
-    const portfolioPlatforms = (profile.portfolio || []).map((p: any) => p.platform).filter(Boolean);
+    const portfolioEngines = (profile.portfolio || [])
+      .map((p: any) => p.gameEngine)
+      .filter(Boolean);
+    const portfolioGenres = (profile.portfolio || [])
+      .map((p: any) => p.genre)
+      .filter(Boolean);
+    const portfolioPlatforms = (profile.portfolio || [])
+      .map((p: any) => p.platform)
+      .filter(Boolean);
 
     if (!project.gameEngine) {
       contextScore += 4;
@@ -199,7 +242,14 @@ export class TalentMatchingService {
 
     const totalScore = Math.min(
       100,
-      Math.round(roleScore + skillScore + toolScore + experienceScore + availabilityScore + contextScore),
+      Math.round(
+        roleScore +
+          skillScore +
+          toolScore +
+          experienceScore +
+          availabilityScore +
+          contextScore,
+      ),
     );
 
     let matchGrade: RecommendedCandidateDto['matchGrade'] = 'POTENTIAL_MATCH';
@@ -210,7 +260,11 @@ export class TalentMatchingService {
     let missingDataPoints = 0;
     if (candidateSkills.length === 0) missingDataPoints++;
     if (candidateTools.length === 0) missingDataPoints++;
-    if (profile.experienceYears === null || profile.experienceYears === undefined) missingDataPoints++;
+    if (
+      profile.experienceYears === null ||
+      profile.experienceYears === undefined
+    )
+      missingDataPoints++;
     if ((profile.portfolio || []).length === 0) missingDataPoints++;
     if (!profile.resume) missingDataPoints++;
 
@@ -220,28 +274,38 @@ export class TalentMatchingService {
 
     const matchReasons: string[] = [];
     const roleLabel = roleSpec.roleName || 'Required Role';
-    if (roleScore === MATCHING_WEIGHTS.ROLE) matchReasons.push(`Exact role match (${roleLabel})`);
+    if (roleScore === MATCHING_WEIGHTS.ROLE)
+      matchReasons.push(`Exact role match (${roleLabel})`);
     if (requiredSkills.length > 0 && matchedSkillsList.length > 0) {
-      matchReasons.push(`Matches ${matchedSkillsList.length}/${requiredSkills.length} required skills (${matchedSkillsList.slice(0, 3).join(', ')})`);
+      matchReasons.push(
+        `Matches ${matchedSkillsList.length}/${requiredSkills.length} required skills (${matchedSkillsList.slice(0, 3).join(', ')})`,
+      );
     }
     if (requiredTools.length > 0 && matchedToolsList.length > 0) {
-      matchReasons.push(`Matches ${matchedToolsList.length}/${requiredTools.length} required tools (${matchedToolsList.slice(0, 2).join(', ')})`);
+      matchReasons.push(
+        `Matches ${matchedToolsList.length}/${requiredTools.length} required tools (${matchedToolsList.slice(0, 2).join(', ')})`,
+      );
     }
     if (experienceScore >= 12 && !experienceUnspecified) {
-      matchReasons.push(`${profile.experienceYears} yrs experience aligns with ${roleSpec.experienceLevel} requirement`);
+      matchReasons.push(
+        `${profile.experienceYears} yrs experience aligns with ${roleSpec.experienceLevel} requirement`,
+      );
     }
-    if (contextScore >= 7) matchReasons.push(`Game engine and genre match project requirements`);
+    if (contextScore >= 7)
+      matchReasons.push(`Game engine and genre match project requirements`);
 
-    const explanation = matchReasons.length > 0
-      ? matchReasons.join(' · ')
-      : `Potential candidate matching ${roleLabel} domain`;
+    const explanation =
+      matchReasons.length > 0
+        ? matchReasons.join(' · ')
+        : `Potential candidate matching ${roleLabel} domain`;
 
     const candidateSummary: CandidateProfileSummaryDto = {
       id: candidateUser.id,
       username: candidateUser.username,
       firstName: profile.firstName,
       lastName: profile.lastName,
-      displayName: profile.displayName || `${profile.firstName} ${profile.lastName}`,
+      displayName:
+        profile.displayName || `${profile.firstName} ${profile.lastName}`,
       avatarUrl: profile.avatarUrl,
       headline: profile.headline,
       bio: profile.bio,
@@ -253,23 +317,26 @@ export class TalentMatchingService {
       skills: candidateSkillNames,
       tools: candidateToolNames,
       gameEngines: candidateEngines,
-      portfolioHighlights: (profile.portfolio || []).slice(0, 3).map((p: any) => ({
-        id: p.id,
-        title: p.title,
-        role: p.role,
-        gameEngine: p.gameEngine,
-        genre: p.genre,
-        platform: p.platform,
-        coverUrl: p.coverUrl,
-        description: p.description,
-      })),
-      resume: profile.resume && profile.resume.visibility === 'Public'
-        ? {
-            fileName: profile.resume.fileName,
-            fileSize: profile.resume.fileSize,
-            downloadUrl: profile.resume.downloadUrl,
-          }
-        : null,
+      portfolioHighlights: (profile.portfolio || [])
+        .slice(0, 3)
+        .map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          role: p.role,
+          gameEngine: p.gameEngine,
+          genre: p.genre,
+          platform: p.platform,
+          coverUrl: p.coverUrl,
+          description: p.description,
+        })),
+      resume:
+        profile.resume && profile.resume.visibility === 'Public'
+          ? {
+              fileName: profile.resume.fileName,
+              fileSize: profile.resume.fileSize,
+              downloadUrl: profile.resume.downloadUrl,
+            }
+          : null,
     };
 
     const matchBreakdown: MatchBreakdownDto = {
@@ -361,8 +428,10 @@ export class TalentMatchingService {
       scored.isTeamMember = Boolean(activeMember);
       scored.isAssignedToThisRole = Boolean(
         activeMember &&
-          (activeMember.projectRoleId === (roleSpec as any)?.id ||
-            activeMember.assignedRoles?.some((r: any) => r.id === (roleSpec as any)?.id)),
+        (activeMember.projectRoleId === (roleSpec as any)?.id ||
+          activeMember.assignedRoles?.some(
+            (r: any) => r.id === (roleSpec as any)?.id,
+          )),
       );
       scoredCandidates.push(scored);
     }
@@ -372,8 +441,12 @@ export class TalentMatchingService {
       if (b.totalScore !== a.totalScore) {
         return b.totalScore - a.totalScore;
       }
-      if (confidenceRank[b.confidenceLevel] !== confidenceRank[a.confidenceLevel]) {
-        return confidenceRank[b.confidenceLevel] - confidenceRank[a.confidenceLevel];
+      if (
+        confidenceRank[b.confidenceLevel] !== confidenceRank[a.confidenceLevel]
+      ) {
+        return (
+          confidenceRank[b.confidenceLevel] - confidenceRank[a.confidenceLevel]
+        );
       }
       return a.candidate.displayName.localeCompare(b.candidate.displayName);
     });
@@ -414,7 +487,12 @@ export class TalentMatchingService {
 
     const forceRescan = (query as any)?.forceRescan === true;
     const savedTalentMap = (project as any).savedTalentRecommendations;
-    if (!search && !forceRescan && savedTalentMap && savedTalentMap[projectRoleId]) {
+    if (
+      !search &&
+      !forceRescan &&
+      savedTalentMap &&
+      savedTalentMap[projectRoleId]
+    ) {
       return savedTalentMap[projectRoleId];
     }
 
@@ -435,18 +513,28 @@ export class TalentMatchingService {
     const isFounder = project.founderId === userId;
     const isAdmin = userRole === 'ADMINISTRATOR';
     if (!isFounder && !isAdmin) {
-      throw new ForbiddenException('Only the project founder or administrator can access candidate recommendations.');
+      throw new ForbiddenException(
+        'Only the project founder or administrator can access candidate recommendations.',
+      );
     }
 
     // Role Status Check: Must be OPEN or IN_REVIEW
-    if (projectRole.status === ProjectRoleStatus.CLOSED || projectRole.status === ProjectRoleStatus.FILLED) {
-      throw new BadRequestException('Candidate recommendations are only available for OPEN or IN_REVIEW project roles.');
+    if (
+      projectRole.status === ProjectRoleStatus.CLOSED ||
+      projectRole.status === ProjectRoleStatus.FILLED
+    ) {
+      throw new BadRequestException(
+        'Candidate recommendations are only available for OPEN or IN_REVIEW project roles.',
+      );
     }
 
     // 2. Identify active team members and query invitations
     const activeMembersMap = new Map<string, any>();
     for (const m of project.members) {
-      if ((m as any).status === ProjectMemberStatus.ACTIVE || !(m as any).status) {
+      if (
+        (m as any).status === ProjectMemberStatus.ACTIVE ||
+        !(m as any).status
+      ) {
         activeMembersMap.set(m.userId, m);
       }
     }
@@ -465,9 +553,12 @@ export class TalentMatchingService {
         })
       : [];
 
-    const invitationMap = new Map<string, RecommendedCandidateDto['invitationStatus']>();
+    const invitationMap = new Map<
+      string,
+      RecommendedCandidateDto['invitationStatus']
+    >();
     for (const inv of existingInvitations) {
-      invitationMap.set(inv.inviteeId, inv.status as RecommendedCandidateDto['invitationStatus']);
+      invitationMap.set(inv.inviteeId, inv.status);
     }
 
     // 3. Query all eligible USER accounts (excluding ADMINs and founder, including active team members)
@@ -520,14 +611,19 @@ export class TalentMatchingService {
     for (const candidateUser of candidates) {
       if (!candidateUser.profile) continue;
       const invStatus = invitationMap.get(candidateUser.id) || 'NONE';
-      const scored = this.scoreCandidate(candidateUser, project, roleSpec, invStatus);
+      const scored = this.scoreCandidate(
+        candidateUser,
+        project,
+        roleSpec,
+        invStatus,
+      );
 
       const activeMember = activeMembersMap.get(candidateUser.id);
       scored.isTeamMember = Boolean(activeMember);
       scored.isAssignedToThisRole = Boolean(
         activeMember &&
-          (activeMember.projectRoleId === projectRoleId ||
-            activeMember.assignedRoles?.some((r: any) => r.id === projectRoleId)),
+        (activeMember.projectRoleId === projectRoleId ||
+          activeMember.assignedRoles?.some((r: any) => r.id === projectRoleId)),
       );
 
       scoredCandidates.push(scored);
@@ -538,7 +634,8 @@ export class TalentMatchingService {
 
     if (search) {
       filtered = filtered.filter((c) => {
-        const text = `${c.candidate.displayName} ${c.candidate.username} ${c.candidate.headline || ''} ${c.candidate.skills.join(' ')}`.toLowerCase();
+        const text =
+          `${c.candidate.displayName} ${c.candidate.username} ${c.candidate.headline || ''} ${c.candidate.skills.join(' ')}`.toLowerCase();
         return text.includes(search);
       });
     }
@@ -552,8 +649,12 @@ export class TalentMatchingService {
       if (b.totalScore !== a.totalScore) {
         return b.totalScore - a.totalScore;
       }
-      if (confidenceRank[b.confidenceLevel] !== confidenceRank[a.confidenceLevel]) {
-        return confidenceRank[b.confidenceLevel] - confidenceRank[a.confidenceLevel];
+      if (
+        confidenceRank[b.confidenceLevel] !== confidenceRank[a.confidenceLevel]
+      ) {
+        return (
+          confidenceRank[b.confidenceLevel] - confidenceRank[a.confidenceLevel]
+        );
       }
       return a.candidate.displayName.localeCompare(b.candidate.displayName);
     });
@@ -579,7 +680,9 @@ export class TalentMatchingService {
     if (!search) {
       try {
         const savedMap =
-          savedTalentMap && typeof savedTalentMap === 'object' ? { ...savedTalentMap } : {};
+          savedTalentMap && typeof savedTalentMap === 'object'
+            ? { ...savedTalentMap }
+            : {};
         savedMap[projectRoleId] = result;
         await (this.prisma.project as any).update({
           where: { id: projectId },
@@ -602,8 +705,14 @@ export class TalentMatchingService {
     userId: string,
     userRole: string,
   ): Promise<RankedCandidatesResponseDto> {
-    return this.getRankedCandidates(projectId, projectRoleId, userId, userRole, {
-      forceRescan: true,
-    } as any);
+    return this.getRankedCandidates(
+      projectId,
+      projectRoleId,
+      userId,
+      userRole,
+      {
+        forceRescan: true,
+      } as any,
+    );
   }
 }

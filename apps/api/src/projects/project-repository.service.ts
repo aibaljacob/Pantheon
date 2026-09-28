@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import * as path from 'path';
 import { ProjectRepositoryRepository } from './project-repository.repository';
 import { PrismaService } from '../prisma/prisma.service';
-import { GitService, GitTreeItem } from './git.service';
+import { GitService, type GitCommitInfo } from './git.service';
 import { ProjectAuthorizationService } from '../tasks/project-authorization.service';
 import type { AuthenticatedUser } from '../auth/current-user.decorator';
 import {
@@ -90,7 +90,8 @@ export interface RepoReleaseItem {
 @Injectable()
 export class ProjectRepositoryService {
   private readonly logger = new Logger(ProjectRepositoryService.name);
-  private readonly repoRoot = process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
+  private readonly repoRoot =
+    process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
 
   constructor(
     private readonly repoRepository: ProjectRepositoryRepository,
@@ -118,8 +119,8 @@ export class ProjectRepositoryService {
     const engineLabel = isUnity
       ? 'Unity LTS'
       : isGodot
-      ? 'Godot Engine 4.x'
-      : 'Unreal Engine 5.x';
+        ? 'Godot Engine 4.x'
+        : 'Unreal Engine 5.x';
 
     const readmeContent = `# ${projectName}\n\n${description || 'A collaborative game production project on Pantheon.'}\n\n## Game Overview\n- **Engine**: ${engineLabel}\n- **VCS & Architecture**: Git Monorepo Architecture\n- **Production Studio**: Pantheon Studio\n\n## Getting Started\n1. Clone the repository:\n\`\`\`bash\ngit clone https://git.pantheon.studio/projects/${projectSlug}.git\n\`\`\`\n2. Checkout the default branch:\n\`\`\`bash\ngit checkout main\n\`\`\`\n3. Open the project in ${engineLabel} to verify engine compatibility.\n`;
 
@@ -149,7 +150,8 @@ export class ProjectRepositoryService {
       if (['cpp', 'cxx', 'cc'].includes(ext)) lang = 'C++';
       else if (['h', 'hpp', 'hxx'].includes(ext)) lang = 'C/C++ Header';
       else if (['cs'].includes(ext)) lang = 'C#';
-      else if (['hlsl', 'usf', 'ush', 'shader'].includes(ext)) lang = 'HLSL / Shaders';
+      else if (['hlsl', 'usf', 'ush', 'shader'].includes(ext))
+        lang = 'HLSL / Shaders';
       else if (['ini', 'config', 'cfg'].includes(ext)) lang = 'Configuration';
       else if (['json', 'uproject'].includes(ext)) lang = 'JSON / Meta';
       else if (['md'].includes(ext)) lang = 'Markdown';
@@ -182,26 +184,33 @@ export class ProjectRepositoryService {
   }
 
   async getOrCreateRepository(projectId: string) {
-    const project = await this.repoRepository.findProjectWithDetails(projectId);
+    const tProjStart = performance.now();
+    const project =
+      await this.repoRepository.findProjectForRepository(projectId);
+    const projDuration = performance.now() - tProjStart;
+
     if (!project) {
       throw new NotFoundException('Project not found');
     }
 
-    let repo = await this.repoRepository.findRepositoryByProjectId(projectId);
+    let repo = project.repository;
     let repoDiskPath = repo?.repoDiskPath;
 
     // If repository doesn't exist in DB, create it
     if (!repo) {
       repoDiskPath = this.resolveSafeRepoPath(project.slug);
-      
-      const createdRepo = await this.repoRepository.createRepository(projectId, 'main');
-      
+
+      const createdRepo = await this.repoRepository.createRepository(
+        projectId,
+        'main',
+      );
+
       // Update with repoDiskPath
       await this.prisma.projectRepository.update({
         where: { id: createdRepo.id },
-        data: { repoDiskPath }
+        data: { repoDiskPath },
       });
-      
+
       repo = await this.repoRepository.findRepositoryByProjectId(projectId);
     }
 
@@ -210,17 +219,24 @@ export class ProjectRepositoryService {
       repoDiskPath = this.resolveSafeRepoPath(project.slug);
       await this.prisma.projectRepository.update({
         where: { id: repo!.id },
-        data: { repoDiskPath }
+        data: { repoDiskPath },
       });
       repo!.repoDiskPath = repoDiskPath;
     }
+
+    this.logger.log(
+      `[PERF][REPO-DB] findProjectForRepository=${projDuration.toFixed(2)}ms (preloadedRepo=${!!project.repository})`,
+    );
 
     // Initialize physical bare repository if it doesn't exist
     const isValid = await this.gitService.isValidRepository(repoDiskPath);
     if (!isValid) {
       this.logger.log(`Initializing bare git repository at ${repoDiskPath}`);
-      await this.gitService.initBareRepository(repoDiskPath, repo!.defaultBranch || 'main');
-      
+      await this.gitService.initBareRepository(
+        repoDiskPath,
+        repo!.defaultBranch || 'main',
+      );
+
       const starterFiles = this.generateStarterFiles(
         project.name,
         project.slug,
@@ -235,46 +251,100 @@ export class ProjectRepositoryService {
         `chore: initialize repository for ${project.name}`,
         project.founder.username,
         `${project.founder.username}@pantheon.studio`,
-        repo!.defaultBranch || 'main'
+        repo!.defaultBranch || 'main',
       );
     }
 
     return { project, repo: repo! };
   }
-  async getRepository(projectId: string, user: AuthenticatedUser | undefined, branchName?: string) {
-    await this.authService.assertCanView(projectId, user?.id, user?.role);
 
+  async getRepository(
+    projectId: string,
+    user: AuthenticatedUser | undefined,
+    branchName?: string,
+  ) {
+    const tTotalStart = performance.now();
+
+    const tAuthStart = performance.now();
+    await this.authService.assertCanView(projectId, user?.id, user?.role);
+    const authDuration = performance.now() - tAuthStart;
+
+    const tRepoDbStart = performance.now();
     const { project, repo } = await this.getOrCreateRepository(projectId);
+    const repoDbDuration = performance.now() - tRepoDbStart;
+
+    const tGitStart = performance.now();
     const repoPath = repo.repoDiskPath!;
 
     const gitBranches = await this.gitService.listBranches(repoPath);
     const activeBranchName = branchName || repo.defaultBranch || 'main';
-    
+
     // Fetch commits
-    const gitCommits = await this.gitService.listCommits(repoPath, activeBranchName, 50).catch(() => []);
-    
-    // Fetch tree
-    const tree = await this.gitService.getTree(repoPath, activeBranchName).catch(() => []);
+    const gitCommits: GitCommitInfo[] = await this.gitService
+      .listCommits(repoPath, activeBranchName, 50)
+      .catch(() => []);
+
+    // Fetch tree recursively in one operation
+    const tree = await this.gitService
+      .getTree(repoPath, activeBranchName, '', true)
+      .catch(() => []);
+
+    const textExtensions = new Set([
+      '.txt',
+      '.md',
+      '.json',
+      '.ts',
+      '.tsx',
+      '.js',
+      '.jsx',
+      '.css',
+      '.html',
+      '.cs',
+      '.cpp',
+      '.h',
+      '.gitignore',
+      '.gitattributes',
+    ]);
+
+    // Collect unique hashes of text blobs under 100KB limit
+    const textBlobHashes: string[] = [];
+    for (const item of tree) {
+      if (item.type === 'blob') {
+        const ext = path.extname(item.path);
+        if (textExtensions.has(ext) && (item.size || 0) < 100000) {
+          textBlobHashes.push(item.hash);
+        }
+      }
+    }
+
+    // Batch retrieve all blob contents in ONE single Git subprocess
+    const batchStart = performance.now();
+    const contentMap = await this.gitService
+      .getBlobsBatch(repoPath, textBlobHashes)
+      .catch(() => new Map<string, string>());
+    const batchDuration = performance.now() - batchStart;
+    this.logger.debug(
+      `[PERF][REPO] Batched git cat-file loaded ${contentMap.size} blobs in ${batchDuration.toFixed(2)} ms`,
+    );
+    const gitDuration = performance.now() - tGitStart;
+
+    const tMappingStart = performance.now();
+    const topCommit = gitCommits[0];
+    const defaultAuthor = project.founder?.username || 'pantheon';
+    const defaultDate = repo.createdAt.toISOString();
 
     const files: RepoFileItem[] = [];
     for (const item of tree) {
       if (item.type === 'blob') {
         const ext = path.extname(item.path);
-        // Only load text files into memory to avoid huge payloads. 
-        // For phase 3A, we'll try to fetch content. In production we'd paginate or only fetch on demand.
-        const isText = ['.txt', '.md', '.json', '.ts', '.tsx', '.js', '.jsx', '.css', '.html', '.cs', '.cpp', '.h', '.gitignore', '.gitattributes'].includes(ext);
-        
+        const isText = textExtensions.has(ext);
+
         let content = '';
         let linesCount = 0;
-        if (isText && (item.size || 0) < 100000) { // Limit to 100KB
-          content = await this.gitService.getFileContent(repoPath, activeBranchName, item.path).catch(() => '');
-          linesCount = content.split('\n').length;
+        if (isText && (item.size || 0) < 100000) {
+          content = contentMap.get(item.hash) || '';
+          linesCount = content ? content.split('\n').length : 0;
         }
-
-        // For this UI, we need the last commit that touched the file.
-        // We'll approximate this by taking the latest commit on the branch since doing `git log -1 -- path` for every file is slow.
-        // Or we could run git log once per file, but for Phase 3A let's use the top commit for simplicity.
-        const topCommit = gitCommits[0];
 
         files.push({
           path: item.path,
@@ -284,8 +354,8 @@ export class ProjectRepositoryService {
           lastCommit: {
             hash: topCommit?.hash || 'init',
             message: topCommit?.message || 'initial commit',
-            author: topCommit?.authorName || project.founder.username,
-            date: topCommit?.date || repo.createdAt.toISOString(),
+            author: topCommit?.authorName || defaultAuthor,
+            date: topCommit?.date || defaultDate,
           },
         });
       }
@@ -317,6 +387,18 @@ export class ProjectRepositoryService {
     const totalLines = files.reduce((acc, f) => acc + f.linesCount, 0);
     const totalSize = files.reduce((acc, f) => acc + f.size, 0);
 
+    const mappingDuration = performance.now() - tMappingStart;
+    const totalDuration = performance.now() - tTotalStart;
+
+    this.logger.log(
+      `[PERF][REPO] Breakdown for ${project.slug}: ` +
+        `assertCanView=${authDuration.toFixed(2)}ms, ` +
+        `getOrCreateRepository=${repoDbDuration.toFixed(2)}ms, ` +
+        `git=${gitDuration.toFixed(2)}ms, ` +
+        `mapping=${mappingDuration.toFixed(2)}ms, ` +
+        `total=${totalDuration.toFixed(2)}ms`,
+    );
+
     return {
       name: project.name,
       slug: project.slug,
@@ -346,16 +428,29 @@ export class ProjectRepositoryService {
     };
   }
 
-  async getFileContent(projectId: string, filePath: string, user: AuthenticatedUser | undefined, branchName: string = 'main') {
+  async getFileContent(
+    projectId: string,
+    filePath: string,
+    user: AuthenticatedUser | undefined,
+    branchName: string = 'main',
+  ) {
     await this.authService.assertCanView(projectId, user?.id, user?.role);
 
     const { repo } = await this.getOrCreateRepository(projectId);
     const repoPath = repo.repoDiskPath!;
-    
+
     try {
-      const content = await this.gitService.getFileContent(repoPath, branchName, filePath);
-      
-      const commits = await this.gitService.listCommits(repoPath, branchName, 1);
+      const content = await this.gitService.getFileContent(
+        repoPath,
+        branchName,
+        filePath,
+      );
+
+      const commits = await this.gitService.listCommits(
+        repoPath,
+        branchName,
+        1,
+      );
       const topCommit = commits[0];
 
       return {
@@ -370,56 +465,68 @@ export class ProjectRepositoryService {
           date: topCommit?.date || new Date().toISOString(),
         },
       };
-    } catch (err) {
+    } catch {
       throw new NotFoundException(`File not found at path: ${filePath}`);
     }
   }
 
-  async commitFile(
-    projectId: string,
-    dto: CommitFileDto,
-    author: { id: string; username: string },
+  commitFile(
+    _projectId: string,
+    _dto: CommitFileDto,
+    _author: { id: string; username: string },
   ) {
-    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
+    throw new NotImplementedException(
+      'Repository mutation via API is disabled in Phase 3A.',
+    );
   }
 
-  async deleteFile(
-    projectId: string,
-    dto: DeleteFileDto,
-    author: { id: string; username: string },
+  deleteFile(
+    _projectId: string,
+    _dto: DeleteFileDto,
+    _author: { id: string; username: string },
   ) {
-    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
+    throw new NotImplementedException(
+      'Repository mutation via API is disabled in Phase 3A.',
+    );
   }
 
-  async createBranch(
-    projectId: string,
-    dto: CreateBranchDto,
-    author: { id: string; username: string },
+  createBranch(
+    _projectId: string,
+    _dto: CreateBranchDto,
+    _author: { id: string; username: string },
   ) {
-    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
+    throw new NotImplementedException(
+      'Repository mutation via API is disabled in Phase 3A.',
+    );
   }
 
-  async createPullRequest(
-    projectId: string,
-    dto: CreatePullRequestDto,
-    author: { id: string; username: string },
+  createPullRequest(
+    _projectId: string,
+    _dto: CreatePullRequestDto,
+    _author: { id: string; username: string },
   ) {
-    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
+    throw new NotImplementedException(
+      'Repository mutation via API is disabled in Phase 3A.',
+    );
   }
 
-  async mergePullRequest(
-    projectId: string,
-    prNumber: number,
-    author: { id: string; username: string },
+  mergePullRequest(
+    _projectId: string,
+    _prNumber: number,
+    _author: { id: string; username: string },
   ) {
-    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
+    throw new NotImplementedException(
+      'Repository mutation via API is disabled in Phase 3A.',
+    );
   }
 
-  async createRelease(
-    projectId: string,
-    dto: CreateReleaseDto,
-    author: { id: string; username: string },
+  createRelease(
+    _projectId: string,
+    _dto: CreateReleaseDto,
+    _author: { id: string; username: string },
   ) {
-    throw new NotImplementedException('Repository mutation via API is disabled in Phase 3A.');
+    throw new NotImplementedException(
+      'Repository mutation via API is disabled in Phase 3A.',
+    );
   }
 }

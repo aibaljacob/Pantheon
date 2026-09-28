@@ -1,4 +1,10 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProjectApplicationStatus } from '@prisma/client';
 
@@ -9,7 +15,8 @@ export enum RespondProjectApplicationAction {
 
 export class CreateProjectApplicationDto {
   @ApiPropertyOptional({
-    example: 'I have 4 years of Unreal C++ experience and would love to build the combat systems.',
+    example:
+      'I have 4 years of Unreal C++ experience and would love to build the combat systems.',
     description: 'Pitch or cover note for the application',
     maxLength: 1000,
   })
@@ -43,7 +50,10 @@ export class ProjectApplicationResponseDto {
   @ApiProperty({ example: 'user-uuid' })
   applicantId: string;
 
-  @ApiProperty({ enum: ProjectApplicationStatus, example: ProjectApplicationStatus.PENDING })
+  @ApiProperty({
+    enum: ProjectApplicationStatus,
+    example: ProjectApplicationStatus.PENDING,
+  })
   status: ProjectApplicationStatus;
 
   @ApiPropertyOptional({ example: 'I am excited to contribute to this game.' })

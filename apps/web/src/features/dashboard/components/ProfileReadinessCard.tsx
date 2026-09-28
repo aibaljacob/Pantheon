@@ -8,19 +8,30 @@ import { useAuthStore } from '../../auth/store/authStore';
 
 interface ProfileReadinessCardProps {
   user: DashboardUser;
+  profile?: ProfileData | null;
+  isLoading?: boolean;
 }
 
-export const ProfileReadinessCard: React.FC<ProfileReadinessCardProps> = ({ user }) => {
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+export const ProfileReadinessCard: React.FC<ProfileReadinessCardProps> = ({ user, profile, isLoading = false }) => {
   const accessToken = useAuthStore((state) => state.accessToken);
+  const [localProfile, setLocalProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
-    if (accessToken) {
+    if (profile === undefined && accessToken) {
+      let ignore = false;
       fetchOwnProfile(accessToken)
-        .then((data) => setProfileData(data))
-        .catch((err) => console.warn('Readiness profile fetch error:', err));
+        .then((data) => {
+          if (!ignore) setLocalProfile(data);
+        })
+        .catch((err: unknown) => console.warn('Readiness profile fetch error:', err));
+
+      return () => {
+        ignore = true;
+      };
     }
-  }, [accessToken]);
+  }, [profile, accessToken]);
+
+  const profileData = profile !== undefined ? profile : localProfile;
 
   const profilePercent = profileData
     ? profileData.stats.profileCompletion
@@ -65,8 +76,11 @@ export const ProfileReadinessCard: React.FC<ProfileReadinessCardProps> = ({ user
           <h2 className="font-headline text-lg font-bold text-[#ffffff]">
             Profile & Talent Readiness
           </h2>
-          <p className="text-xs text-[#8c887e]">
-            Live recruitment readiness & profile completion score
+          <p className="text-xs text-[#8c887e] flex items-center gap-2">
+            <span>Live recruitment readiness & profile completion score</span>
+            {isLoading && !profileData && (
+              <span className="text-[10px] text-amber-400/80 animate-pulse">· Calculating...</span>
+            )}
           </p>
         </div>
         <Link

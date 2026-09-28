@@ -41,7 +41,7 @@ export class PersonalAccessTokensService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return tokens.map(t => ({
+    return tokens.map((t) => ({
       id: t.id,
       name: t.name,
       prefix: t.prefix,

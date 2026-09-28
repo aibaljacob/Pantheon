@@ -1,12 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { BadRequestException, ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Role, AuthProvider } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail.service';
 import { createMockPrismaService } from '../../test/mocks/prisma.mock';
 import { hashPassword } from './auth.utils';
+import { AuthSessionCache } from './auth-session.cache';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -26,6 +32,11 @@ describe('AuthService', () => {
     jwtServiceMock = {
       signAsync: jest.fn().mockResolvedValue('mocked-jwt-token'),
       verifyAsync: jest.fn(),
+      decode: jest.fn((token: string) => {
+        if (token === 'valid-token')
+          return { sid: 'session-123', sub: 'user-123', ver: 1 };
+        return null;
+      }),
     };
     mailServiceMock = {
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
@@ -35,6 +46,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AuthSessionCache,
         { provide: PrismaService, useValue: prismaMock },
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: MailService, useValue: mailServiceMock },
@@ -95,7 +107,9 @@ describe('AuthService', () => {
         username: 'someoneelse',
       });
 
-      await expect(service.register(validRegisterInput)).rejects.toThrow(ConflictException);
+      await expect(service.register(validRegisterInput)).rejects.toThrow(
+        ConflictException,
+      );
     });
 
     it('should reject registration if username is already taken', async () => {
@@ -105,7 +119,9 @@ describe('AuthService', () => {
         email: 'other@example.com',
       });
 
-      await expect(service.register(validRegisterInput)).rejects.toThrow(ConflictException);
+      await expect(service.register(validRegisterInput)).rejects.toThrow(
+        ConflictException,
+      );
     });
   });
 
@@ -170,7 +186,10 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.login({ email: 'user@example.com', password: 'WrongPassword!' }),
+        service.login({
+          email: 'user@example.com',
+          password: 'WrongPassword!',
+        }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -186,7 +205,10 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.login({ email: 'unverified@example.com', password: plainPassword }),
+        service.login({
+          email: 'unverified@example.com',
+          password: plainPassword,
+        }),
       ).rejects.toThrow(ForbiddenException);
     });
   });
@@ -229,6 +251,158 @@ describe('AuthService', () => {
       expect((response.data.user as any).passwordHash).toBeUndefined();
     });
 
+    it('should hit cache on subsequent requests and avoid repeated database lookups', async () => {
+      jwtServiceMock.verifyAsync.mockResolvedValue({
+        sub: 'user-123',
+        sid: 'session-123',
+        ver: 1,
+      });
+
+      prismaMock.authSession.findUnique.mockResolvedValue({
+        id: 'session-123',
+        userId: 'user-123',
+        accessToken: 'valid-token',
+        expiresAt: new Date(Date.now() + 100000),
+        user: {
+          id: 'user-123',
+          username: 'game_dev',
+          email: 'dev@studio.com',
+          role: Role.USER,
+          provider: AuthProvider.LOCAL,
+          emailVerified: true,
+          refreshTokenVersion: 1,
+          createdAt: new Date(),
+          profile: null,
+        },
+      });
+
+      // 1. First request: Cache MISS -> calls DB
+      const res1 = await service.me('valid-token');
+      expect(res1.success).toBe(true);
+      expect(prismaMock.authSession.findUnique).toHaveBeenCalledTimes(1);
+
+      // 2. Second request: Cache HIT -> does NOT call DB
+      const res2 = await service.me('valid-token');
+      expect(res2.success).toBe(true);
+      expect(prismaMock.authSession.findUnique).toHaveBeenCalledTimes(1);
+
+      // 3. Third request: Still Cache HIT
+      const res3 = await service.me('valid-token');
+      expect(res3.success).toBe(true);
+      expect(prismaMock.authSession.findUnique).toHaveBeenCalledTimes(1);
+    });
+
+    it('should re-query database when cache entry expires', async () => {
+      jwtServiceMock.verifyAsync.mockResolvedValue({
+        sub: 'user-123',
+        sid: 'session-123',
+        ver: 1,
+      });
+
+      prismaMock.authSession.findUnique.mockResolvedValue({
+        id: 'session-123',
+        userId: 'user-123',
+        accessToken: 'valid-token',
+        expiresAt: new Date(Date.now() + 100000),
+        user: {
+          id: 'user-123',
+          username: 'game_dev',
+          email: 'dev@studio.com',
+          role: Role.USER,
+          provider: AuthProvider.LOCAL,
+          emailVerified: true,
+          refreshTokenVersion: 1,
+          createdAt: new Date(),
+          profile: null,
+        },
+      });
+
+      await service.me('valid-token');
+      expect(prismaMock.authSession.findUnique).toHaveBeenCalledTimes(1);
+
+      // Invalidate cache (simulating expiration)
+      service.getSessionCache().invalidate('session-123');
+
+      // Next request triggers fresh DB query
+      await service.me('valid-token');
+      expect(prismaMock.authSession.findUnique).toHaveBeenCalledTimes(2);
+    });
+
+    it('should invalidate cache when logout is called', async () => {
+      jwtServiceMock.verifyAsync.mockResolvedValue({
+        sub: 'user-123',
+        sid: 'session-123',
+        ver: 1,
+      });
+
+      prismaMock.authSession.findUnique.mockResolvedValue({
+        id: 'session-123',
+        userId: 'user-123',
+        accessToken: 'valid-token',
+        expiresAt: new Date(Date.now() + 100000),
+        user: {
+          id: 'user-123',
+          username: 'game_dev',
+          email: 'dev@studio.com',
+          role: Role.USER,
+          provider: AuthProvider.LOCAL,
+          emailVerified: true,
+          refreshTokenVersion: 1,
+          createdAt: new Date(),
+          profile: null,
+        },
+      });
+
+      await service.me('valid-token');
+      expect(service.getSessionCache().get('session-123')).not.toBeNull();
+
+      // Logout
+      await service.logout('valid-token');
+      expect(service.getSessionCache().get('session-123')).toBeNull();
+    });
+
+    it('should deduplicate concurrent requests for the same session', async () => {
+      jwtServiceMock.verifyAsync.mockResolvedValue({
+        sub: 'user-123',
+        sid: 'session-concurrent',
+        ver: 1,
+      });
+
+      let dbCalls = 0;
+      prismaMock.authSession.findUnique.mockImplementation(async () => {
+        dbCalls++;
+        await new Promise((r) => setTimeout(r, 10));
+        return {
+          id: 'session-concurrent',
+          userId: 'user-123',
+          accessToken: 'valid-concurrent-token',
+          expiresAt: new Date(Date.now() + 100000),
+          user: {
+            id: 'user-123',
+            username: 'game_dev',
+            email: 'dev@studio.com',
+            role: Role.USER,
+            provider: AuthProvider.LOCAL,
+            emailVerified: true,
+            refreshTokenVersion: 1,
+            createdAt: new Date(),
+            profile: null,
+          },
+        };
+      });
+
+      const [r1, r2, r3] = await Promise.all([
+        service.findValidSession('valid-concurrent-token'),
+        service.findValidSession('valid-concurrent-token'),
+        service.findValidSession('valid-concurrent-token'),
+      ]);
+
+      expect(dbCalls).toBe(1);
+      expect(r1.id).toBe('session-concurrent');
+      expect(r2.id).toBe('session-concurrent');
+      expect(r3.id).toBe('session-concurrent');
+    });
+
     it('should throw UnauthorizedException if no token is supplied', async () => {
       await expect(service.me(null)).rejects.toThrow(UnauthorizedException);
     });
@@ -236,7 +410,9 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if session is invalid or expired', async () => {
       jwtServiceMock.verifyAsync.mockRejectedValue(new Error('jwt expired'));
 
-      await expect(service.me('expired-token')).rejects.toThrow(UnauthorizedException);
+      await expect(service.me('expired-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 
@@ -262,7 +438,9 @@ describe('AuthService', () => {
     it('should reject invalid verification token', async () => {
       prismaMock.emailVerificationToken.findFirst.mockResolvedValue(null);
 
-      await expect(service.verifyEmail('invalid-token')).rejects.toThrow(BadRequestException);
+      await expect(service.verifyEmail('invalid-token')).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('should reject expired verification token', async () => {
@@ -273,7 +451,9 @@ describe('AuthService', () => {
         expiresAt: mockPastExpiry,
       });
 
-      await expect(service.verifyEmail('expired-token')).rejects.toThrow(BadRequestException);
+      await expect(service.verifyEmail('expired-token')).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

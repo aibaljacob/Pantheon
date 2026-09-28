@@ -19,7 +19,13 @@ export class GitHttpService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async resolveRepoPath(projectSlug: string, user: any, pat: any, runner: any, accessType: 'read' | 'write') {
+  async resolveRepoPath(
+    projectSlug: string,
+    user: any,
+    pat: any,
+    runner: any,
+    accessType: 'read' | 'write',
+  ) {
     const project = await this.prisma.project.findUnique({
       where: { slug: projectSlug },
       include: { repository: true },
@@ -38,7 +44,10 @@ export class GitHttpService {
       // Allowed read access
     } else {
       if (accessType === 'read') {
-        if (!pat.scopes.includes('repo:read') && !pat.scopes.includes('repo:write')) {
+        if (
+          !pat.scopes.includes('repo:read') &&
+          !pat.scopes.includes('repo:write')
+        ) {
           throw new ForbiddenException('Token lacks repo:read scope');
         }
         await this.authService.assertCanView(project.id, user.id, user.role);
@@ -46,26 +55,37 @@ export class GitHttpService {
         if (!pat.scopes.includes('repo:write')) {
           throw new ForbiddenException('Token lacks repo:write scope');
         }
-        
+
         if (user.role === 'ADMINISTRATOR' || project.founderId === user.id) {
           // allowed
         } else {
           const member = await this.prisma.projectMember.findUnique({
-            where: { projectId_userId: { projectId: project.id, userId: user.id } },
+            where: {
+              projectId_userId: { projectId: project.id, userId: user.id },
+            },
           });
 
           if (!member || member.status !== 'ACTIVE') {
-            throw new ForbiddenException('Write access requires active project membership');
+            throw new ForbiddenException(
+              'Write access requires active project membership',
+            );
           }
         }
       }
     }
 
     // Path traversal check
-    const repoRoot = process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
+    const repoRoot =
+      process.env.PANTHEON_REPO_ROOT || path.resolve(process.cwd(), 'repos');
     const normalizedTarget = path.normalize(project.repository.repoDiskPath);
-    this.logger.debug(`repoRoot: ${repoRoot}, normalizedTarget: ${normalizedTarget}`);
-    if (!normalizedTarget.toLowerCase().startsWith(path.normalize(repoRoot).toLowerCase())) {
+    this.logger.debug(
+      `repoRoot: ${repoRoot}, normalizedTarget: ${normalizedTarget}`,
+    );
+    if (
+      !normalizedTarget
+        .toLowerCase()
+        .startsWith(path.normalize(repoRoot).toLowerCase())
+    ) {
       throw new ForbiddenException('Invalid repository path');
     }
 
@@ -87,7 +107,13 @@ export class GitHttpService {
     }
 
     const accessType = service === 'git-receive-pack' ? 'write' : 'read';
-    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, runner, accessType);
+    const repoPath = await this.resolveRepoPath(
+      projectSlug,
+      user,
+      pat,
+      runner,
+      accessType,
+    );
 
     res.setHeader('Content-Type', `application/x-${service}-advertisement`);
     res.setHeader('Cache-Control', 'no-cache');
@@ -96,9 +122,18 @@ export class GitHttpService {
     const length = (serviceLine.length + 4).toString(16).padStart(4, '0');
     res.write(`${length}${serviceLine}0000`);
 
-    const git = spawn('git', [service.replace('git-', ''), '--stateless-rpc', '--advertise-refs', repoPath], {
-      shell: false,
-    });
+    const git = spawn(
+      'git',
+      [
+        service.replace('git-', ''),
+        '--stateless-rpc',
+        '--advertise-refs',
+        repoPath,
+      ],
+      {
+        shell: false,
+      },
+    );
 
     git.stdout.pipe(res, { end: false });
 
@@ -115,7 +150,13 @@ export class GitHttpService {
     req: Request,
     res: Response,
   ) {
-    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, runner, 'read');
+    const repoPath = await this.resolveRepoPath(
+      projectSlug,
+      user,
+      pat,
+      runner,
+      'read',
+    );
 
     res.setHeader('Content-Type', 'application/x-git-upload-pack-result');
     res.setHeader('Cache-Control', 'no-cache');
@@ -140,7 +181,13 @@ export class GitHttpService {
     req: Request,
     res: Response,
   ) {
-    const repoPath = await this.resolveRepoPath(projectSlug, user, pat, runner, 'write');
+    const repoPath = await this.resolveRepoPath(
+      projectSlug,
+      user,
+      pat,
+      runner,
+      'write',
+    );
 
     const refsBefore = await this.getRefs(repoPath);
 
@@ -158,8 +205,17 @@ export class GitHttpService {
       res.end();
       if (code === 0) {
         const refsAfter = await this.getRefs(repoPath);
-        this.processPushedCommits(projectSlug, repoPath, refsBefore, refsAfter, user).catch((err) => {
-          this.logger.error(`Failed to process pushed commits: ${err.message}`, err.stack);
+        this.processPushedCommits(
+          projectSlug,
+          repoPath,
+          refsBefore,
+          refsAfter,
+          user,
+        ).catch((err) => {
+          this.logger.error(
+            `Failed to process pushed commits: ${err.message}`,
+            err.stack,
+          );
         });
       }
     });
@@ -202,7 +258,7 @@ export class GitHttpService {
 
     for (const [ref, newHash] of Object.entries(refsAfter)) {
       const oldHash = refsBefore[ref];
-      
+
       if (oldHash === newHash) continue;
 
       let revListArgs: string[] = [];
@@ -212,15 +268,29 @@ export class GitHttpService {
         revListArgs = [`${oldHash}..${newHash}`];
       }
 
-      await this.extractCommitsAndLinkTasks(project.id, repoPath, ref, revListArgs);
+      await this.extractCommitsAndLinkTasks(
+        project.id,
+        repoPath,
+        ref,
+        revListArgs,
+      );
     }
   }
 
-  private async extractCommitsAndLinkTasks(projectId: string, repoPath: string, ref: string, revListArgs: string[]) {
+  private async extractCommitsAndLinkTasks(
+    projectId: string,
+    repoPath: string,
+    ref: string,
+    revListArgs: string[],
+  ) {
     return new Promise<void>((resolve) => {
-      const git = spawn('git', ['log', ...revListArgs, '--format=%H%x00%an%x00%ae%x00%at%x00%B%x00'], {
-        cwd: repoPath,
-      });
+      const git = spawn(
+        'git',
+        ['log', ...revListArgs, '--format=%H%x00%an%x00%ae%x00%at%x00%B%x00'],
+        {
+          cwd: repoPath,
+        },
+      );
 
       let output = '';
       git.stdout.on('data', (data) => {
@@ -233,14 +303,16 @@ export class GitHttpService {
           return resolve();
         }
 
-        const commitDataList = output.split('\x00\n').filter(s => s.trim().length > 0);
-        
+        const commitDataList = output
+          .split('\x00\n')
+          .filter((s) => s.trim().length > 0);
+
         for (const commitRaw of commitDataList) {
           const parts = commitRaw.split('\x00');
           if (parts.length < 5) continue;
 
           const [hash, authorName, authorEmail, authorTime, message] = parts;
-          
+
           await this.linkCommitToTasks(projectId, ref, {
             hash,
             authorName,
@@ -257,7 +329,13 @@ export class GitHttpService {
   private async linkCommitToTasks(
     projectId: string,
     ref: string,
-    commit: { hash: string; authorName: string; authorEmail: string; timestamp: Date; message: string }
+    commit: {
+      hash: string;
+      authorName: string;
+      authorEmail: string;
+      timestamp: Date;
+      message: string;
+    },
   ) {
     const branchName = ref.replace('refs/heads/', '');
     const taskRegex = /\[?TASK-(\d+)\]?/g;
@@ -282,7 +360,9 @@ export class GitHttpService {
       if (!task) continue;
 
       const existing = await this.prisma.taskCommitLink.findUnique({
-        where: { taskId_commitHash: { taskId: task.id, commitHash: commit.hash } },
+        where: {
+          taskId_commitHash: { taskId: task.id, commitHash: commit.hash },
+        },
       });
 
       if (!existing) {

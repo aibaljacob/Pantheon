@@ -2,7 +2,11 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CooccurrenceService } from './cooccurrence.service';
 import { HINGraph } from './hin-graph';
-import { GraphBuildOptions, HINEdge, HINNode } from './graph-team-formation.types';
+import {
+  GraphBuildOptions,
+  HINEdge,
+  HINNode,
+} from './graph-team-formation.types';
 import { ProjectRoleStatus, Role } from '@prisma/client';
 
 export interface RawProjectGraphPayload {
@@ -138,7 +142,9 @@ export class GraphBuilderService {
     }
 
     // Excluded users (founder + existing project members)
-    const excludedUserIds = new Set<string>(project.members.map((m) => m.userId));
+    const excludedUserIds = new Set<string>(
+      project.members.map((m) => m.userId),
+    );
     excludedUserIds.add(project.founderId);
 
     // 2. Fetch eligible Candidate Users
@@ -194,8 +200,10 @@ export class GraphBuilderService {
     }
 
     // 4. Fetch Skill & Tool Co-occurrences if requested
-    let skillCooccurrences: { itemAId: string; itemBId: string; jaccard: number }[] | undefined;
-    let toolCooccurrences: { itemAId: string; itemBId: string; jaccard: number }[] | undefined;
+    let skillCooccurrences:
+      { itemAId: string; itemBId: string; jaccard: number }[] | undefined;
+    let toolCooccurrences:
+      { itemAId: string; itemBId: string; jaccard: number }[] | undefined;
 
     if (includeCooccurrence) {
       const [skillData, toolData] = await Promise.all([
@@ -227,7 +235,13 @@ export class GraphBuilderService {
    */
   public static buildFromRawData(payload: RawProjectGraphPayload): HINGraph {
     const graph = new HINGraph();
-    const { project, candidates, historicalCollaborationMap, skillCooccurrences, toolCooccurrences } = payload;
+    const {
+      project,
+      candidates,
+      historicalCollaborationMap,
+      skillCooccurrences,
+      toolCooccurrences,
+    } = payload;
 
     // A. Add Project Node
     const projNodeId = GraphBuilderService.toProjId(project.id);
@@ -388,7 +402,10 @@ export class GraphBuilderService {
         id: candNodeId,
         rawId: cand.id,
         type: 'CANDIDATE',
-        label: profile?.displayName || `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() || cand.username,
+        label:
+          profile?.displayName ||
+          `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() ||
+          cand.username,
         data: {
           username: cand.username,
           experienceYears: profile?.experienceYears ?? null,
@@ -446,8 +463,12 @@ export class GraphBuilderService {
             });
           }
 
-          const portCount = portfolioSkillsMap.get(userSkill.skill.name.toLowerCase().trim()) || 0;
-          const skillWeight = Number((1.0 + 0.1 * Math.min(5, portCount)).toFixed(2));
+          const portCount =
+            portfolioSkillsMap.get(userSkill.skill.name.toLowerCase().trim()) ||
+            0;
+          const skillWeight = Number(
+            (1.0 + 0.1 * Math.min(5, portCount)).toFixed(2),
+          );
 
           graph.addEdge({
             source: candNodeId,
@@ -471,8 +492,11 @@ export class GraphBuilderService {
             });
           }
 
-          const portCount = portfolioToolsMap.get(userTool.tool.name.toLowerCase().trim()) || 0;
-          const toolWeight = Number((1.0 + 0.1 * Math.min(5, portCount)).toFixed(2));
+          const portCount =
+            portfolioToolsMap.get(userTool.tool.name.toLowerCase().trim()) || 0;
+          const toolWeight = Number(
+            (1.0 + 0.1 * Math.min(5, portCount)).toFixed(2),
+          );
 
           graph.addEdge({
             source: candNodeId,
@@ -526,7 +550,9 @@ export class GraphBuilderService {
 
       if (identity?.platforms) {
         for (const pl of identity.platforms) {
-          const platformNodeId = GraphBuilderService.toPlatformId(pl.platform.name);
+          const platformNodeId = GraphBuilderService.toPlatformId(
+            pl.platform.name,
+          );
           if (!graph.hasNode(platformNodeId)) {
             graph.addNode({
               id: platformNodeId,

@@ -59,7 +59,12 @@ export class PlaytestService {
       where: { projectId },
       include: {
         playableBuild: {
-          select: { version: true, platform: true, title: true, buildJob: { select: { commitHash: true } } },
+          select: {
+            version: true,
+            platform: true,
+            title: true,
+            buildJob: { select: { commitHash: true } },
+          },
         },
         _count: { select: { feedback: true } },
       },
@@ -67,7 +72,12 @@ export class PlaytestService {
     });
   }
 
-  async getPlaytest(projectId: string, playtestId: string, userId?: string, userRole?: string) {
+  async getPlaytest(
+    projectId: string,
+    playtestId: string,
+    userId?: string,
+    userRole?: string,
+  ) {
     await this.authzService.assertCanView(projectId, userId, userRole);
 
     const session = await this.prisma.playtestSession.findFirst({
@@ -103,14 +113,29 @@ export class PlaytestService {
       data: {
         title: dto.title,
         instructions: dto.instructions,
-        startDate: dto.startDate !== undefined ? (dto.startDate ? new Date(dto.startDate) : null) : undefined,
-        endDate: dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined,
+        startDate:
+          dto.startDate !== undefined
+            ? dto.startDate
+              ? new Date(dto.startDate)
+              : null
+            : undefined,
+        endDate:
+          dto.endDate !== undefined
+            ? dto.endDate
+              ? new Date(dto.endDate)
+              : null
+            : undefined,
         isActive: dto.isActive,
       },
     });
   }
 
-  async deletePlaytest(projectId: string, playtestId: string, userId: string, userRole?: string) {
+  async deletePlaytest(
+    projectId: string,
+    playtestId: string,
+    userId: string,
+    userRole?: string,
+  ) {
     await this.authzService.assertCanManage(projectId, userId, userRole);
 
     const session = await this.prisma.playtestSession.findFirst({
@@ -136,7 +161,11 @@ export class PlaytestService {
     userRole?: string,
   ) {
     // Only members or active participants can submit feedback (must be able to view)
-    const context = await this.authzService.assertCanView(projectId, userId, userRole);
+    const context = await this.authzService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
     // Extra validation: ensure the user is an active member or admin. For public projects, we allow logged-in users?
     // Based on requirements: "unrelated user cannot submit private-project feedback". `assertCanView` handles private project access.
     // For now, if they can view the playtest, they can submit feedback if logged in.
@@ -147,9 +176,12 @@ export class PlaytestService {
     });
 
     if (!session) throw new NotFoundException('Playtest session not found.');
-    if (!session.isActive) throw new BadRequestException('Playtest session is inactive.');
-    if (session.startDate && new Date() < session.startDate) throw new BadRequestException('Playtest has not started.');
-    if (session.endDate && new Date() > session.endDate) throw new BadRequestException('Playtest has ended.');
+    if (!session.isActive)
+      throw new BadRequestException('Playtest session is inactive.');
+    if (session.startDate && new Date() < session.startDate)
+      throw new BadRequestException('Playtest has not started.');
+    if (session.endDate && new Date() > session.endDate)
+      throw new BadRequestException('Playtest has ended.');
 
     const commitHash = session.playableBuild?.buildJob?.commitHash || null;
 
@@ -167,7 +199,12 @@ export class PlaytestService {
     });
   }
 
-  async getFeedbackList(projectId: string, playtestId: string, userId: string, userRole?: string) {
+  async getFeedbackList(
+    projectId: string,
+    playtestId: string,
+    userId: string,
+    userRole?: string,
+  ) {
     // Only managers/admins can view all feedback
     await this.authzService.assertCanManage(projectId, userId, userRole);
 
@@ -225,7 +262,9 @@ export class PlaytestService {
 
     if (!feedback) throw new NotFoundException('Feedback not found.');
     if (feedback.convertedTaskId) {
-      return this.prisma.task.findUnique({ where: { id: feedback.convertedTaskId } });
+      return this.prisma.task.findUnique({
+        where: { id: feedback.convertedTaskId },
+      });
     }
 
     const taskTitle = feedback.title;

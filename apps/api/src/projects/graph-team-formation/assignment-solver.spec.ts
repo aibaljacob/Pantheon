@@ -47,8 +47,8 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
         roleIds: ['role-A', 'role-B'],
         candidateIds: ['cand-X', 'cand-Y'],
         scoreMatrix: [
-          [0.90, 0.80], // Role A
-          [0.89, 0.10], // Role B
+          [0.9, 0.8], // Role A
+          [0.89, 0.1], // Role B
         ],
       });
 
@@ -59,7 +59,7 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
       const assignB = result.assignments.find((a) => a.roleId === 'role-B')!;
 
       expect(assignA.candidateId).toBe('cand-Y');
-      expect(assignA.score).toBeCloseTo(0.80);
+      expect(assignA.score).toBeCloseTo(0.8);
 
       expect(assignB.candidateId).toBe('cand-X');
       expect(assignB.score).toBeCloseTo(0.89);
@@ -112,7 +112,9 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
       // Optimal: Role 1 -> cand-1 (0.9), Role 2 -> cand-3 (0.85) -> Total = 1.75
       expect(result.totalAssignmentScore).toBeCloseTo(1.75, 5);
 
-      const assignedCandIds = new Set(result.assignments.map((a) => a.candidateId));
+      const assignedCandIds = new Set(
+        result.assignments.map((a) => a.candidateId),
+      );
       expect(assignedCandIds.has('cand-1')).toBe(true);
       expect(assignedCandIds.has('cand-3')).toBe(true);
 
@@ -174,7 +176,9 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
       expect(result.assignedRoleCount).toBe(2);
       expect(result.totalAssignmentScore).toBe(0);
       // Valid permutation assigned
-      const assignedCandSet = new Set(result.assignments.map((a) => a.candidateId));
+      const assignedCandSet = new Set(
+        result.assignments.map((a) => a.candidateId),
+      );
       expect(assignedCandSet.size).toBe(2);
     });
 
@@ -202,7 +206,7 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
       const scoreMatrix = [
         [0.01234567, 0.08765432, 0.05432109, 0.00123456, 0.09876543],
         [0.03456789, 0.01234567, 0.07654321, 0.04321098, 0.02109876],
-        [0.09876543, 0.06543210, 0.03210987, 0.08765432, 0.01234567],
+        [0.09876543, 0.0654321, 0.03210987, 0.08765432, 0.01234567],
         [0.04321098, 0.09876543, 0.01234567, 0.05432109, 0.07654321],
         [0.07654321, 0.03210987, 0.09876543, 0.02109876, 0.04321098],
       ];
@@ -222,7 +226,10 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
       expect(uniqueRoles.size).toBe(5);
 
       // Invariant 3: Total score == sum of individual assignment scores
-      const sumIndividual = result.assignments.reduce((sum, a) => sum + a.score, 0);
+      const sumIndividual = result.assignments.reduce(
+        (sum, a) => sum + a.score,
+        0,
+      );
       expect(result.totalAssignmentScore).toBeCloseTo(sumIndividual, 7);
     });
   });
@@ -236,36 +243,74 @@ describe('AssignmentSolver (Kuhn-Munkres Maximum Weight Bipartite Matching)', ()
         [
           'role-engine',
           [
-            { roleId: 'role-engine', candidateId: 'cand-alice', candidateNodeId: 'cand:alice', rawGraphScore: 0.125 },
-            { roleId: 'role-engine', candidateId: 'cand-bob', candidateNodeId: 'cand:bob', rawGraphScore: 0.045 },
-            { roleId: 'role-engine', candidateId: 'cand-charlie', candidateNodeId: 'cand:charlie', rawGraphScore: 0.010 },
+            {
+              roleId: 'role-engine',
+              candidateId: 'cand-alice',
+              candidateNodeId: 'cand:alice',
+              rawGraphScore: 0.125,
+            },
+            {
+              roleId: 'role-engine',
+              candidateId: 'cand-bob',
+              candidateNodeId: 'cand:bob',
+              rawGraphScore: 0.045,
+            },
+            {
+              roleId: 'role-engine',
+              candidateId: 'cand-charlie',
+              candidateNodeId: 'cand:charlie',
+              rawGraphScore: 0.01,
+            },
           ],
         ],
         [
           'role-artist',
           [
-            { roleId: 'role-artist', candidateId: 'cand-bob', candidateNodeId: 'cand:bob', rawGraphScore: 0.180 },
-            { roleId: 'role-artist', candidateId: 'cand-charlie', candidateNodeId: 'cand:charlie', rawGraphScore: 0.085 },
-            { roleId: 'role-artist', candidateId: 'cand-alice', candidateNodeId: 'cand:alice', rawGraphScore: 0.020 },
+            {
+              roleId: 'role-artist',
+              candidateId: 'cand-bob',
+              candidateNodeId: 'cand:bob',
+              rawGraphScore: 0.18,
+            },
+            {
+              roleId: 'role-artist',
+              candidateId: 'cand-charlie',
+              candidateNodeId: 'cand:charlie',
+              rawGraphScore: 0.085,
+            },
+            {
+              roleId: 'role-artist',
+              candidateId: 'cand-alice',
+              candidateNodeId: 'cand:alice',
+              rawGraphScore: 0.02,
+            },
           ],
         ],
       ]);
 
-      const result = solver.solveFromRWR(roleIds, candidateIds, affinitiesByRole);
+      const result = solver.solveFromRWR(
+        roleIds,
+        candidateIds,
+        affinitiesByRole,
+      );
 
       expect(result.assignedRoleCount).toBe(2);
       expect(result.unassignedCandidateIds).toEqual(['cand-charlie']);
 
-      const engineAssign = result.assignments.find((a) => a.roleId === 'role-engine')!;
-      const artistAssign = result.assignments.find((a) => a.roleId === 'role-artist')!;
+      const engineAssign = result.assignments.find(
+        (a) => a.roleId === 'role-engine',
+      )!;
+      const artistAssign = result.assignments.find(
+        (a) => a.roleId === 'role-artist',
+      )!;
 
       expect(engineAssign.candidateId).toBe('cand-alice');
       expect(engineAssign.score).toBeCloseTo(0.125);
 
       expect(artistAssign.candidateId).toBe('cand-bob');
-      expect(artistAssign.score).toBeCloseTo(0.180);
+      expect(artistAssign.score).toBeCloseTo(0.18);
 
-      expect(result.totalAssignmentScore).toBeCloseTo(0.125 + 0.180, 5);
+      expect(result.totalAssignmentScore).toBeCloseTo(0.125 + 0.18, 5);
     });
   });
 });

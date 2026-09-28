@@ -9,10 +9,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
@@ -31,7 +39,10 @@ export class TasksController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new task in a project' })
-  @ApiResponse({ status: 201, description: 'Task created successfully with project-scoped TASK-X number' })
+  @ApiResponse({
+    status: 201,
+    description: 'Task created successfully with project-scoped TASK-X number',
+  })
   @UseGuards(JwtAuthGuard)
   @Post()
   createTask(
@@ -42,7 +53,9 @@ export class TasksController {
     return this.tasksService.createTask(projectId, dto, user.id, user.role);
   }
 
-  @ApiOperation({ summary: 'Get all tasks for a project with optional filters and sorting' })
+  @ApiOperation({
+    summary: 'Get all tasks for a project with optional filters and sorting',
+  })
   @ApiResponse({ status: 200, description: 'Returns array of tasks' })
   @UseGuards(OptionalJwtAuthGuard)
   @Get()
@@ -77,7 +90,13 @@ export class TasksController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateTaskDto,
   ): Promise<TaskResponseDto> {
-    return this.tasksService.updateTask(projectId, taskId, dto, user.id, user.role);
+    return this.tasksService.updateTask(
+      projectId,
+      taskId,
+      dto,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiBearerAuth()
@@ -102,7 +121,10 @@ export class TasksController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update task assignee' })
-  @ApiResponse({ status: 200, description: 'Task assignee updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task assignee updated successfully',
+  })
   @UseGuards(JwtAuthGuard)
   @Patch(':taskId/assignee')
   updateTaskAssignee(
@@ -122,7 +144,10 @@ export class TasksController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update task milestone' })
-  @ApiResponse({ status: 200, description: 'Task milestone updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task milestone updated successfully',
+  })
   @UseGuards(JwtAuthGuard)
   @Patch(':taskId/milestone')
   updateTaskMilestone(
@@ -163,6 +188,11 @@ export class TasksController {
     @Param('taskId') taskId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ) {
-    return this.tasksService.getTaskCommits(projectId, taskId, user?.id, user?.role);
+    return this.tasksService.getTaskCommits(
+      projectId,
+      taskId,
+      user?.id,
+      user?.role,
+    );
   }
 }

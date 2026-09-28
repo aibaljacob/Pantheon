@@ -1,6 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../../prisma/prisma.service';
-import { MATCHING_WEIGHTS, TalentMatchingService } from '../talent-matching.service';
+import {
+  MATCHING_WEIGHTS,
+  TalentMatchingService,
+} from '../talent-matching.service';
 import { AssignmentSolver } from './assignment-solver';
 import { BaselineComparisonService } from './baseline-comparison.service';
 import { CooccurrenceService } from './cooccurrence.service';
@@ -35,7 +38,9 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
     }).compile();
 
     service = module.get<BaselineComparisonService>(BaselineComparisonService);
-    talentMatchingService = module.get<TalentMatchingService>(TalentMatchingService);
+    talentMatchingService = module.get<TalentMatchingService>(
+      TalentMatchingService,
+    );
     assignmentSolver = module.get<AssignmentSolver>(AssignmentSolver);
     teamEvaluator = module.get<TeamEvaluator>(TeamEvaluator);
   });
@@ -81,7 +86,9 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
         experienceYears: 7,
         availability: 'Available full-time collaboration',
         identity: {
-          roles: [{ role: { id: 'tax-role-engineer', name: 'Software Engineer' } }],
+          roles: [
+            { role: { id: 'tax-role-engineer', name: 'Software Engineer' } },
+          ],
           skills: [
             { skill: { id: 'skill-cpp', name: 'C++' } },
             { skill: { id: 'skill-physics', name: 'Physics Simulation' } },
@@ -129,7 +136,9 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
         experienceYears: 1,
         availability: 'Part-time',
         identity: {
-          roles: [{ role: { id: 'tax-role-engineer', name: 'Software Engineer' } }],
+          roles: [
+            { role: { id: 'tax-role-engineer', name: 'Software Engineer' } },
+          ],
           skills: [{ skill: { id: 'skill-cpp', name: 'C++' } }],
           tools: [],
           gameEngines: [],
@@ -181,11 +190,15 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
       const payload = createTestPayload();
       const result = service.compareFromRawData(payload);
 
-      const baselineCandidateIds = result.baselineTeam.assignments.map((a) => a.candidateId);
+      const baselineCandidateIds = result.baselineTeam.assignments.map(
+        (a) => a.candidateId,
+      );
       const uniqueCandidateIds = new Set(baselineCandidateIds);
 
       expect(uniqueCandidateIds.size).toBe(baselineCandidateIds.length);
-      expect(result.baselineTeam.evaluation.conflictFreeRate.conflictFree).toBe(true);
+      expect(result.baselineTeam.evaluation.conflictFreeRate.conflictFree).toBe(
+        true,
+      );
     });
 
     it('3. should handle more roles than candidates (m > n)', () => {
@@ -247,7 +260,12 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
 
   describe('Metric Comparison Mathematics & Edge Cases', () => {
     it('7. should calculate absolute differences correctly (graph - baseline)', () => {
-      const comparison = BaselineComparisonService.compareMetric('Skill Coverage', 0.5, 0.75, true);
+      const comparison = BaselineComparisonService.compareMetric(
+        'Skill Coverage',
+        0.5,
+        0.75,
+        true,
+      );
 
       expect(comparison.baseline).toBe(0.5);
       expect(comparison.graph).toBe(0.75);
@@ -255,30 +273,57 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
     });
 
     it('8. should calculate higher-is-better relative improvements correctly', () => {
-      const comparison = BaselineComparisonService.compareMetric('Tool Coverage', 0.4, 0.8, true);
+      const comparison = BaselineComparisonService.compareMetric(
+        'Tool Coverage',
+        0.4,
+        0.8,
+        true,
+      );
 
       expect(comparison.relativeImprovementPercentage).toBe(100.0);
       expect(comparison.higherIsBetter).toBe(true);
 
-      const dropComparison = BaselineComparisonService.compareMetric('Tool Coverage', 0.8, 0.4, true);
+      const dropComparison = BaselineComparisonService.compareMetric(
+        'Tool Coverage',
+        0.8,
+        0.4,
+        true,
+      );
       expect(dropComparison.relativeImprovementPercentage).toBe(-50.0);
     });
 
     it('9. should handle zero baseline values safely without division by zero or NaN', () => {
       // Both zero
-      const bothZero = BaselineComparisonService.compareMetric('Zero Metric', 0, 0, true);
+      const bothZero = BaselineComparisonService.compareMetric(
+        'Zero Metric',
+        0,
+        0,
+        true,
+      );
       expect(bothZero.absoluteDifference).toBe(0);
       expect(bothZero.relativeImprovementPercentage).toBe(0);
 
       // Baseline zero, graph positive
-      const baselineZero = BaselineComparisonService.compareMetric('Growth Metric', 0, 0.8, true);
+      const baselineZero = BaselineComparisonService.compareMetric(
+        'Growth Metric',
+        0,
+        0.8,
+        true,
+      );
       expect(baselineZero.absoluteDifference).toBe(0.8);
       expect(baselineZero.relativeImprovementPercentage).toBeNull();
-      expect(Number.isNaN(baselineZero.relativeImprovementPercentage)).toBe(false);
+      expect(Number.isNaN(baselineZero.relativeImprovementPercentage)).toBe(
+        false,
+      );
     });
 
     it('10. should report skill redundancy without declaring superior/inferior quality', () => {
-      const redundancyComp = BaselineComparisonService.compareRedundancy(2, 4, 1.5, 2.0);
+      const redundancyComp = BaselineComparisonService.compareRedundancy(
+        2,
+        4,
+        1.5,
+        2.0,
+      );
 
       expect(redundancyComp.metricName).toBe('Skill Redundancy');
       expect(redundancyComp.baselineTotalRedundancy).toBe(2);
@@ -345,14 +390,18 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
           experienceYears: 8,
           availability: 'Available full-time collaboration',
           identity: {
-            roles: [{ role: { id: 'tax-role-engineer', name: 'Software Engineer' } }],
+            roles: [
+              { role: { id: 'tax-role-engineer', name: 'Software Engineer' } },
+            ],
             skills: [
               { skill: { id: 'skill-cpp', name: 'C++' } },
               { skill: { id: 'skill-memory', name: 'Memory Optimization' } },
               { skill: { id: 'skill-ui', name: 'Slate UI' } },
             ],
             tools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
-            gameEngines: [{ engine: { id: 'ge-unreal', name: 'Unreal Engine' } }],
+            gameEngines: [
+              { engine: { id: 'ge-unreal', name: 'Unreal Engine' } },
+            ],
             genres: [{ genre: { id: 'gn-action', name: 'Action' } }],
             platforms: [{ platform: { id: 'pl-pc', name: 'PC' } }],
           },
@@ -371,13 +420,17 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
           experienceYears: 4,
           availability: 'Available full-time collaboration',
           identity: {
-            roles: [{ role: { id: 'tax-role-engineer', name: 'Software Engineer' } }],
+            roles: [
+              { role: { id: 'tax-role-engineer', name: 'Software Engineer' } },
+            ],
             skills: [
               { skill: { id: 'skill-cpp', name: 'C++' } },
               { skill: { id: 'skill-ui', name: 'Slate UI' } },
             ],
             tools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
-            gameEngines: [{ engine: { id: 'ge-unreal', name: 'Unreal Engine' } }],
+            gameEngines: [
+              { engine: { id: 'ge-unreal', name: 'Unreal Engine' } },
+            ],
             genres: [{ genre: { id: 'gn-action', name: 'Action' } }],
             platforms: [{ platform: { id: 'pl-pc', name: 'PC' } }],
           },
@@ -406,7 +459,9 @@ describe('BaselineComparisonService (Phase 4: Research Comparison)', () => {
       expect(result.graphTeam.assignments.length).toBe(2);
 
       // Graph global Hungarian assignment finds global maximum utility
-      expect(result.graphTeam.evaluation.assignmentUtility.totalUtility).toBeGreaterThanOrEqual(
+      expect(
+        result.graphTeam.evaluation.assignmentUtility.totalUtility,
+      ).toBeGreaterThanOrEqual(
         result.baselineTeam.evaluation.assignmentUtility.totalUtility,
       );
       expect(result.summary.teamCompleteness.graph).toBeGreaterThanOrEqual(

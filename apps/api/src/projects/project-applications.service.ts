@@ -22,11 +22,14 @@ import {
   RespondProjectApplicationDto,
 } from './project-applications.dto';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class ProjectApplicationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly talentMatchingService: TalentMatchingService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private mapToResponseDto(app: {
@@ -72,11 +75,15 @@ export class ProjectApplicationsService {
       project.founderId !== applicantId &&
       project.moderationStatus !== ProjectModerationStatus.PUBLISHED
     ) {
-      throw new ForbiddenException('Cannot apply to a project that is not published.');
+      throw new ForbiddenException(
+        'Cannot apply to a project that is not published.',
+      );
     }
 
     if (project.founderId === applicantId) {
-      throw new BadRequestException('Project founder cannot apply to their own project.');
+      throw new BadRequestException(
+        'Project founder cannot apply to their own project.',
+      );
     }
 
     const projectRole = await this.prisma.projectRole.findUnique({
@@ -100,9 +107,12 @@ export class ProjectApplicationsService {
 
     if (
       existingMembership &&
-      (!existingMembership.status || existingMembership.status === ProjectMemberStatus.ACTIVE)
+      (!existingMembership.status ||
+        existingMembership.status === ProjectMemberStatus.ACTIVE)
     ) {
-      throw new BadRequestException('You are already a team member of this project.');
+      throw new BadRequestException(
+        'You are already a team member of this project.',
+      );
     }
 
     const existingPending = await this.prisma.projectApplication.findFirst({
@@ -133,7 +143,9 @@ export class ProjectApplicationsService {
     return this.mapToResponseDto(application);
   }
 
-  async getCandidateApplications(userId: string): Promise<CandidateApplicationDetailDto[]> {
+  async getCandidateApplications(
+    userId: string,
+  ): Promise<CandidateApplicationDetailDto[]> {
     const applications = await this.prisma.projectApplication.findMany({
       where: { applicantId: userId },
       include: {
@@ -188,7 +200,9 @@ export class ProjectApplicationsService {
         gameEngine: app.project.gameEngine,
         founder: {
           username: app.project.founder.username,
-          displayName: app.project.founder.profile?.displayName || app.project.founder.username,
+          displayName:
+            app.project.founder.profile?.displayName ||
+            app.project.founder.username,
           avatarUrl: app.project.founder.profile?.avatarUrl,
         },
       },
@@ -216,11 +230,15 @@ export class ProjectApplicationsService {
     }
 
     if (application.applicantId !== userId) {
-      throw new ForbiddenException('You can only withdraw your own applications.');
+      throw new ForbiddenException(
+        'You can only withdraw your own applications.',
+      );
     }
 
     if (application.status !== ProjectApplicationStatus.PENDING) {
-      throw new BadRequestException('Only pending applications can be withdrawn.');
+      throw new BadRequestException(
+        'Only pending applications can be withdrawn.',
+      );
     }
 
     const updated = await this.prisma.projectApplication.update({
@@ -254,7 +272,9 @@ export class ProjectApplicationsService {
     const isFounder = project.founderId === userId;
     const isAdmin = userRole === Role.ADMINISTRATOR;
     if (!isFounder && !isAdmin) {
-      throw new ForbiddenException('Only the project founder or administrator can view applications.');
+      throw new ForbiddenException(
+        'Only the project founder or administrator can view applications.',
+      );
     }
 
     const applications = await this.prisma.projectApplication.findMany({
@@ -310,10 +330,12 @@ export class ProjectApplicationsService {
             roleName: app.projectRole.role.name,
             experienceLevel: app.projectRole.experienceLevel,
             commitment: app.projectRole.commitment,
-            requiredSkills: (app.projectRole.requiredSkills || []).map((rs) => ({
-              id: rs.skill.id,
-              name: rs.skill.name,
-            })),
+            requiredSkills: (app.projectRole.requiredSkills || []).map(
+              (rs) => ({
+                id: rs.skill.id,
+                name: rs.skill.name,
+              }),
+            ),
             requiredTools: (app.projectRole.requiredTools || []).map((rt) => ({
               id: rt.tool.id,
               name: rt.tool.name,
@@ -398,16 +420,28 @@ export class ProjectApplicationsService {
         where: { id: applicationId },
         data: { status: ProjectApplicationStatus.REJECTED },
       });
+
+      await this.notificationsService.createNotification({
+        userId: application.applicantId,
+        type: 'APPLICATION_REJECTED',
+        title: 'Application Update',
+        message: `Your application to project ${application.projectId} has been rejected.`,
+        entityType: 'ProjectApplication',
+        entityId: applicationId,
+      });
+
       return this.mapToResponseDto(rejected);
     }
 
-    // Atomic acceptance transaction
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const currentApp = await tx.projectApplication.findUnique({
         where: { id: applicationId },
       });
 
-      if (!currentApp || currentApp.status !== ProjectApplicationStatus.PENDING) {
+      if (
+        !currentApp ||
+        currentApp.status !== ProjectApplicationStatus.PENDING
+      ) {
         throw new BadRequestException('Application is no longer pending.');
       }
 
@@ -431,12 +465,16 @@ export class ProjectApplicationsService {
 
       if (
         existingMember &&
-        (!existingMember.status || existingMember.status === ProjectMemberStatus.ACTIVE)
+        (!existingMember.status ||
+          existingMember.status === ProjectMemberStatus.ACTIVE)
       ) {
-        throw new BadRequestException('Applicant is already a team member of this project.');
+        throw new BadRequestException(
+          'Applicant is already a team member of this project.',
+        );
       }
 
-      const memberRoleTitle = currentRole.title || currentRole.role?.name || 'Member';
+      const memberRoleTitle =
+        currentRole.title || currentRole.role?.name || 'Member';
       let memberId: string;
 
       if (existingMember) {
@@ -477,7 +515,18 @@ export class ProjectApplicationsService {
         },
       });
 
-      return this.mapToResponseDto(accepted);
+      return accepted;
     });
+
+    await this.notificationsService.createNotification({
+      userId: application.applicantId,
+      type: 'APPLICATION_ACCEPTED',
+      title: 'Application Accepted',
+      message: `Your application to project ${application.projectId} has been accepted.`,
+      entityType: 'ProjectApplication',
+      entityId: applicationId,
+    });
+
+    return this.mapToResponseDto(result);
   }
 }

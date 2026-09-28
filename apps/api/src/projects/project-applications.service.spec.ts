@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectApplicationsService } from './project-applications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TalentMatchingService } from './talent-matching.service';
@@ -12,12 +16,18 @@ import {
 } from '@prisma/client';
 import { RespondProjectApplicationAction } from './project-applications.dto';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 describe('ProjectApplicationsService', () => {
   let service: ProjectApplicationsService;
   let prismaMock: any;
   let talentMatchingServiceMock: any;
+  let notificationsServiceMock: any;
 
   beforeEach(async () => {
+    notificationsServiceMock = {
+      createNotification: jest.fn().mockResolvedValue({}),
+    };
     prismaMock = {
       project: {
         findUnique: jest.fn(),
@@ -60,10 +70,13 @@ describe('ProjectApplicationsService', () => {
         ProjectApplicationsService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: TalentMatchingService, useValue: talentMatchingServiceMock },
+        { provide: NotificationsService, useValue: notificationsServiceMock },
       ],
     }).compile();
 
-    service = module.get<ProjectApplicationsService>(ProjectApplicationsService);
+    service = module.get<ProjectApplicationsService>(
+      ProjectApplicationsService,
+    );
   });
 
   describe('applyToRole', () => {
@@ -171,7 +184,13 @@ describe('ProjectApplicationsService', () => {
       });
 
       await expect(
-        service.applyToRole('proj-1', 'role-1', 'founder-1', Role.USER, mockDto),
+        service.applyToRole(
+          'proj-1',
+          'role-1',
+          'founder-1',
+          Role.USER,
+          mockDto,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -220,9 +239,9 @@ describe('ProjectApplicationsService', () => {
         status: ProjectApplicationStatus.PENDING,
       });
 
-      await expect(service.withdrawApplication('app-1', 'other-user')).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.withdrawApplication('app-1', 'other-user'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should reject withdrawal if application is not pending', async () => {
@@ -232,9 +251,9 @@ describe('ProjectApplicationsService', () => {
         status: ProjectApplicationStatus.ACCEPTED,
       });
 
-      await expect(service.withdrawApplication('app-1', 'user-2')).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.withdrawApplication('app-1', 'user-2'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -282,7 +301,11 @@ describe('ProjectApplicationsService', () => {
         },
       ]);
 
-      const list = await service.getProjectApplications('proj-1', 'founder-1', Role.USER);
+      const list = await service.getProjectApplications(
+        'proj-1',
+        'founder-1',
+        Role.USER,
+      );
       expect(list.length).toBe(1);
       expect(list[0].id).toBe('app-1');
       expect(list[0].applicant.username).toBe('alexdev');
@@ -310,7 +333,11 @@ describe('ProjectApplicationsService', () => {
       applicantId: 'user-2',
       status: ProjectApplicationStatus.PENDING,
       project: { id: 'proj-1', founderId: 'founder-1' },
-      projectRole: { id: 'role-1', title: 'Senior Audio Designer', role: { name: 'Audio Designer' } },
+      projectRole: {
+        id: 'role-1',
+        title: 'Senior Audio Designer',
+        role: { name: 'Audio Designer' },
+      },
     };
 
     it('should reject an application without creating membership', async () => {
@@ -322,9 +349,14 @@ describe('ProjectApplicationsService', () => {
         updatedAt: new Date(),
       });
 
-      const res = await service.respondToApplication('app-1', 'founder-1', Role.USER, {
-        action: RespondProjectApplicationAction.REJECT,
-      });
+      const res = await service.respondToApplication(
+        'app-1',
+        'founder-1',
+        Role.USER,
+        {
+          action: RespondProjectApplicationAction.REJECT,
+        },
+      );
 
       expect(res.status).toBe(ProjectApplicationStatus.REJECTED);
       expect(prismaMock.projectMember.create).not.toHaveBeenCalled();
@@ -350,7 +382,10 @@ describe('ProjectApplicationsService', () => {
             role: { name: 'Audio Designer' },
             status: ProjectRoleStatus.OPEN,
           }),
-          update: jest.fn().mockResolvedValue({ id: 'role-1', status: ProjectRoleStatus.FILLED }),
+          update: jest.fn().mockResolvedValue({
+            id: 'role-1',
+            status: ProjectRoleStatus.FILLED,
+          }),
         },
         projectMember: {
           findUnique: jest.fn().mockResolvedValue(null),
@@ -360,9 +395,14 @@ describe('ProjectApplicationsService', () => {
 
       prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
-      const res = await service.respondToApplication('app-1', 'founder-1', Role.USER, {
-        action: RespondProjectApplicationAction.ACCEPT,
-      });
+      const res = await service.respondToApplication(
+        'app-1',
+        'founder-1',
+        Role.USER,
+        {
+          action: RespondProjectApplicationAction.ACCEPT,
+        },
+      );
 
       expect(res.status).toBe(ProjectApplicationStatus.ACCEPTED);
       expect(txMock.projectMember.create).toHaveBeenCalledWith({

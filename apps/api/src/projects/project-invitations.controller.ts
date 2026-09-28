@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { ProjectInvitationsService } from './project-invitations.service';
 import {
   ProjectInvitationResponseDto,
@@ -10,18 +13,24 @@ import {
 
 @Controller('users')
 export class UserInvitationsController {
-  constructor(private readonly projectInvitationsService: ProjectInvitationsService) {}
+  constructor(
+    private readonly projectInvitationsService: ProjectInvitationsService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('me/invitations')
-  getUserInvitations(@CurrentUser() user: AuthenticatedUser): Promise<UserInvitationsResponseDto> {
+  getUserInvitations(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<UserInvitationsResponseDto> {
     return this.projectInvitationsService.getUserInvitations(user.id);
   }
 }
 
 @Controller('invitations')
 export class ProjectInvitationsController {
-  constructor(private readonly projectInvitationsService: ProjectInvitationsService) {}
+  constructor(
+    private readonly projectInvitationsService: ProjectInvitationsService,
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/respond')
@@ -39,6 +48,10 @@ export class ProjectInvitationsController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ProjectInvitationResponseDto> {
-    return this.projectInvitationsService.cancelInvitation(id, user.id, user.role);
+    return this.projectInvitationsService.cancelInvitation(
+      id,
+      user.id,
+      user.role,
+    );
   }
 }

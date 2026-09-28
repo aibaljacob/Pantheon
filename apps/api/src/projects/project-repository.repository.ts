@@ -41,9 +41,37 @@ export interface CreateReleaseData {
   assets?: Prisma.InputJsonValue;
 }
 
+export type ProjectForRepository = NonNullable<
+  Awaited<ReturnType<ProjectRepositoryRepository['findProjectForRepository']>>
+>;
+
 @Injectable()
 export class ProjectRepositoryRepository {
   constructor(private readonly prisma: PrismaService) {}
+
+  async findProjectForRepository(projectId: string) {
+    return this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        gameEngine: true,
+        founder: {
+          select: {
+            username: true,
+          },
+        },
+        members: {
+          select: {
+            id: true,
+          },
+        },
+        repository: true,
+      },
+    });
+  }
 
   async findProjectWithDetails(projectId: string) {
     return this.prisma.project.findUnique({
@@ -70,46 +98,6 @@ export class ProjectRepositoryRepository {
   async findRepositoryByProjectId(projectId: string) {
     return this.prisma.projectRepository.findUnique({
       where: { projectId },
-      include: {
-        branches: {
-          orderBy: { createdAt: 'asc' },
-        },
-        commits: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            author: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
-        pullRequests: {
-          orderBy: { createdAt: 'desc' },
-          include: {
-            author: {
-              include: {
-                profile: true,
-              },
-            },
-            mergedBy: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
-        releases: {
-          orderBy: { publishedAt: 'desc' },
-          include: {
-            author: {
-              include: {
-                profile: true,
-              },
-            },
-          },
-        },
-      },
     });
   }
 
@@ -157,7 +145,11 @@ export class ProjectRepositoryRepository {
     });
   }
 
-  async createBranch(repositoryId: string, name: string, isDefault: boolean = false) {
+  async createBranch(
+    repositoryId: string,
+    name: string,
+    isDefault: boolean = false,
+  ) {
     return this.prisma.repoBranch.create({
       data: {
         repositoryId,

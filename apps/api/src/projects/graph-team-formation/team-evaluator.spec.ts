@@ -68,11 +68,23 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
       // Cand 1 has: C++, Shaders, Unreal
       // Cand 2 has: 3D Modeling, Blender
       const roles: EvaluationProjectRole[] = [
-        { id: 'r1', requiredSkillIds: ['skill-cpp'], requiredToolIds: ['tool-unreal'] },
-        { id: 'r2', requiredSkillIds: ['skill-shaders'], requiredToolIds: ['tool-blender'] },
+        {
+          id: 'r1',
+          requiredSkillIds: ['skill-cpp'],
+          requiredToolIds: ['tool-unreal'],
+        },
+        {
+          id: 'r2',
+          requiredSkillIds: ['skill-shaders'],
+          requiredToolIds: ['tool-blender'],
+        },
       ];
       const candidates: EvaluationCandidate[] = [
-        { id: 'c1', skillIds: ['skill-cpp', 'skill-shaders'], toolIds: ['tool-unreal'] },
+        {
+          id: 'c1',
+          skillIds: ['skill-cpp', 'skill-shaders'],
+          toolIds: ['tool-unreal'],
+        },
         { id: 'c2', skillIds: ['skill-3d-model'], toolIds: ['tool-blender'] },
       ];
       const assignments: RoleCandidateAssignment[] = [
@@ -97,8 +109,16 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
 
     it('should evaluate partial skill and tool coverage and identify missing exact taxonomy IDs', () => {
       const roles: EvaluationProjectRole[] = [
-        { id: 'r1', requiredSkillIds: ['skill-cpp', 'skill-ai'], requiredToolIds: ['tool-unreal'] },
-        { id: 'r2', requiredSkillIds: ['skill-networking'], requiredToolIds: ['tool-photon', 'tool-docker'] },
+        {
+          id: 'r1',
+          requiredSkillIds: ['skill-cpp', 'skill-ai'],
+          requiredToolIds: ['tool-unreal'],
+        },
+        {
+          id: 'r2',
+          requiredSkillIds: ['skill-networking'],
+          requiredToolIds: ['tool-photon', 'tool-docker'],
+        },
       ];
       const candidates: EvaluationCandidate[] = [
         { id: 'c1', skillIds: ['skill-cpp'], toolIds: ['tool-unreal'] },
@@ -118,7 +138,10 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
       expect(result.skillCoverage.totalRequiredSkills).toBe(3);
       expect(result.skillCoverage.ratio).toBeCloseTo(1 / 3, 4);
       expect(result.skillCoverage.coveredSkillIds).toEqual(['skill-cpp']);
-      expect(result.skillCoverage.missingSkillIds).toEqual(['skill-ai', 'skill-networking']);
+      expect(result.skillCoverage.missingSkillIds).toEqual([
+        'skill-ai',
+        'skill-networking',
+      ]);
 
       // Tools: required = ['tool-unreal', 'tool-photon', 'tool-docker'] (3)
       // Team has = ['tool-unreal', 'tool-docker'] (2)
@@ -176,7 +199,11 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
     });
 
     it('should return 0 utility for empty team', () => {
-      const result = evaluator.evaluateTeam({ roles: [], candidates: [], assignments: [] });
+      const result = evaluator.evaluateTeam({
+        roles: [],
+        candidates: [],
+        assignments: [],
+      });
       expect(result.assignmentUtility.totalUtility).toBe(0);
       expect(result.assignmentUtility.assignmentCount).toBe(0);
       expect(result.assignmentUtility.averageUtility).toBe(0);
@@ -195,7 +222,10 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
       ];
 
       const result = evaluator.evaluateTeam({
-        roles: [{ id: 'r1', requiredSkillIds: [], requiredToolIds: [] }, { id: 'r2', requiredSkillIds: [], requiredToolIds: [] }],
+        roles: [
+          { id: 'r1', requiredSkillIds: [], requiredToolIds: [] },
+          { id: 'r2', requiredSkillIds: [], requiredToolIds: [] },
+        ],
         candidates,
         assignments,
       });
@@ -218,8 +248,16 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
       // Redundancy(Python) = 2 - 1 = 1
       // Total redundancy = 2 + 1 = 3
       const candidates: EvaluationCandidate[] = [
-        { id: 'c1', skillIds: ['skill-cpp', 'skill-py', 'skill-git'], toolIds: [] },
-        { id: 'c2', skillIds: ['skill-cpp', 'skill-py', 'skill-unity'], toolIds: [] },
+        {
+          id: 'c1',
+          skillIds: ['skill-cpp', 'skill-py', 'skill-git'],
+          toolIds: [],
+        },
+        {
+          id: 'c2',
+          skillIds: ['skill-cpp', 'skill-py', 'skill-unity'],
+          toolIds: [],
+        },
         { id: 'c3', skillIds: ['skill-cpp', 'skill-blender'], toolIds: [] },
       ];
       const assignments: RoleCandidateAssignment[] = [
@@ -326,7 +364,10 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
 
       expect(result.collaborationStrength.totalStrength).toBeCloseTo(2.0, 4);
       expect(result.collaborationStrength.pairCount).toBe(3);
-      expect(result.collaborationStrength.averageStrength).toBeCloseTo(2.0 / 3, 4);
+      expect(result.collaborationStrength.averageStrength).toBeCloseTo(
+        2.0 / 3,
+        4,
+      );
       expect(result.collaborationStrength.collaboratingPairCount).toBe(1);
     });
 
@@ -350,7 +391,11 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
       // Tool Coverage = 0.8 (80%)
       // Composite = (1.0 + 0.5 + 0.8) / 3 = 2.3 / 3 = 0.7667 (76.67%)
       const roles: EvaluationProjectRole[] = [
-        { id: 'r1', requiredSkillIds: ['s1', 's2'], requiredToolIds: ['t1', 't2', 't3', 't4', 't5'] },
+        {
+          id: 'r1',
+          requiredSkillIds: ['s1', 's2'],
+          requiredToolIds: ['t1', 't2', 't3', 't4', 't5'],
+        },
       ];
       const candidates: EvaluationCandidate[] = [
         { id: 'c1', skillIds: ['s1'], toolIds: ['t1', 't2', 't3', 't4'] },
@@ -449,7 +494,7 @@ describe('TeamEvaluator (Stage C: Holistic Team-Level Evaluation)', () => {
       ];
       const assignments: RoleCandidateAssignment[] = [
         { roleId: 'r1', candidateId: 'c1', score: 0.875 },
-        { roleId: 'r2', candidateId: 'c2', score: 0.650 },
+        { roleId: 'r2', candidateId: 'c2', score: 0.65 },
       ];
       const collaborationWeights = new Map<string, number>([
         [TeamEvaluator.makePairKey('c1', 'c2'), 1.5],

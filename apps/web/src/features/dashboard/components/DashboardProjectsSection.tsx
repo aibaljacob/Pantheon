@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderKanban,
@@ -42,14 +42,24 @@ function formatStatus(status: string): string {
   }
 }
 
-export const DashboardProjectsSection: React.FC = () => {
+interface DashboardProjectsSectionProps {
+  showViewAllLink?: boolean;
+  headerTitle?: string;
+  headerSubtitle?: string;
+}
+
+export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> = ({
+  showViewAllLink = true,
+  headerTitle = 'My Projects',
+  headerSubtitle = 'Active Studio Productions',
+}) => {
   const accessToken = useAuthStore((state) => state.accessToken);
   const [projects, setProjects] = useState<DashboardProjectItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(Boolean(accessToken));
   const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     if (!accessToken) {
       setIsLoading(false);
       return;
@@ -61,15 +71,39 @@ export const DashboardProjectsSection: React.FC = () => {
     try {
       const res = await fetchUserDashboardProjects(accessToken);
       setProjects(res.projects || []);
-    } catch (err: any) {
-      setError(err.message || 'Unable to load active projects.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unable to load active projects.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [accessToken]);
 
   useEffect(() => {
-    loadProjects();
+    if (!accessToken) return;
+    let ignore = false;
+
+    fetchUserDashboardProjects(accessToken)
+      .then((res) => {
+        if (!ignore) {
+          setProjects(res.projects || []);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : 'Unable to load active projects.');
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
   }, [accessToken]);
 
   const handleProjectCreated = (newProject: DashboardProjectItem) => {
@@ -84,11 +118,11 @@ export const DashboardProjectsSection: React.FC = () => {
           <div className="flex items-center gap-2">
             <FolderKanban className="h-4 w-4 text-[#8c887e]" />
             <p className="text-xs font-mono uppercase tracking-[0.25em] text-[#8c887e]">
-              Active Pantheon Production Work
+              {headerSubtitle}
             </p>
           </div>
           <h2 className="mt-1 font-headline text-2xl font-bold text-[#ffffff]">
-            Dashboard Projects
+            {headerTitle}
           </h2>
         </div>
 
@@ -99,10 +133,10 @@ export const DashboardProjectsSection: React.FC = () => {
             onClick={() => setIsCreateModalOpen(true)}
             icon={<Crown className="h-3.5 w-3.5 text-amber-400" />}
           >
-            Become a Founder
+            New Project
           </Button>
 
-          {projects.length > 0 && (
+          {showViewAllLink && projects.length > 0 && (
             <Link
               to="/projects"
               className="inline-flex items-center gap-1.5 text-xs font-mono text-[#cac6bc] hover:text-[#ffffff] transition-colors"

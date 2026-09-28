@@ -41,7 +41,9 @@ export class AdminController {
 
   // 2. User Management
   @Get('users')
-  getUsers(@Query() query: AdminUsersQueryDto): Promise<AdminPaginatedUsersResponseDto> {
+  getUsers(
+    @Query() query: AdminUsersQueryDto,
+  ): Promise<AdminPaginatedUsersResponseDto> {
     return this.adminService.getPaginatedUsers(query);
   }
 
@@ -52,7 +54,9 @@ export class AdminController {
 
   // 3. Project Management
   @Get('projects')
-  getProjects(@Query() query: AdminProjectsQueryDto): Promise<AdminPaginatedProjectsResponseDto> {
+  getProjects(
+    @Query() query: AdminProjectsQueryDto,
+  ): Promise<AdminPaginatedProjectsResponseDto> {
     return this.adminService.getPaginatedProjects(query);
   }
 

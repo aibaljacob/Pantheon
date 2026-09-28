@@ -41,6 +41,7 @@ model User {
   taskCommitLinks         TaskCommitLink[]         @relation("UserTaskCommitLinks")
   createdPlaytests        PlaytestSession[]        @relation("CreatedPlaytests")
   reportedFeedback        PlaytestFeedback[]       @relation("ReportedFeedback")
+  notifications           Notification[]           @relation("UserNotifications")
 }
 
 model UserProfile {
@@ -939,4 +940,37 @@ model PlaytestFeedback {
   @@index([status])
   @@index([severity])
   @@index([convertedTaskId])
+}
+
+enum NotificationType {
+  INVITATION_RECEIVED
+  APPLICATION_ACCEPTED
+  APPLICATION_REJECTED
+  ADDED_TO_PROJECT
+  REMOVED_FROM_PROJECT
+  PROJECT_ROLE_CHANGED
+  TASK_ASSIGNED
+  BUILD_SUCCEEDED
+  BUILD_FAILED
+  PLAYABLE_BUILD_CREATED
+  FEEDBACK_SUBMITTED
+  FEEDBACK_CONVERTED_TO_TASK
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  type       NotificationType
+  title      String
+  message    String           @db.Text
+  entityType String?
+  entityId   String?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }

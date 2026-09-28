@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   CheckSquare,
   Plus,
@@ -7,6 +7,7 @@ import {
   Loader2,
   AlertCircle,
   FolderKanban,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { taskService } from '../../services/taskService';
@@ -20,6 +21,7 @@ import type {
   TaskStatus,
   UpdateMilestoneInput,
 } from '../../types';
+import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
 import { TaskCard } from './TaskCard';
 import { CreateTaskModal } from './CreateTaskModal';
 import { CreateMilestoneModal } from './CreateMilestoneModal';
@@ -42,15 +44,28 @@ interface TasksTabProps {
 
 export const TasksTab: React.FC<TasksTabProps> = ({
   projectId,
-  projectName: _projectName,
   isFounder,
   members,
   currentUser,
 }) => {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const cachedTasks = useWorkspaceStore((state) => state.projects[projectId]?.tasks);
+  const cachedMilestones = useWorkspaceStore((state) => state.projects[projectId]?.milestones);
+  const setTasksStore = useWorkspaceStore((state) => state.setTasks);
+  const setMilestonesStore = useWorkspaceStore((state) => state.setMilestones);
+  const addTaskStore = useWorkspaceStore((state) => state.addTask);
+  const updateTaskStore = useWorkspaceStore((state) => state.updateTask);
+  const removeTaskStore = useWorkspaceStore((state) => state.removeTask);
+  const invalidateTasks = useWorkspaceStore((state) => state.invalidateTasks);
+  const invalidateMilestones = useWorkspaceStore((state) => state.invalidateMilestones);
+
+  const [localTasks, setLocalTasks] = useState<TaskItem[]>([]);
+  const [localMilestones, setLocalMilestones] = useState<MilestoneItem[]>([]);
+  const [isFetching, setIsFetching] = useState<boolean>(!cachedTasks || !cachedMilestones);
   const [error, setError] = useState<string | null>(null);
+
+  const tasks = cachedTasks || localTasks;
+  const milestones = cachedMilestones || localMilestones;
+  const isLoading = (!cachedTasks || !cachedMilestones) && isFetching;
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -67,40 +82,70 @@ export const TasksTab: React.FC<TasksTabProps> = ({
   const isFounderOrAdmin = isFounder || currentUser?.role === 'Administrator';
   const isMember = isFounderOrAdmin || members.some((m) => m.userId === currentUser?.id);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [fetchedTasks, fetchedMilestones] = await Promise.all([
-        taskService.getTasks(projectId, {}),
-        taskService.getMilestones(projectId),
-      ]);
-      setTasks(fetchedTasks);
-      setMilestones(fetchedMilestones);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load task board.';
-      setError(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (cachedTasks && cachedMilestones) return;
+    let ignore = false;
+
+    Promise.all([
+      dedupeRequest(`${projectId}:tasks`, () => taskService.getTasks(projectId, {})),
+      dedupeRequest(`${projectId}:milestones`, () => taskService.getMilestones(projectId)),
+    ])
+      .then(([fetchedTasks, fetchedMilestones]) => {
+        if (!ignore) {
+          setLocalTasks(fetchedTasks);
+          setLocalMilestones(fetchedMilestones);
+          setTasksStore(projectId, fetchedTasks);
+          setMilestonesStore(projectId, fetchedMilestones);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const msg = err instanceof Error ? err.message : 'Failed to load task board.';
+          setError(msg);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsFetching(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId, cachedTasks, cachedMilestones, setTasksStore, setMilestonesStore, refreshTrigger]);
+
+  const handleRefresh = () => {
+    setIsFetching(true);
+    invalidateTasks(projectId);
+    invalidateMilestones(projectId);
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   // Task Mutators
   const handleCreateTask = async (input: CreateTaskInput): Promise<TaskItem> => {
     const created = await taskService.createTask(projectId, input);
-    await loadData();
+    addTaskStore(projectId, created);
+    setLocalTasks((prev) => [created, ...prev.filter((t) => t.id !== created.id)]);
+    taskService.getMilestones(projectId).then((m) => {
+      setLocalMilestones(m);
+      setMilestonesStore(projectId, m);
+    }).catch(() => {});
     return created;
   };
 
   const handleUpdateStatus = async (taskId: string, status: TaskStatus): Promise<TaskItem> => {
     const updated = await taskService.updateTaskStatus(projectId, taskId, status);
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    updateTaskStore(projectId, updated);
+    setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     if (activeTask && activeTask.id === taskId) setActiveTask(updated);
-    taskService.getMilestones(projectId).then(setMilestones).catch(() => {});
+    taskService.getMilestones(projectId).then((m) => {
+      setLocalMilestones(m);
+      setMilestonesStore(projectId, m);
+    }).catch(() => {});
     return updated;
   };
 
@@ -109,7 +154,8 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     assigneeId: string | null,
   ): Promise<TaskItem> => {
     const updated = await taskService.updateTaskAssignee(projectId, taskId, assigneeId);
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    updateTaskStore(projectId, updated);
+    setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     if (activeTask && activeTask.id === taskId) setActiveTask(updated);
     return updated;
   };
@@ -119,9 +165,13 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     milestoneId: string | null,
   ): Promise<TaskItem> => {
     const updated = await taskService.updateTaskMilestone(projectId, taskId, milestoneId);
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    updateTaskStore(projectId, updated);
+    setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     if (activeTask && activeTask.id === taskId) setActiveTask(updated);
-    taskService.getMilestones(projectId).then(setMilestones).catch(() => {});
+    taskService.getMilestones(projectId).then((m) => {
+      setLocalMilestones(m);
+      setMilestonesStore(projectId, m);
+    }).catch(() => {});
     return updated;
   };
 
@@ -136,22 +186,29 @@ export const TasksTab: React.FC<TasksTabProps> = ({
       description: description || undefined,
       priority,
     });
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    updateTaskStore(projectId, updated);
+    setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     if (activeTask && activeTask.id === taskId) setActiveTask(updated);
     return updated;
   };
 
   const handleDeleteTask = async (taskId: string): Promise<void> => {
     await taskService.deleteTask(projectId, taskId);
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    removeTaskStore(projectId, taskId);
+    setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
     if (activeTask && activeTask.id === taskId) setActiveTask(null);
-    taskService.getMilestones(projectId).then(setMilestones).catch(() => {});
+    taskService.getMilestones(projectId).then((m) => {
+      setLocalMilestones(m);
+      setMilestonesStore(projectId, m);
+    }).catch(() => {});
   };
 
   // Milestone Mutators
   const handleCreateMilestone = async (input: CreateMilestoneInput): Promise<MilestoneItem> => {
     const created = await taskService.createMilestone(projectId, input);
-    await loadData();
+    const updatedMilestones = [...milestones, created];
+    setLocalMilestones(updatedMilestones);
+    setMilestonesStore(projectId, updatedMilestones);
     return created;
   };
 
@@ -160,15 +217,18 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     input: UpdateMilestoneInput,
   ): Promise<MilestoneItem> => {
     const updated = await taskService.updateMilestone(projectId, milestoneId, input);
-    setMilestones((prev) => prev.map((m) => (m.id === milestoneId ? updated : m)));
+    const updatedMilestones = milestones.map((m) => (m.id === milestoneId ? updated : m));
+    setLocalMilestones(updatedMilestones);
+    setMilestonesStore(projectId, updatedMilestones);
     return updated;
   };
 
   const handleDeleteMilestone = async (milestoneId: string): Promise<void> => {
     await taskService.deleteMilestone(projectId, milestoneId);
-    setMilestones((prev) => prev.filter((m) => m.id !== milestoneId));
+    const updatedMilestones = milestones.filter((m) => m.id !== milestoneId);
+    setLocalMilestones(updatedMilestones);
+    setMilestonesStore(projectId, updatedMilestones);
     if (selectedMilestoneId === milestoneId) setSelectedMilestoneId(undefined);
-    await loadData();
   };
 
   // Filter computation
@@ -218,6 +278,16 @@ export const TasksTab: React.FC<TasksTabProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />}
+            onClick={handleRefresh}
+            title="Refresh Tasks & Milestones"
+          >
+            Refresh
+          </Button>
+
           {isFounderOrAdmin && (
             <Button
               variant="secondary"
@@ -396,11 +466,13 @@ export const TasksTab: React.FC<TasksTabProps> = ({
           isOpen={!!activeTask}
           onClose={() => setActiveTask(null)}
           onTaskUpdated={(updated) => {
-            setTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            updateTaskStore(projectId, updated);
+            setLocalTasks((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
             setActiveTask(updated);
           }}
           onTaskDeleted={(taskId) => {
-            setTasks((prev) => prev.filter((t) => t.id !== taskId));
+            removeTaskStore(projectId, taskId);
+            setLocalTasks((prev) => prev.filter((t) => t.id !== taskId));
             setActiveTask(null);
           }}
           isFounderOrAdmin={isFounderOrAdmin}

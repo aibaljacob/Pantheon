@@ -1,6 +1,9 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BuildPlatform } from '@prisma/client';
-import { BuildMilestoneInfoDto, BuildTriggeredByUserDto } from './build-response.dto';
+import {
+  BuildMilestoneInfoDto,
+  BuildTriggeredByUserDto,
+} from './build-response.dto';
 
 export class PlayableBuildResponseDto {
   @ApiProperty()

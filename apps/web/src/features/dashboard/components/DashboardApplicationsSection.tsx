@@ -32,16 +32,41 @@ export const DashboardApplicationsSection: React.FC = () => {
     try {
       const data = await fetchCandidateApplications(accessToken);
       setApplications(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load your submitted applications.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load your submitted applications.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   }, [accessToken]);
 
   useEffect(() => {
-    loadApplications();
-  }, [loadApplications]);
+    if (!accessToken) return;
+    let ignore = false;
+
+    fetchCandidateApplications(accessToken)
+      .then((data) => {
+        if (!ignore) {
+          setApplications(data);
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const msg = err instanceof Error ? err.message : 'Failed to load your submitted applications.';
+          setError(msg);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [accessToken]);
 
   const handleWithdraw = async (applicationId: string, projectName: string, roleName: string) => {
     if (!accessToken) return;
@@ -59,8 +84,9 @@ export const DashboardApplicationsSection: React.FC = () => {
     try {
       await withdrawCandidateApplication(accessToken, applicationId);
       await loadApplications();
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to withdraw application.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to withdraw application.';
+      setActionError(msg);
     } finally {
       setProcessingId(null);
     }

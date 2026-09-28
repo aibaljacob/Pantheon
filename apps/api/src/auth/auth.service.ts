@@ -5,10 +5,11 @@ import {
   Injectable,
   Logger,
   OnModuleInit,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { type AuthSession, type User, type UserProfile } from '@prisma/client';
+import type { UserProfile } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import type {
   ApiResponse,
@@ -45,8 +46,12 @@ import {
   toIsoExpiration,
   verifyPassword,
 } from './auth.utils';
-type UserWithProfile = User & { profile?: UserProfile | null };
-type SessionWithUser = AuthSession & { user: UserWithProfile };
+import {
+  AuthSessionCache,
+  type SessionWithUser,
+  type UserWithProfile,
+} from './auth-session.cache';
+
 interface AccessTokenPayload {
   sub: string;
   sid: string;
@@ -60,7 +65,13 @@ export class AuthService implements OnModuleInit {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
+    @Optional()
+    private readonly sessionCache: AuthSessionCache = new AuthSessionCache(),
   ) {}
+
+  getSessionCache(): AuthSessionCache {
+    return this.sessionCache;
+  }
   async onModuleInit(): Promise<void> {
     await this.seedDemoUser();
   }
@@ -295,6 +306,7 @@ export class AuthService implements OnModuleInit {
         where: { userId: resetToken.userId },
       });
     });
+    this.sessionCache.invalidateByUserId(resetToken.userId);
     return {
       success: true,
       data: { passwordReset: true },
@@ -348,7 +360,9 @@ export class AuthService implements OnModuleInit {
     }
     const session = await this.findValidSession(accessToken);
     const meDuration = performance.now() - meStart;
-    this.logger.debug(`[PERF][AUTH] /auth/me total: ${meDuration.toFixed(2)} ms`);
+    this.logger.debug(
+      `[PERF][AUTH] /auth/me total: ${meDuration.toFixed(2)} ms`,
+    );
     return {
       success: true,
       data: {
@@ -362,6 +376,21 @@ export class AuthService implements OnModuleInit {
     accessToken: string | null,
   ): Promise<ApiResponse<{ loggedOut: boolean }>> {
     if (accessToken) {
+      try {
+        const decoded: unknown = this.jwtService.decode(accessToken);
+        if (
+          decoded !== null &&
+          typeof decoded === 'object' &&
+          'sid' in decoded &&
+          typeof (decoded as Record<string, unknown>).sid === 'string'
+        ) {
+          const sid = (decoded as Record<string, unknown>).sid as string;
+          this.sessionCache.invalidate(sid);
+        }
+      } catch {
+        // ignore decoding error
+      }
+      this.sessionCache.invalidateByAccessToken(accessToken);
       await this.prisma.authSession.deleteMany({ where: { accessToken } });
     }
     return {
@@ -416,11 +445,10 @@ export class AuthService implements OnModuleInit {
       message,
     };
   }
-  async findValidSession(
-    accessToken: string,
-  ): Promise<SessionWithUser> {
+  async findValidSession(accessToken: string): Promise<SessionWithUser> {
     const totalStart = performance.now();
 
+    // 1. ALWAYS verify JWT first (DO NOT bypass JWT verification, DO NOT cache JWT verification)
     const jwtStart = performance.now();
     let payload: AccessTokenPayload;
     try {
@@ -435,37 +463,77 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Session expired. Please sign in again.');
     }
     const jwtDuration = performance.now() - jwtStart;
-    this.logger.debug(`[PERF][AUTH] JWT verification: ${jwtDuration.toFixed(2)} ms`);
+    this.logger.debug(
+      `[PERF][AUTH] JWT verification: ${jwtDuration.toFixed(2)} ms`,
+    );
 
-    const queryStart = performance.now();
-    const session = await this.prisma.authSession.findUnique({
-      where: { id: payload.sid },
-      include: { user: { include: { profile: true } } },
-    });
-    const queryDuration = performance.now() - queryStart;
-    this.logger.debug(`[PERF][AUTH] authSession query: ${queryDuration.toFixed(2)} ms`);
+    // 2. Check in-memory session cache by payload.sid
+    const cached = this.sessionCache.get(payload.sid);
+    if (cached) {
+      const now = new Date();
+      const sessionExpiry =
+        cached.session.expiresAt instanceof Date
+          ? cached.session.expiresAt
+          : new Date(cached.session.expiresAt);
 
-    if (
-      !session ||
-      session.accessToken !== accessToken ||
-      session.expiresAt <= new Date()
-    ) {
-      if (session) {
-        await this.prisma.authSession
-          .delete({ where: { id: session.id } })
-          .catch(() => undefined);
+      if (
+        cached.accessToken === accessToken &&
+        sessionExpiry > now &&
+        cached.refreshTokenVersion === payload.ver
+      ) {
+        this.logger.debug(
+          `[PERF][AUTH] Session cache HIT for sid: ${payload.sid} (${(performance.now() - totalStart).toFixed(2)} ms)`,
+        );
+        return cached.session;
       }
-      throw new UnauthorizedException('Session expired. Please sign in again.');
+      this.sessionCache.invalidate(payload.sid);
     }
-    if (session.user.refreshTokenVersion !== payload.ver) {
-      await this.prisma.authSession
-        .delete({ where: { id: session.id } })
-        .catch(() => undefined);
-      throw new UnauthorizedException('Session expired. Please sign in again.');
-    }
+
+    // 3. Cache MISS: In-flight deduplication on database lookup
+    const session = await this.sessionCache.dedupe(payload.sid, async () => {
+      const queryStart = performance.now();
+      const dbSession = await this.prisma.authSession.findUnique({
+        where: { id: payload.sid },
+        include: { user: { include: { profile: true } } },
+      });
+      const queryDuration = performance.now() - queryStart;
+      this.logger.debug(
+        `[PERF][AUTH] authSession query: ${queryDuration.toFixed(2)} ms`,
+      );
+
+      if (
+        !dbSession ||
+        dbSession.accessToken !== accessToken ||
+        dbSession.expiresAt <= new Date()
+      ) {
+        if (dbSession) {
+          await this.prisma.authSession
+            .delete({ where: { id: dbSession.id } })
+            .catch(() => undefined);
+        }
+        throw new UnauthorizedException(
+          'Session expired. Please sign in again.',
+        );
+      }
+      if (dbSession.user.refreshTokenVersion !== payload.ver) {
+        await this.prisma.authSession
+          .delete({ where: { id: dbSession.id } })
+          .catch(() => undefined);
+        throw new UnauthorizedException(
+          'Session expired. Please sign in again.',
+        );
+      }
+
+      return dbSession;
+    });
+
+    // 4. Store successfully validated session in cache
+    this.sessionCache.set(payload.sid, session, accessToken);
 
     const totalDuration = performance.now() - totalStart;
-    this.logger.debug(`[PERF][AUTH] findValidSession total: ${totalDuration.toFixed(2)} ms`);
+    this.logger.debug(
+      `[PERF][AUTH] findValidSession total (cache MISS): ${totalDuration.toFixed(2)} ms`,
+    );
 
     return session;
   }
@@ -563,10 +631,11 @@ export class AuthService implements OnModuleInit {
       }
       return updatedUser;
     }
+    const fullName = [profile.firstName, profile.lastName]
+      .filter(Boolean)
+      .join('.');
     const usernameBase = createUsernameSlug(
-      `${profile.firstName}.${profile.lastName}` ||
-        normalizedEmail.split('@')[0] ||
-        'pantheon',
+      fullName || normalizedEmail.split('@')[0] || 'pantheon',
     );
     const username = await this.createUniqueUsername(usernameBase);
     return this.prisma.user.create({

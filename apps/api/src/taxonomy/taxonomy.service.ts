@@ -14,19 +14,21 @@ export class TaxonomyService {
         ? {
             OR: [
               { name: { contains: trimmed, mode: 'insensitive' as const } },
-              { description: { contains: trimmed, mode: 'insensitive' as const } },
+              {
+                description: {
+                  contains: trimmed,
+                  mode: 'insensitive' as const,
+                },
+              },
             ],
           }
         : {}),
     };
   }
 
-  private formatResponse<T extends { id: string; name: string; description: string | null }>(
-    items: T[],
-    total: number,
-    page: number,
-    limit: number,
-  ) {
+  private formatResponse<
+    T extends { id: string; name: string; description: string | null },
+  >(items: T[], total: number, page: number, limit: number) {
     return {
       data: items.map((item) => ({
         id: item.id,

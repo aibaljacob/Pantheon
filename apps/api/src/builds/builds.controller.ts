@@ -8,10 +8,18 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { BuildsService } from './builds.service';
 import { CreateBuildDto } from './dto/create-build.dto';
 import { UpdateBuildStatusDto } from './dto/update-build-status.dto';
@@ -27,7 +35,10 @@ export class BuildsController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Trigger a new build job in QUEUED status' })
-  @ApiResponse({ status: 201, description: 'Build job created in QUEUED status' })
+  @ApiResponse({
+    status: 201,
+    description: 'Build job created in QUEUED status',
+  })
   @UseGuards(JwtAuthGuard)
   @Post('builds')
   createBuild(
@@ -38,7 +49,9 @@ export class BuildsController {
     return this.buildsService.createBuild(projectId, dto, user.id, user.role);
   }
 
-  @ApiOperation({ summary: 'Get all build jobs for a project with optional filters' })
+  @ApiOperation({
+    summary: 'Get all build jobs for a project with optional filters',
+  })
   @ApiResponse({ status: 200, description: 'Returns array of build jobs' })
   @UseGuards(OptionalJwtAuthGuard)
   @Get('builds')
@@ -59,12 +72,20 @@ export class BuildsController {
     @Param('buildId') buildId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ): Promise<BuildJobResponseDto> {
-    return this.buildsService.getBuild(projectId, buildId, user?.id, user?.role);
+    return this.buildsService.getBuild(
+      projectId,
+      buildId,
+      user?.id,
+      user?.role,
+    );
   }
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update build status with transition validation' })
-  @ApiResponse({ status: 200, description: 'Build status updated successfully' })
+  @ApiResponse({
+    status: 200,
+    description: 'Build status updated successfully',
+  })
   @UseGuards(JwtAuthGuard)
   @Patch('builds/:buildId/status')
   updateBuildStatus(
@@ -92,7 +113,12 @@ export class BuildsController {
     @Param('buildId') buildId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<BuildJobResponseDto> {
-    return this.buildsService.cancelBuild(projectId, buildId, user.id, user.role);
+    return this.buildsService.cancelBuild(
+      projectId,
+      buildId,
+      user.id,
+      user.role,
+    );
   }
 
   @ApiOperation({ summary: 'Get logs for a specific build job' })
@@ -104,7 +130,12 @@ export class BuildsController {
     @Param('buildId') buildId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ): Promise<{ buildId: string; status: string; buildLogs: string }> {
-    return this.buildsService.getBuildLogs(projectId, buildId, user?.id, user?.role);
+    return this.buildsService.getBuildLogs(
+      projectId,
+      buildId,
+      user?.id,
+      user?.role,
+    );
   }
 
   // ==========================================
@@ -119,7 +150,11 @@ export class BuildsController {
     @Param('projectId') projectId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ): Promise<PlayableBuildResponseDto[]> {
-    return this.buildsService.getPlayableBuilds(projectId, user?.id, user?.role);
+    return this.buildsService.getPlayableBuilds(
+      projectId,
+      user?.id,
+      user?.role,
+    );
   }
 
   @ApiOperation({ summary: 'Get a single playable build by ID' })
@@ -131,12 +166,20 @@ export class BuildsController {
     @Param('buildId') buildId: string,
     @CurrentUser() user?: AuthenticatedUser,
   ): Promise<PlayableBuildResponseDto> {
-    return this.buildsService.getPlayableBuild(projectId, buildId, user?.id, user?.role);
+    return this.buildsService.getPlayableBuild(
+      projectId,
+      buildId,
+      user?.id,
+      user?.role,
+    );
   }
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Register a playable build release' })
-  @ApiResponse({ status: 201, description: 'Playable build registered successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Playable build registered successfully',
+  })
   @UseGuards(JwtAuthGuard)
   @Post('playable-builds')
   createPlayableBuild(

@@ -13,7 +13,7 @@ export class BuildRunnerAuthGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    
+
     // Header format: X-Runner-Id and X-Runner-Token
     const runnerId = request.headers['x-runner-id'] as string;
     const runnerToken = request.headers['x-runner-token'] as string;
@@ -22,15 +22,18 @@ export class BuildRunnerAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing runner credentials');
     }
 
-    const isValid = await this.buildRunnersService.validateRunner(runnerId, runnerToken);
-    
+    const isValid = await this.buildRunnersService.validateRunner(
+      runnerId,
+      runnerToken,
+    );
+
     if (!isValid) {
       throw new UnauthorizedException('Invalid runner credentials');
     }
 
     // Attach runner info to request for controller to use
     (request as any).runner = { id: runnerId };
-    
+
     return true;
   }
 }

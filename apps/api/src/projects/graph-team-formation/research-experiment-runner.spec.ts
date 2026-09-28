@@ -39,8 +39,12 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
     }).compile();
 
     runner = module.get<ResearchExperimentRunner>(ResearchExperimentRunner);
-    baselineComparisonService = module.get<BaselineComparisonService>(BaselineComparisonService);
-    talentMatchingService = module.get<TalentMatchingService>(TalentMatchingService);
+    baselineComparisonService = module.get<BaselineComparisonService>(
+      BaselineComparisonService,
+    );
+    talentMatchingService = module.get<TalentMatchingService>(
+      TalentMatchingService,
+    );
     assignmentSolver = module.get<AssignmentSolver>(AssignmentSolver);
     teamEvaluator = module.get<TeamEvaluator>(TeamEvaluator);
   });
@@ -65,7 +69,9 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
       for (const sc of suite.scenarios) {
         expect(sc.comparison).toBeDefined();
         expect(sc.timing.totalDurationMs).toBeGreaterThanOrEqual(0);
-        expect(sc.nativeUtilities.baselineMatcherUtilitySum).toBeGreaterThanOrEqual(0);
+        expect(
+          sc.nativeUtilities.baselineMatcherUtilitySum,
+        ).toBeGreaterThanOrEqual(0);
         expect(sc.nativeUtilities.graphRWRUtilitySum).toBeGreaterThanOrEqual(0);
       }
     });
@@ -81,8 +87,12 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
         const sc2 = run2.scenarios[i];
 
         expect(sc1.scenarioId).toBe(sc2.scenarioId);
-        expect(sc1.comparison.baselineTeam.assignments).toEqual(sc2.comparison.baselineTeam.assignments);
-        expect(sc1.comparison.graphTeam.assignments).toEqual(sc2.comparison.graphTeam.assignments);
+        expect(sc1.comparison.baselineTeam.assignments).toEqual(
+          sc2.comparison.baselineTeam.assignments,
+        );
+        expect(sc1.comparison.graphTeam.assignments).toEqual(
+          sc2.comparison.graphTeam.assignments,
+        );
         expect(sc1.comparison.summary).toEqual(sc2.comparison.summary);
         expect(sc1.nativeUtilities).toEqual(sc2.nativeUtilities);
       }
@@ -130,8 +140,11 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
       const result = runner.runScenario(e2);
 
       // Graph global Hungarian avoids greedy local conflict
-      expect(result.comparison.graphTeam.evaluation.assignmentUtility.totalUtility).toBeGreaterThanOrEqual(
-        result.comparison.baselineTeam.evaluation.assignmentUtility.totalUtility,
+      expect(
+        result.comparison.graphTeam.evaluation.assignmentUtility.totalUtility,
+      ).toBeGreaterThanOrEqual(
+        result.comparison.baselineTeam.evaluation.assignmentUtility
+          .totalUtility,
       );
       expect(result.comparison.summary.conflictFreeRate.graph).toBe(100.0);
       expect(result.comparison.summary.conflictFreeRate.baseline).toBe(100.0);
@@ -148,7 +161,9 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
 
       const result = runner.runScenario(e3);
       expect(result.comparison.graphTeam.assignments.length).toBe(1);
-      expect(result.comparison.graphTeam.assignments[0].candidateId).toBe('e3-cand-dx12');
+      expect(result.comparison.graphTeam.assignments[0].candidateId).toBe(
+        'e3-cand-dx12',
+      );
     });
 
     it('8. should validate E5 contains collaboration edges and produces measurable collaboration strength', () => {
@@ -160,9 +175,17 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
 
       const result = runner.runScenario(e5);
 
-      expect(result.comparison.graphTeam.evaluation.collaborationStrength.totalStrength).toBeGreaterThan(0);
-      expect(result.comparison.graphTeam.evaluation.collaborationStrength.pairCount).toBe(3);
-      expect(result.comparison.graphTeam.evaluation.collaborationStrength.collaboratingPairCount).toBeGreaterThan(0);
+      expect(
+        result.comparison.graphTeam.evaluation.collaborationStrength
+          .totalStrength,
+      ).toBeGreaterThan(0);
+      expect(
+        result.comparison.graphTeam.evaluation.collaborationStrength.pairCount,
+      ).toBe(3);
+      expect(
+        result.comparison.graphTeam.evaluation.collaborationStrength
+          .collaboratingPairCount,
+      ).toBeGreaterThan(0);
     });
 
     it('9. should validate E6 contains substantially more candidates than roles (6 roles, 50 candidates)', () => {
@@ -176,8 +199,12 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
 
       expect(result.comparison.graphTeam.assignments.length).toBe(6);
       expect(result.comparison.baselineTeam.assignments.length).toBe(6);
-      expect(result.comparison.graphTeam.unassignedCandidateIds.length).toBe(44);
-      expect(result.comparison.baselineTeam.unassignedCandidateIds.length).toBe(44);
+      expect(result.comparison.graphTeam.unassignedCandidateIds.length).toBe(
+        44,
+      );
+      expect(result.comparison.baselineTeam.unassignedCandidateIds.length).toBe(
+        44,
+      );
       expect(result.timing.totalDurationMs).toBeGreaterThan(0);
     });
   });
@@ -189,13 +216,25 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
 
       const summary = result.comparison.summary;
       expect(summary.roleCoverage.absoluteDifference).toBe(
-        Number((summary.roleCoverage.graph - summary.roleCoverage.baseline).toFixed(4)),
+        Number(
+          (summary.roleCoverage.graph - summary.roleCoverage.baseline).toFixed(
+            4,
+          ),
+        ),
       );
       expect(summary.skillCoverage.absoluteDifference).toBe(
-        Number((summary.skillCoverage.graph - summary.skillCoverage.baseline).toFixed(4)),
+        Number(
+          (
+            summary.skillCoverage.graph - summary.skillCoverage.baseline
+          ).toFixed(4),
+        ),
       );
       expect(summary.toolCoverage.absoluteDifference).toBe(
-        Number((summary.toolCoverage.graph - summary.toolCoverage.baseline).toFixed(4)),
+        Number(
+          (summary.toolCoverage.graph - summary.toolCoverage.baseline).toFixed(
+            4,
+          ),
+        ),
       );
     });
 
@@ -204,7 +243,9 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
 
       for (const sc of suite.scenarios) {
         // Baseline linear match scores (0-100 scale)
-        expect(sc.nativeUtilities.baselineMatcherUtilitySum).toBeGreaterThanOrEqual(0);
+        expect(
+          sc.nativeUtilities.baselineMatcherUtilitySum,
+        ).toBeGreaterThanOrEqual(0);
         // Graph RWR probability mass (stationary distribution scale)
         expect(sc.nativeUtilities.graphRWRUtilitySum).toBeGreaterThanOrEqual(0);
       }
@@ -243,8 +284,12 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
       const suite = runner.runAllExperiments();
 
       for (const sc of suite.scenarios) {
-        const baselineCandIds = sc.comparison.baselineTeam.assignments.map((a) => a.candidateId);
-        const graphCandIds = sc.comparison.graphTeam.assignments.map((a) => a.candidateId);
+        const baselineCandIds = sc.comparison.baselineTeam.assignments.map(
+          (a) => a.candidateId,
+        );
+        const graphCandIds = sc.comparison.graphTeam.assignments.map(
+          (a) => a.candidateId,
+        );
 
         expect(new Set(baselineCandIds).size).toBe(baselineCandIds.length);
         expect(new Set(graphCandIds).size).toBe(graphCandIds.length);
@@ -255,8 +300,12 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
       const suite = runner.runAllExperiments();
 
       for (const sc of suite.scenarios) {
-        const baselineRoleIds = sc.comparison.baselineTeam.assignments.map((a) => a.roleId);
-        const graphRoleIds = sc.comparison.graphTeam.assignments.map((a) => a.roleId);
+        const baselineRoleIds = sc.comparison.baselineTeam.assignments.map(
+          (a) => a.roleId,
+        );
+        const graphRoleIds = sc.comparison.graphTeam.assignments.map(
+          (a) => a.roleId,
+        );
 
         expect(new Set(baselineRoleIds).size).toBe(baselineRoleIds.length);
         expect(new Set(graphRoleIds).size).toBe(graphRoleIds.length);
@@ -267,7 +316,9 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
       const suite = runner.runAllExperiments();
 
       expect(suite.timingSummary.totalSuiteDurationMs).toBeGreaterThan(0);
-      expect(suite.timingSummary.meanBaselineDurationMs).toBeGreaterThanOrEqual(0);
+      expect(suite.timingSummary.meanBaselineDurationMs).toBeGreaterThanOrEqual(
+        0,
+      );
       expect(suite.timingSummary.meanGraphDurationMs).toBeGreaterThanOrEqual(0);
     });
 
@@ -276,12 +327,30 @@ describe('ResearchExperimentRunner (Research Experiment Validation Suite)', () =
       const agg = suite.aggregateSummary;
 
       expect(agg.roleCoverage).toBeDefined();
-      expect(agg.roleCoverage.graphWinsCount + agg.roleCoverage.tiesCount + agg.roleCoverage.baselineWinsCount).toBe(6);
-      expect(agg.skillCoverage.graphWinsCount + agg.skillCoverage.tiesCount + agg.skillCoverage.baselineWinsCount).toBe(6);
-      expect(agg.teamCompleteness.graphWinsCount + agg.teamCompleteness.tiesCount + agg.teamCompleteness.baselineWinsCount).toBe(6);
-      expect(agg.conflictFreeRate.graphWinsCount + agg.conflictFreeRate.tiesCount + agg.conflictFreeRate.baselineWinsCount).toBe(6);
+      expect(
+        agg.roleCoverage.graphWinsCount +
+          agg.roleCoverage.tiesCount +
+          agg.roleCoverage.baselineWinsCount,
+      ).toBe(6);
+      expect(
+        agg.skillCoverage.graphWinsCount +
+          agg.skillCoverage.tiesCount +
+          agg.skillCoverage.baselineWinsCount,
+      ).toBe(6);
+      expect(
+        agg.teamCompleteness.graphWinsCount +
+          agg.teamCompleteness.tiesCount +
+          agg.teamCompleteness.baselineWinsCount,
+      ).toBe(6);
+      expect(
+        agg.conflictFreeRate.graphWinsCount +
+          agg.conflictFreeRate.tiesCount +
+          agg.conflictFreeRate.baselineWinsCount,
+      ).toBe(6);
 
-      expect(suite.researchIntegrityStatement).toContain('synthetic controlled benchmark scenarios');
+      expect(suite.researchIntegrityStatement).toContain(
+        'synthetic controlled benchmark scenarios',
+      );
     });
   });
 });

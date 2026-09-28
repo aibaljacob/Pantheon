@@ -1,8 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { TalentMatchingService, MATCHING_WEIGHTS } from './talent-matching.service';
+import {
+  TalentMatchingService,
+  MATCHING_WEIGHTS,
+} from './talent-matching.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
-import { Role, ProjectRoleStatus, ProjectRoleExperienceLevel, ProjectRoleCommitment } from '@prisma/client';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Role,
+  ProjectRoleStatus,
+  ProjectRoleExperienceLevel,
+  ProjectRoleCommitment,
+} from '@prisma/client';
 
 describe('TalentMatchingService', () => {
   let service: TalentMatchingService;
@@ -33,8 +45,14 @@ describe('TalentMatchingService', () => {
     status: ProjectRoleStatus.OPEN,
     role: { id: mockRoleId, name: 'Gameplay Programmer' },
     requiredSkills: [
-      { skillId: 'skill-cplusplus', skill: { id: 'skill-cplusplus', name: 'C++' } },
-      { skillId: 'skill-ue5', skill: { id: 'skill-ue5', name: 'Unreal Engine 5' } },
+      {
+        skillId: 'skill-cplusplus',
+        skill: { id: 'skill-cplusplus', name: 'C++' },
+      },
+      {
+        skillId: 'skill-ue5',
+        skill: { id: 'skill-ue5', name: 'Unreal Engine 5' },
+      },
     ],
     requiredTools: [
       { toolId: 'tool-vs', tool: { id: 'tool-vs', name: 'Visual Studio' } },
@@ -95,9 +113,22 @@ describe('TalentMatchingService', () => {
           platforms: [{ platform: { name: 'PC' } }],
         },
         portfolio: [
-          { id: 'p1', title: 'Doom 3D', role: 'Lead', gameEngine: 'Unreal Engine 5', genre: 'Action RPG', platform: 'PC', description: 'Engine' },
+          {
+            id: 'p1',
+            title: 'Doom 3D',
+            role: 'Lead',
+            gameEngine: 'Unreal Engine 5',
+            genre: 'Action RPG',
+            platform: 'PC',
+            description: 'Engine',
+          },
         ],
-        resume: { visibility: 'Public', fileName: 'cv.pdf', fileSize: '1MB', downloadUrl: 'http://cv.pdf' },
+        resume: {
+          visibility: 'Public',
+          fileName: 'cv.pdf',
+          fileSize: '1MB',
+          downloadUrl: 'http://cv.pdf',
+        },
       },
     };
 
@@ -134,7 +165,9 @@ describe('TalentMatchingService', () => {
         experienceYears: 7,
         availability: 'Full-time',
         identity: {
-          roles: [{ role: { id: 'different-role-id', name: 'Audio Designer' } }],
+          roles: [
+            { role: { id: 'different-role-id', name: 'Audio Designer' } },
+          ],
           skills: [{ skill: { id: 'skill-cplusplus', name: 'C++' } }],
           tools: [{ tool: { id: 'tool-vs', name: 'Visual Studio' } }],
           gameEngines: [],

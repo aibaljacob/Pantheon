@@ -18,8 +18,14 @@ import {
   ScenarioExecutionTiming,
   TimingAggregateSummary,
 } from './research-experiment.types';
-import { TalentMatchingService, RoleMatchSpecification } from '../talent-matching.service';
-import { ProjectRoleCommitment, ProjectRoleExperienceLevel } from '@prisma/client';
+import {
+  TalentMatchingService,
+  RoleMatchSpecification,
+} from '../talent-matching.service';
+import {
+  ProjectRoleCommitment,
+  ProjectRoleExperienceLevel,
+} from '@prisma/client';
 
 /**
  * ============================================================================
@@ -71,7 +77,9 @@ export class ResearchExperimentRunner {
   /**
    * Run a single controlled experiment scenario with high-resolution benchmarking.
    */
-  public runScenario(scenario: ExperimentScenarioDefinition): ExperimentScenarioResult {
+  public runScenario(
+    scenario: ExperimentScenarioDefinition,
+  ): ExperimentScenarioResult {
     const { payload, options } = scenario;
 
     // 1. Measure Baseline execution duration
@@ -111,26 +119,34 @@ export class ResearchExperimentRunner {
 
     // 2. Measure Graph pipeline execution duration (compareFromRawData executes both & evaluates)
     const t2 = process.hrtime.bigint();
-    const comparison = this.baselineComparisonService.compareFromRawData(payload, options);
+    const comparison = this.baselineComparisonService.compareFromRawData(
+      payload,
+      options,
+    );
     const t3 = process.hrtime.bigint();
     const graphDurationMs = Number(t3 - t2) / 1_000_000;
 
     const timing: ScenarioExecutionTiming = {
       baselineDurationMs: Number(baselineDurationMs.toFixed(3)),
       graphDurationMs: Number(graphDurationMs.toFixed(3)),
-      totalDurationMs: Number((baselineDurationMs + graphDurationMs).toFixed(3)),
+      totalDurationMs: Number(
+        (baselineDurationMs + graphDurationMs).toFixed(3),
+      ),
     };
 
     // 3. Extract native objective scores separately (do not mix scoring spaces)
     let baselineMatcherUtilitySum = 0;
     for (const assignment of comparison.baselineTeam.assignments) {
       const targetRole = roles.find((r) => r.id === assignment.roleId);
-      const targetCand = candidates.find((c) => c.id === assignment.candidateId);
+      const targetCand = candidates.find(
+        (c) => c.id === assignment.candidateId,
+      );
       if (targetRole && targetCand) {
         const spec: RoleMatchSpecification = {
           roleId: targetRole.roleId,
           roleName: targetRole.title || targetRole.role.name,
-          experienceLevel: targetRole.experienceLevel as ProjectRoleExperienceLevel,
+          experienceLevel:
+            targetRole.experienceLevel as ProjectRoleExperienceLevel,
           commitment: targetRole.commitment as ProjectRoleCommitment,
           requiredSkills: (targetRole.requiredSkills || []).map((rs) => ({
             id: rs.skill.id,
@@ -142,7 +158,11 @@ export class ResearchExperimentRunner {
           })),
         };
         const scored = this.talentMatchingService.scoreCandidate(
-          { id: targetCand.id, username: targetCand.username, profile: targetCand.profile },
+          {
+            id: targetCand.id,
+            username: targetCand.username,
+            profile: targetCand.profile,
+          },
           payload.project,
           spec,
           'NONE',
@@ -151,13 +171,19 @@ export class ResearchExperimentRunner {
       }
     }
 
-    const baselineCount = Math.max(1, comparison.baselineTeam.assignments.length);
+    const baselineCount = Math.max(
+      1,
+      comparison.baselineTeam.assignments.length,
+    );
     const graphCount = Math.max(1, comparison.graphTeam.assignments.length);
-    const graphRWRUtilitySum = comparison.graphTeam.evaluation.assignmentUtility.totalUtility;
+    const graphRWRUtilitySum =
+      comparison.graphTeam.evaluation.assignmentUtility.totalUtility;
 
     const nativeUtilities: NativeUtilityScores = {
       baselineMatcherUtilitySum: Number(baselineMatcherUtilitySum.toFixed(2)),
-      baselineMatcherUtilityAvg: Number((baselineMatcherUtilitySum / baselineCount).toFixed(2)),
+      baselineMatcherUtilityAvg: Number(
+        (baselineMatcherUtilitySum / baselineCount).toFixed(2),
+      ),
       graphRWRUtilitySum: Number(graphRWRUtilitySum.toFixed(6)),
       graphRWRUtilityAvg: Number((graphRWRUtilitySum / graphCount).toFixed(6)),
     };
@@ -176,7 +202,9 @@ export class ResearchExperimentRunner {
   /**
    * Run the full experimental suite and generate aggregated benchmark statistics.
    */
-  public runAllExperiments(customScenarios?: ExperimentScenarioDefinition[]): ExperimentSuiteResult {
+  public runAllExperiments(
+    customScenarios?: ExperimentScenarioDefinition[],
+  ): ExperimentSuiteResult {
     const scenariosToRun = customScenarios || this.getPredefinedScenarios();
     const scenarioResults: ExperimentScenarioResult[] = [];
 
@@ -197,18 +225,44 @@ export class ResearchExperimentRunner {
 
     // Aggregate Shared Metrics
     const aggregateSummary = {
-      roleCoverage: this.aggregateMetric('Role Coverage', scenarioResults, (s) => s.comparison.summary.roleCoverage),
-      skillCoverage: this.aggregateMetric('Skill Coverage', scenarioResults, (s) => s.comparison.summary.skillCoverage),
-      toolCoverage: this.aggregateMetric('Tool Coverage', scenarioResults, (s) => s.comparison.summary.toolCoverage),
+      roleCoverage: this.aggregateMetric(
+        'Role Coverage',
+        scenarioResults,
+        (s) => s.comparison.summary.roleCoverage,
+      ),
+      skillCoverage: this.aggregateMetric(
+        'Skill Coverage',
+        scenarioResults,
+        (s) => s.comparison.summary.skillCoverage,
+      ),
+      toolCoverage: this.aggregateMetric(
+        'Tool Coverage',
+        scenarioResults,
+        (s) => s.comparison.summary.toolCoverage,
+      ),
       skillRedundancy: this.aggregateRedundancy(scenarioResults),
-      collaborationStrength: this.aggregateMetric('Collaboration Strength', scenarioResults, (s) => s.comparison.summary.collaborationStrength),
-      teamCompleteness: this.aggregateMetric('Team Completeness', scenarioResults, (s) => s.comparison.summary.teamCompleteness),
-      conflictFreeRate: this.aggregateMetric('Conflict-Free Rate', scenarioResults, (s) => s.comparison.summary.conflictFreeRate),
+      collaborationStrength: this.aggregateMetric(
+        'Collaboration Strength',
+        scenarioResults,
+        (s) => s.comparison.summary.collaborationStrength,
+      ),
+      teamCompleteness: this.aggregateMetric(
+        'Team Completeness',
+        scenarioResults,
+        (s) => s.comparison.summary.teamCompleteness,
+      ),
+      conflictFreeRate: this.aggregateMetric(
+        'Conflict-Free Rate',
+        scenarioResults,
+        (s) => s.comparison.summary.conflictFreeRate,
+      ),
     };
 
     const timingSummary: TimingAggregateSummary = {
       totalSuiteDurationMs: Number(totalSuiteDurationMs.toFixed(3)),
-      meanBaselineDurationMs: Number((sumBaselineDurationMs / safeCount).toFixed(3)),
+      meanBaselineDurationMs: Number(
+        (sumBaselineDurationMs / safeCount).toFixed(3),
+      ),
       meanGraphDurationMs: Number((sumGraphDurationMs / safeCount).toFixed(3)),
     };
 
@@ -229,7 +283,11 @@ export class ResearchExperimentRunner {
   private aggregateMetric(
     metricName: string,
     results: ExperimentScenarioResult[],
-    extractor: (s: ExperimentScenarioResult) => { baseline: number; graph: number; absoluteDifference: number },
+    extractor: (s: ExperimentScenarioResult) => {
+      baseline: number;
+      graph: number;
+      absoluteDifference: number;
+    },
   ): AggregateMetricSummary {
     let sumBaseline = 0;
     let sumGraph = 0;
@@ -268,7 +326,9 @@ export class ResearchExperimentRunner {
   /**
    * Helper: Aggregates skill redundancy neutrally without declaring superiority.
    */
-  private aggregateRedundancy(results: ExperimentScenarioResult[]): RedundancyAggregateSummary {
+  private aggregateRedundancy(
+    results: ExperimentScenarioResult[],
+  ): RedundancyAggregateSummary {
     let sumBaselineTotal = 0;
     let sumGraphTotal = 0;
     let sumDiff = 0;

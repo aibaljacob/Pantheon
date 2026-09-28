@@ -69,7 +69,9 @@ export function getScenarioE1Basic(): ExperimentScenarioDefinition {
       experienceYears: 4,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-programmer', name: 'Software Engineer' } }],
+        roles: [
+          { role: { id: 'tax-role-programmer', name: 'Software Engineer' } },
+        ],
         skills: [
           { skill: { id: 'skill-cpp', name: 'C++' } },
           { skill: { id: 'skill-gameplay', name: 'Gameplay Mechanics' } },
@@ -141,7 +143,9 @@ export function getScenarioE1Basic(): ExperimentScenarioDefinition {
       experienceYears: 2,
       availability: 'Part-time',
       identity: {
-        roles: [{ role: { id: 'tax-role-programmer', name: 'Software Engineer' } }],
+        roles: [
+          { role: { id: 'tax-role-programmer', name: 'Software Engineer' } },
+        ],
         skills: [{ skill: { id: 'skill-cpp', name: 'C++' } }],
         tools: [],
         gameEngines: [{ engine: { id: 'ge-unreal', name: 'Unreal Engine' } }],
@@ -155,7 +159,8 @@ export function getScenarioE1Basic(): ExperimentScenarioDefinition {
   return {
     id: 'E1_BASIC_FORMATION',
     name: 'E1 — Basic Team Formation',
-    description: 'Standard 3-role project with distinct specialized candidate matches.',
+    description:
+      'Standard 3-role project with distinct specialized candidate matches.',
     hypothesis:
       'Both Baseline and Graph methods should establish high baseline role and skill coverage when candidates have non-conflicting distinct specializations.',
     payload: {
@@ -217,7 +222,9 @@ export function getScenarioE2Competition(): ExperimentScenarioDefinition {
       experienceYears: 9,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-programmer', name: 'Software Engineer' } }],
+        roles: [
+          { role: { id: 'tax-role-programmer', name: 'Software Engineer' } },
+        ],
         skills: [
           { skill: { id: 'skill-cpp', name: 'C++' } },
           { skill: { id: 'skill-memory', name: 'Memory Architecture' } },
@@ -243,7 +250,9 @@ export function getScenarioE2Competition(): ExperimentScenarioDefinition {
       experienceYears: 4,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-programmer', name: 'Software Engineer' } }],
+        roles: [
+          { role: { id: 'tax-role-programmer', name: 'Software Engineer' } },
+        ],
         skills: [
           { skill: { id: 'skill-cpp', name: 'C++' } },
           { skill: { id: 'skill-slate-ui', name: 'Slate UI' } },
@@ -260,7 +269,8 @@ export function getScenarioE2Competition(): ExperimentScenarioDefinition {
   return {
     id: 'E2_CANDIDATE_COMPETITION',
     name: 'E2 — Candidate Competition & Global Assignment',
-    description: 'Star candidate competes for both roles; global Hungarian matching avoids greedy suboptimal allocation.',
+    description:
+      'Star candidate competes for both roles; global Hungarian matching avoids greedy suboptimal allocation.',
     hypothesis:
       'Global bipartite matching avoids local greedy assignment traps when a highly skilled candidate qualifies for multiple positions.',
     payload: {
@@ -306,7 +316,9 @@ export function getScenarioE3MultiHop(): ExperimentScenarioDefinition {
       experienceYears: 7,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-graphics', name: 'Graphics Programmer' } }],
+        roles: [
+          { role: { id: 'tax-role-graphics', name: 'Graphics Programmer' } },
+        ],
         skills: [
           { skill: { id: 'skill-dx12', name: 'DirectX 12' } },
           { skill: { id: 'skill-shaders', name: 'Shader Architecture' } },
@@ -330,7 +342,9 @@ export function getScenarioE3MultiHop(): ExperimentScenarioDefinition {
       experienceYears: 6,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-writer', name: 'Narrative Designer' } }],
+        roles: [
+          { role: { id: 'tax-role-writer', name: 'Narrative Designer' } },
+        ],
         skills: [{ skill: { id: 'skill-dialogue', name: 'Dialogue Writing' } }],
         tools: [],
         gameEngines: [{ engine: { id: 'ge-unreal', name: 'Unreal Engine' } }],
@@ -344,7 +358,8 @@ export function getScenarioE3MultiHop(): ExperimentScenarioDefinition {
   return {
     id: 'E3_MULTIHOP_SKILL',
     name: 'E3 — Multi-Hop Co-occurrence Propagation',
-    description: 'Tests whether RWR over HIN co-occurrence edges (Vulkan <-> DX12) propagates affinity to candidate with related skills.',
+    description:
+      'Tests whether RWR over HIN co-occurrence edges (Vulkan <-> DX12) propagates affinity to candidate with related skills.',
     hypothesis:
       'Graph propagation routes affinity mass across empirically observed skill co-occurrences (Vulkan <-> DX12) even when exact string taxonomy match is missing on the candidate.',
     payload: {
@@ -436,7 +451,9 @@ export function getScenarioE4ToolRoleDiff(): ExperimentScenarioDefinition {
       experienceYears: 6,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-tech-art', name: 'Technical Artist' } }],
+        roles: [
+          { role: { id: 'tax-role-tech-art', name: 'Technical Artist' } },
+        ],
         skills: [
           { skill: { id: 'skill-python', name: 'Python Scripting' } },
           { skill: { id: 'skill-proc-gen', name: 'Procedural Generation' } },
@@ -474,7 +491,8 @@ export function getScenarioE4ToolRoleDiff(): ExperimentScenarioDefinition {
   return {
     id: 'E4_TOOL_ROLE_DIFF',
     name: 'E4 — Tool & Role Multi-Attribute Differentiation',
-    description: 'Evaluates proper allocation of candidates when specialized tool suites differentiate similar disciplines.',
+    description:
+      'Evaluates proper allocation of candidates when specialized tool suites differentiate similar disciplines.',
     hypothesis:
       'HIN preserves multi-attribute constraints (Tools + Skills + Roles) simultaneously for accurate role assignment.',
     payload: {
@@ -503,7 +521,9 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
     commitment: 'FULL_TIME',
     status: 'OPEN',
     role: { id: 'tax-role-programmer', name: 'Software Engineer' },
-    requiredSkills: [{ skill: { id: 'skill-systems', name: 'Systems Architecture' } }],
+    requiredSkills: [
+      { skill: { id: 'skill-systems', name: 'Systems Architecture' } },
+    ],
     requiredTools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
   };
 
@@ -515,7 +535,9 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
     commitment: 'FULL_TIME',
     status: 'OPEN',
     role: { id: 'tax-role-programmer', name: 'Software Engineer' },
-    requiredSkills: [{ skill: { id: 'skill-net', name: 'Multiplayer Replication' } }],
+    requiredSkills: [
+      { skill: { id: 'skill-net', name: 'Multiplayer Replication' } },
+    ],
     requiredTools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
   };
 
@@ -527,7 +549,9 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
     commitment: 'FULL_TIME',
     status: 'OPEN',
     role: { id: 'tax-role-designer', name: 'Game Designer' },
-    requiredSkills: [{ skill: { id: 'skill-level-design', name: 'Level Design' } }],
+    requiredSkills: [
+      { skill: { id: 'skill-level-design', name: 'Level Design' } },
+    ],
     requiredTools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
   };
 
@@ -541,8 +565,12 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
       experienceYears: 7,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-programmer', name: 'Software Engineer' } }],
-        skills: [{ skill: { id: 'skill-systems', name: 'Systems Architecture' } }],
+        roles: [
+          { role: { id: 'tax-role-programmer', name: 'Software Engineer' } },
+        ],
+        skills: [
+          { skill: { id: 'skill-systems', name: 'Systems Architecture' } },
+        ],
         tools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
         gameEngines: [{ engine: { id: 'ge-unreal', name: 'Unreal Engine' } }],
         genres: [{ genre: { id: 'gn-action', name: 'Action' } }],
@@ -562,8 +590,12 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
       experienceYears: 5,
       availability: 'Available full-time collaboration',
       identity: {
-        roles: [{ role: { id: 'tax-role-programmer', name: 'Software Engineer' } }],
-        skills: [{ skill: { id: 'skill-net', name: 'Multiplayer Replication' } }],
+        roles: [
+          { role: { id: 'tax-role-programmer', name: 'Software Engineer' } },
+        ],
+        skills: [
+          { skill: { id: 'skill-net', name: 'Multiplayer Replication' } },
+        ],
         tools: [{ tool: { id: 'tool-unreal', name: 'Unreal Engine' } }],
         gameEngines: [{ engine: { id: 'ge-unreal', name: 'Unreal Engine' } }],
         genres: [{ genre: { id: 'gn-action', name: 'Action' } }],
@@ -626,7 +658,8 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
   return {
     id: 'E5_COLLABORATION_HISTORY',
     name: 'E5 — Historical Collaboration Density',
-    description: 'Evaluates whether candidates with rich historical collaboration records produce measurable team collaboration strength.',
+    description:
+      'Evaluates whether candidates with rich historical collaboration records produce measurable team collaboration strength.',
     hypothesis:
       'Teams composed of candidates with shared past production records exhibit higher collaboration strength index without compromising role coverage.',
     payload: {
@@ -647,7 +680,9 @@ export function getScenarioE5Collaboration(): ExperimentScenarioDefinition {
   };
 }
 
-export function getScenarioE6LargePool(candidateCount: number = 50): ExperimentScenarioDefinition {
+export function getScenarioE6LargePool(
+  candidateCount: number = 50,
+): ExperimentScenarioDefinition {
   const roles = [
     {
       id: 'e6-role-architect',
@@ -661,7 +696,9 @@ export function getScenarioE6LargePool(candidateCount: number = 50): ExperimentS
         { skill: { id: 'e6-skill-cpp', name: 'C++' } },
         { skill: { id: 'e6-skill-arch', name: 'Engine Architecture' } },
       ],
-      requiredTools: [{ tool: { id: 'e6-tool-unreal', name: 'Unreal Engine' } }],
+      requiredTools: [
+        { tool: { id: 'e6-tool-unreal', name: 'Unreal Engine' } },
+      ],
     },
     {
       id: 'e6-role-gameplay',
@@ -675,7 +712,9 @@ export function getScenarioE6LargePool(candidateCount: number = 50): ExperimentS
         { skill: { id: 'e6-skill-cpp', name: 'C++' } },
         { skill: { id: 'e6-skill-physics', name: 'Physics' } },
       ],
-      requiredTools: [{ tool: { id: 'e6-tool-unreal', name: 'Unreal Engine' } }],
+      requiredTools: [
+        { tool: { id: 'e6-tool-unreal', name: 'Unreal Engine' } },
+      ],
     },
     {
       id: 'e6-role-ai',
@@ -689,7 +728,9 @@ export function getScenarioE6LargePool(candidateCount: number = 50): ExperimentS
         { skill: { id: 'e6-skill-cpp', name: 'C++' } },
         { skill: { id: 'e6-skill-navmesh', name: 'Behavior Trees & Navmesh' } },
       ],
-      requiredTools: [{ tool: { id: 'e6-tool-unreal', name: 'Unreal Engine' } }],
+      requiredTools: [
+        { tool: { id: 'e6-tool-unreal', name: 'Unreal Engine' } },
+      ],
     },
     {
       id: 'e6-role-lead-art',
@@ -728,7 +769,12 @@ export function getScenarioE6LargePool(candidateCount: number = 50): ExperimentS
       status: 'OPEN',
       role: { id: 'tax-role-audio', name: 'Audio Engineer' },
       requiredSkills: [
-        { skill: { id: 'e6-skill-fmod-int', name: 'FMOD Middleware Integration' } },
+        {
+          skill: {
+            id: 'e6-skill-fmod-int',
+            name: 'FMOD Middleware Integration',
+          },
+        },
         { skill: { id: 'e6-skill-synthesis', name: 'Audio Synthesis' } },
       ],
       requiredTools: [{ tool: { id: 'e6-tool-fmod', name: 'FMOD' } }],
@@ -795,7 +841,8 @@ export function getScenarioE6LargePool(candidateCount: number = 50): ExperimentS
         lastName: `${i}`,
         displayName: `Candidate ${i} (${disc.roleName})`,
         experienceYears: exp,
-        availability: i % 2 === 0 ? 'Available full-time collaboration' : 'Part-time',
+        availability:
+          i % 2 === 0 ? 'Available full-time collaboration' : 'Part-time',
         identity: {
           roles: [{ role: { id: disc.roleTaxId, name: disc.roleName } }],
           skills: disc.skills.map((s) => ({ skill: s })),

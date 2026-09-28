@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import {
   FolderKanban,
   Crown,
@@ -52,6 +52,7 @@ import { TasksTab } from '../features/projects/components/tasks/TasksTab';
 import { ProductionProgressCard } from '../features/projects/components/tasks/ProductionProgressCard';
 import { BuildsTab } from '../features/projects/components/builds/BuildsTab';
 import { PlaytestsTab } from '../features/projects/components/playtest/PlaytestsTab';
+import { useWorkspaceStore } from '../features/projects/store/workspaceStore';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -137,20 +138,40 @@ function formatRoleStatusBadge(status: string) {
   }
 }
 
+const VALID_PROJECT_TABS = [
+  'overview',
+  'team',
+  'tasks',
+  'builds',
+  'playtests',
+  'repo',
+  'applications',
+] as const;
+type ProjectTabType = typeof VALID_PROJECT_TABS[number];
+
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const currentUser = useAuthStore((state) => state.currentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
+
+  const requestedTab = searchParams.get('tab') as ProjectTabType | null;
+  const activeProjectTab: ProjectTabType =
+    requestedTab && VALID_PROJECT_TABS.includes(requestedTab) ? requestedTab : 'overview';
+
+  const setActiveProjectTab = (tab: ProjectTabType) => {
+    setSearchParams(tab === 'overview' ? {} : { tab });
+  };
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [roles, setRoles] = useState<ProjectRoleItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [editingRole, setEditingRole] = useState<ProjectRoleItem | null>(null);
-  const [activeProjectTab, setActiveProjectTab] = useState<'overview' | 'team' | 'tasks' | 'builds' | 'playtests' | 'repo' | 'applications'>('overview');
   const [applyingRole, setApplyingRole] = useState<ProjectRoleItem | null>(null);
 
   // AI Recommendation State
@@ -165,8 +186,9 @@ export const ProjectDetailPage: React.FC = () => {
     try {
       const res = await fetchAiRoleRecommendations(projectId, token);
       setAiRecommendations(res.recommendedRoles || []);
-    } catch (err: any) {
-      console.warn('AI role recommendations load failed:', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'AI role recommendations load failed';
+      console.warn('AI role recommendations load failed:', message);
     } finally {
       setIsGeneratingAi(false);
     }
@@ -178,39 +200,55 @@ export const ProjectDetailPage: React.FC = () => {
     try {
       const res = await rescanAiRoleRecommendations(project.id, accessToken);
       setAiRecommendations(res.recommendedRoles || []);
-    } catch (err: any) {
-      console.warn('AI role recommendations rescan failed:', err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'AI role recommendations rescan failed';
+      console.warn('AI role recommendations rescan failed:', message);
     } finally {
       setIsGeneratingAi(false);
     }
   };
 
-  const loadProject = async () => {
-    if (!id) return;
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const [projectData, rolesData] = await Promise.all([
-        fetchProjectDetails(id, accessToken),
-        fetchProjectRoles(id, accessToken).catch(() => []),
-      ]);
-      setProject(projectData);
-      setRoles(rolesData);
-
-      if ((projectData.isFounder || currentUser?.role === 'Administrator') && accessToken) {
-        scanAiRecommendations(projectData.id, accessToken);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Project not found or restricted access.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadProject();
-  }, [id, accessToken]);
+    if (!id) return;
+    let ignore = false;
+
+    Promise.all([
+      fetchProjectDetails(id, accessToken),
+      fetchProjectRoles(id, accessToken).catch(() => []),
+    ])
+      .then(([projectData, rolesData]) => {
+        if (!ignore) {
+          setProject(projectData);
+          setRoles(rolesData);
+          useWorkspaceStore.getState().setRoles(projectData.id, rolesData);
+          setError(null);
+
+          if ((projectData.isFounder || currentUser?.role === 'Administrator') && accessToken) {
+            void scanAiRecommendations(projectData.id, accessToken);
+          }
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Project not found or restricted access.';
+          setError(message);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [id, accessToken, currentUser?.role, refreshTrigger]);
+
+  const loadProject = () => {
+    setIsLoading(true);
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   const handleProjectUpdated = (updatedProject: ProjectDetail) => {
     setProject(updatedProject);
@@ -229,12 +267,17 @@ export const ProjectDetailPage: React.FC = () => {
   const handleRoleSaved = (savedRole: ProjectRoleItem) => {
     setRoles((prev) => {
       const index = prev.findIndex((r) => r.id === savedRole.id);
+      let next: ProjectRoleItem[];
       if (index >= 0) {
-        const next = [...prev];
+        next = [...prev];
         next[index] = savedRole;
-        return next;
+      } else {
+        next = [savedRole, ...prev];
       }
-      return [savedRole, ...prev];
+      if (project) {
+        useWorkspaceStore.getState().setRoles(project.id, next);
+      }
+      return next;
     });
 
     setAiRecommendations((prev) => prev.filter((r) => r.roleId !== savedRole.roleId));
@@ -247,9 +290,14 @@ export const ProjectDetailPage: React.FC = () => {
 
     try {
       await deleteProjectRole(accessToken, project.id, roleId);
-      setRoles((prev) => prev.filter((r) => r.id !== roleId));
-    } catch (err: any) {
-      alert(err.message || 'Failed to delete role.');
+      setRoles((prev) => {
+        const next = prev.filter((r) => r.id !== roleId);
+        useWorkspaceStore.getState().setRoles(project.id, next);
+        return next;
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to delete role.';
+      alert(message);
     }
   };
 

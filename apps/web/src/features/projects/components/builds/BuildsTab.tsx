@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Cpu,
   Plus,
@@ -6,10 +6,12 @@ import {
   Loader2,
   AlertCircle,
   Filter,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { buildService } from '../../services/buildService';
 import { taskService } from '../../services/taskService';
+import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
 import type {
   BuildJobItem,
   BuildPlatform,
@@ -42,16 +44,32 @@ interface BuildsTabProps {
 
 export const BuildsTab: React.FC<BuildsTabProps> = ({
   projectId,
-  projectName: _projectName,
   isFounder,
   members,
   currentUser,
 }) => {
-  const [builds, setBuilds] = useState<BuildJobItem[]>([]);
-  const [playableBuilds, setPlayableBuilds] = useState<PlayableBuildItem[]>([]);
-  const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const cachedBuilds = useWorkspaceStore((state) => state.projects[projectId]?.builds);
+  const cachedPlayables = useWorkspaceStore((state) => state.projects[projectId]?.playableBuilds);
+  const cachedMilestones = useWorkspaceStore((state) => state.projects[projectId]?.milestones);
+  const setBuildsStore = useWorkspaceStore((state) => state.setBuilds);
+  const setPlayableBuildsStore = useWorkspaceStore((state) => state.setPlayableBuilds);
+  const setMilestonesStore = useWorkspaceStore((state) => state.setMilestones);
+  const addBuildStore = useWorkspaceStore((state) => state.addBuild);
+  const updateBuildStore = useWorkspaceStore((state) => state.updateBuild);
+  const addPlayableBuildStore = useWorkspaceStore((state) => state.addPlayableBuild);
+  const invalidateBuilds = useWorkspaceStore((state) => state.invalidateBuilds);
+
+  const [localBuilds, setLocalBuilds] = useState<BuildJobItem[]>([]);
+  const [localPlayables, setLocalPlayables] = useState<PlayableBuildItem[]>([]);
+  const [localMilestones, setLocalMilestones] = useState<MilestoneItem[]>([]);
+  const [isFetching, setIsFetching] = useState<boolean>(!cachedBuilds || !cachedPlayables);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const builds = cachedBuilds || localBuilds;
+  const playableBuilds = cachedPlayables || localPlayables;
+  const milestones = cachedMilestones || localMilestones;
+  const isLoading = (!cachedBuilds || !cachedPlayables) && isFetching;
 
   // Active view section
   const [activeSection, setActiveSection] = useState<'jobs' | 'releases'>('jobs');
@@ -68,40 +86,67 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
   const isFounderOrAdmin = isFounder || currentUser?.role === 'Administrator';
   const isMember = isFounderOrAdmin || members.some((m) => m.userId === currentUser?.id);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const [fetchedBuilds, fetchedPlayables, fetchedMilestones] = await Promise.all([
-        buildService.getBuilds(projectId, {}),
-        buildService.getPlayableBuilds(projectId),
-        taskService.getMilestones(projectId).catch(() => []),
-      ]);
-      setBuilds(fetchedBuilds);
-      setPlayableBuilds(fetchedPlayables);
-      setMilestones(fetchedMilestones);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load builds.';
-      setError(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [projectId]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (cachedBuilds && cachedPlayables) return;
+    let ignore = false;
+
+    const milestonePromise = cachedMilestones
+      ? Promise.resolve(cachedMilestones)
+      : dedupeRequest(`${projectId}:milestones`, () => taskService.getMilestones(projectId).catch(() => []));
+
+    Promise.all([
+      dedupeRequest(`${projectId}:builds`, () => buildService.getBuilds(projectId, {})),
+      dedupeRequest(`${projectId}:playableBuilds`, () => buildService.getPlayableBuilds(projectId)),
+      milestonePromise,
+    ])
+      .then(([fetchedBuilds, fetchedPlayables, fetchedMilestones]) => {
+        if (!ignore) {
+          setLocalBuilds(fetchedBuilds);
+          setLocalPlayables(fetchedPlayables);
+          setLocalMilestones(fetchedMilestones);
+          setBuildsStore(projectId, fetchedBuilds);
+          setPlayableBuildsStore(projectId, fetchedPlayables);
+          if (!cachedMilestones) {
+            setMilestonesStore(projectId, fetchedMilestones);
+          }
+          setError(null);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          const msg = err instanceof Error ? err.message : 'Failed to load builds.';
+          setError(msg);
+        }
+      })
+      .finally(() => {
+        if (!ignore) {
+          setIsFetching(false);
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId, cachedBuilds, cachedPlayables, cachedMilestones, setBuildsStore, setPlayableBuildsStore, setMilestonesStore, refreshTrigger]);
+
+  const handleRefresh = () => {
+    setIsFetching(true);
+    invalidateBuilds(projectId);
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   // Handlers
   const handleTriggerBuild = async (input: CreateBuildInput) => {
     const created = await buildService.createBuild(projectId, input);
-    await loadData();
+    addBuildStore(projectId, created);
+    setLocalBuilds((prev) => [created, ...prev.filter((b) => b.id !== created.id)]);
     return created;
   };
 
   const handleCancelBuild = async (buildId: string) => {
     const cancelled = await buildService.cancelBuild(projectId, buildId);
-    setBuilds((prev) => prev.map((b) => (b.id === buildId ? cancelled : b)));
+    updateBuildStore(projectId, cancelled);
+    setLocalBuilds((prev) => prev.map((b) => (b.id === buildId ? cancelled : b)));
     if (selectedBuild && selectedBuild.id === buildId) {
       setSelectedBuild(cancelled);
     }
@@ -110,7 +155,8 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
 
   const handleCreatePlayable = async (input: CreatePlayableBuildInput) => {
     const created = await buildService.createPlayableBuild(projectId, input);
-    await loadData();
+    addPlayableBuildStore(projectId, created);
+    setLocalPlayables((prev) => [created, ...prev.filter((p) => p.id !== created.id)]);
     return created;
   };
 
@@ -148,6 +194,16 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-3 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />}
+            onClick={handleRefresh}
+            title="Refresh Builds & Releases"
+          >
+            Refresh
+          </Button>
+
           {isFounderOrAdmin && (
             <Button
               variant="secondary"

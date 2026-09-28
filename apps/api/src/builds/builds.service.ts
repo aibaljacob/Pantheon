@@ -34,7 +34,10 @@ export class BuildsService {
     completedAt?: Date | null,
   ): number | null {
     if (!startedAt || !completedAt) return null;
-    return Math.max(0, Math.round((completedAt.getTime() - startedAt.getTime()) / 1000));
+    return Math.max(
+      0,
+      Math.round((completedAt.getTime() - startedAt.getTime()) / 1000),
+    );
   }
 
   private mapBuildJob(build: any): BuildJobResponseDto {
@@ -75,7 +78,10 @@ export class BuildsService {
       errorMessage: build.errorMessage,
       startedAt: build.startedAt ? build.startedAt.toISOString() : null,
       completedAt: build.completedAt ? build.completedAt.toISOString() : null,
-      durationSeconds: this.calculateDuration(build.startedAt, build.completedAt),
+      durationSeconds: this.calculateDuration(
+        build.startedAt,
+        build.completedAt,
+      ),
       createdAt: build.createdAt.toISOString(),
       updatedAt: build.updatedAt.toISOString(),
     };
@@ -127,11 +133,17 @@ export class BuildsService {
     userId: string,
     userRole?: string,
   ): Promise<BuildJobResponseDto> {
-    const access = await this.authService.assertCanView(projectId, userId, userRole);
+    const access = await this.authService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     // Active member, founder, or administrator can trigger builds
     if (!access.isFounder && !access.isMember && !access.isAdmin) {
-      throw new ForbiddenException('You do not have permission to trigger builds for this project.');
+      throw new ForbiddenException(
+        'You do not have permission to trigger builds for this project.',
+      );
     }
 
     // Validate milestone if provided
@@ -141,7 +153,9 @@ export class BuildsService {
         select: { id: true, projectId: true },
       });
       if (!milestone || milestone.projectId !== projectId) {
-        throw new BadRequestException('Milestone does not belong to this project.');
+        throw new BadRequestException(
+          'Milestone does not belong to this project.',
+        );
       }
     }
 
@@ -273,11 +287,17 @@ export class BuildsService {
     userId: string,
     userRole?: string,
   ): Promise<BuildJobResponseDto> {
-    const access = await this.authService.assertCanView(projectId, userId, userRole);
+    const access = await this.authService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     // Only founder or admin can update status directly from the API
     if (!access.isFounder && !access.isAdmin) {
-      throw new ForbiddenException('Only project founders or administrators can update build state.');
+      throw new ForbiddenException(
+        'Only project founders or administrators can update build state.',
+      );
     }
 
     const build = await this.prisma.buildJob.findUnique({
@@ -366,7 +386,11 @@ export class BuildsService {
     userId: string,
     userRole?: string,
   ): Promise<BuildJobResponseDto> {
-    const access = await this.authService.assertCanView(projectId, userId, userRole);
+    const access = await this.authService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     const build = await this.prisma.buildJob.findUnique({
       where: { id: buildId },
@@ -549,7 +573,11 @@ export class BuildsService {
     userId: string,
     userRole?: string,
   ): Promise<PlayableBuildResponseDto> {
-    const access = await this.authService.assertCanView(projectId, userId, userRole);
+    const access = await this.authService.assertCanView(
+      projectId,
+      userId,
+      userRole,
+    );
 
     if (!access.isFounder && !access.isAdmin) {
       throw new ForbiddenException(
@@ -563,7 +591,9 @@ export class BuildsService {
         select: { id: true, projectId: true },
       });
       if (!milestone || milestone.projectId !== projectId) {
-        throw new BadRequestException('Milestone does not belong to this project.');
+        throw new BadRequestException(
+          'Milestone does not belong to this project.',
+        );
       }
     }
 
@@ -573,7 +603,9 @@ export class BuildsService {
         select: { id: true, projectId: true },
       });
       if (!buildJob || buildJob.projectId !== projectId) {
-        throw new BadRequestException('Originating build job does not belong to this project.');
+        throw new BadRequestException(
+          'Originating build job does not belong to this project.',
+        );
       }
     }
 
@@ -586,7 +618,8 @@ export class BuildsService {
         buildJobId: dto.buildJobId || null,
         milestoneId: dto.milestoneId || null,
         storagePath: dto.storagePath?.trim() || null,
-        fileSizeBytes: dto.fileSizeBytes != null ? BigInt(dto.fileSizeBytes) : null,
+        fileSizeBytes:
+          dto.fileSizeBytes != null ? BigInt(dto.fileSizeBytes) : null,
         fileChecksum: dto.fileChecksum?.trim() || null,
         releaseNotes: dto.releaseNotes?.trim() || null,
         uploadedById: userId,

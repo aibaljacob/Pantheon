@@ -10,7 +10,10 @@ import {
 } from '@nestjs/common';
 import { PersonalAccessTokensService } from './personal-access-tokens.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
+import {
+  CurrentUser,
+  type AuthenticatedUser,
+} from '../auth/current-user.decorator';
 import { CreatePersonalAccessTokenDto } from './personal-access-tokens.dto';
 
 @Controller('auth/personal-access-tokens')
@@ -33,7 +36,10 @@ export class PersonalAccessTokensController {
 
   @Delete(':id')
   @HttpCode(204)
-  revokeToken(@CurrentUser() user: AuthenticatedUser, @Param('id') tokenId: string) {
+  revokeToken(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id') tokenId: string,
+  ) {
     return this.patService.revokeToken(user.id, tokenId);
   }
 }
