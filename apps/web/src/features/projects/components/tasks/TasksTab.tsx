@@ -19,6 +19,7 @@ import type {
   TaskItem,
   TaskPriority,
   TaskStatus,
+  TaskType,
   UpdateMilestoneInput,
 } from '../../types';
 import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
@@ -69,6 +70,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
 
   // Filters
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<TaskType | 'ALL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'ALL'>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'ALL'>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
@@ -137,8 +139,18 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     return created;
   };
 
-  const handleUpdateStatus = async (taskId: string, status: TaskStatus): Promise<TaskItem> => {
-    const updated = await taskService.updateTaskStatus(projectId, taskId, status);
+  const handleUpdateStatus = async (
+    taskId: string,
+    status: TaskStatus,
+    blockedReason?: string | null,
+  ): Promise<TaskItem> => {
+    const updated = await taskService.updateTaskStatus(
+      projectId,
+      taskId,
+      status,
+      undefined,
+      blockedReason,
+    );
     updateTaskStore(projectId, updated);
     setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     if (activeTask && activeTask.id === taskId) setActiveTask(updated);
@@ -180,12 +192,48 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     title: string,
     description: string,
     priority: TaskPriority,
+    type?: TaskType,
+    dueDate?: string | null,
+    blockedReason?: string | null,
   ): Promise<TaskItem> => {
     const updated = await taskService.updateTask(projectId, taskId, {
       title,
       description: description || undefined,
       priority,
+      type,
+      dueDate: dueDate !== undefined ? dueDate : undefined,
+      blockedReason: blockedReason !== undefined ? blockedReason : undefined,
     });
+    updateTaskStore(projectId, updated);
+    setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    if (activeTask && activeTask.id === taskId) setActiveTask(updated);
+    return updated;
+  };
+
+  const handleAddDependency = async (
+    taskId: string,
+    dependsOnTaskId: string,
+  ): Promise<TaskItem> => {
+    const updated = await taskService.addDependency(
+      projectId,
+      taskId,
+      dependsOnTaskId,
+    );
+    updateTaskStore(projectId, updated);
+    setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+    if (activeTask && activeTask.id === taskId) setActiveTask(updated);
+    return updated;
+  };
+
+  const handleRemoveDependency = async (
+    taskId: string,
+    dependsOnTaskId: string,
+  ): Promise<TaskItem> => {
+    const updated = await taskService.removeDependency(
+      projectId,
+      taskId,
+      dependsOnTaskId,
+    );
     updateTaskStore(projectId, updated);
     setLocalTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
     if (activeTask && activeTask.id === taskId) setActiveTask(updated);
@@ -235,6 +283,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
   const filteredTasks = useMemo(() => {
     return tasks.filter((t) => {
       if (selectedMilestoneId && t.milestoneId !== selectedMilestoneId) return false;
+      if (typeFilter !== 'ALL' && t.type !== typeFilter) return false;
       if (statusFilter !== 'ALL' && t.status !== statusFilter) return false;
       if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) return false;
       if (assigneeFilter === 'ME') {
@@ -251,7 +300,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
       }
       return true;
     });
-  }, [tasks, selectedMilestoneId, statusFilter, priorityFilter, assigneeFilter, searchQuery, currentUser]);
+  }, [tasks, selectedMilestoneId, typeFilter, statusFilter, priorityFilter, assigneeFilter, searchQuery, currentUser]);
 
   return (
     <div className="space-y-6">
@@ -339,6 +388,23 @@ export const TasksTab: React.FC<TasksTabProps> = ({
 
         {/* Filter Controls */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Type Filter */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value as TaskType | 'ALL')}
+            className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-3 py-2 text-xs font-mono text-[#e6e2df] focus:border-[#cac6bc] focus:outline-none"
+          >
+            <option value="ALL">All Types</option>
+            <option value="FEATURE">Feature</option>
+            <option value="BUG">Bug</option>
+            <option value="ART">Art</option>
+            <option value="AUDIO">Audio</option>
+            <option value="CODE">Code</option>
+            <option value="DESIGN">Design</option>
+            <option value="TEST">Test</option>
+            <option value="OTHER">Other</option>
+          </select>
+
           {/* Status Filter */}
           <select
             value={statusFilter}
@@ -382,11 +448,12 @@ export const TasksTab: React.FC<TasksTabProps> = ({
             ))}
           </select>
 
-          {(searchQuery || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || assigneeFilter !== 'ALL' || selectedMilestoneId) && (
+          {(searchQuery || typeFilter !== 'ALL' || statusFilter !== 'ALL' || priorityFilter !== 'ALL' || assigneeFilter !== 'ALL' || selectedMilestoneId) && (
             <button
               type="button"
               onClick={() => {
                 setSearchQuery('');
+                setTypeFilter('ALL');
                 setStatusFilter('ALL');
                 setPriorityFilter('ALL');
                 setAssigneeFilter('ALL');
@@ -462,6 +529,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
       {/* Task Detail Modal */}
       {activeTask && (
         <TaskDetailModal
+          key={activeTask.id}
           task={activeTask}
           isOpen={!!activeTask}
           onClose={() => setActiveTask(null)}
@@ -479,11 +547,14 @@ export const TasksTab: React.FC<TasksTabProps> = ({
           canUpdate={isMember}
           members={members}
           milestones={milestones}
+          allProjectTasks={tasks}
           onUpdateStatus={handleUpdateStatus}
           onUpdateAssignee={handleUpdateAssignee}
           onUpdateMilestone={handleUpdateMilestoneForTask}
           onUpdateDetails={handleUpdateDetails}
           onDeleteTask={handleDeleteTask}
+          onAddDependency={handleAddDependency}
+          onRemoveDependency={handleRemoveDependency}
         />
       )}
     </div>

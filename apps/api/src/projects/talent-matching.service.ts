@@ -387,7 +387,7 @@ export class TalentMatchingService {
 
     const activeMembersMap = new Map<string, any>();
     for (const m of project.members) {
-      if (m.status === ProjectMemberStatus.ACTIVE || !m.status) {
+      if ((m.status === ProjectMemberStatus.ACTIVE || !m.status) && m.userId) {
         activeMembersMap.set(m.userId, m);
       }
     }
@@ -532,8 +532,9 @@ export class TalentMatchingService {
     const activeMembersMap = new Map<string, any>();
     for (const m of project.members) {
       if (
-        (m as any).status === ProjectMemberStatus.ACTIVE ||
-        !(m as any).status
+        ((m as any).status === ProjectMemberStatus.ACTIVE ||
+          !(m as any).status) &&
+        m.userId
       ) {
         activeMembersMap.set(m.userId, m);
       }

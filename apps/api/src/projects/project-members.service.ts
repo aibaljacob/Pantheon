@@ -151,7 +151,7 @@ export class ProjectMembersService {
       profile?.displayName ||
       `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim() ||
       member.user?.username ||
-      'Member';
+      'Former Member';
 
     const roleMap = new Map<string, any>();
 
@@ -224,8 +224,8 @@ export class ProjectMembersService {
     return {
       id: member.id,
       membershipId: member.id,
-      userId: member.user?.id || member.userId,
-      username: member.user?.username || '',
+      userId: member.user?.id || member.userId || null,
+      username: member.user?.username || 'deleted_user',
       displayName,
       avatarUrl: profile?.avatarUrl || null,
       headline: profile?.headline || null,

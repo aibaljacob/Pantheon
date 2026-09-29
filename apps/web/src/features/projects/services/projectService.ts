@@ -71,8 +71,21 @@ export async function createProject(
 
 export async function fetchPublicProjects(
   search?: string,
+  genre?: string,
+  platform?: string,
 ): Promise<DashboardProjectsResponse> {
-  const query = search ? `?search=${encodeURIComponent(search)}` : '';
+  const params = new URLSearchParams();
+  if (search?.trim()) {
+    params.set('search', search.trim());
+  }
+  if (genre && genre !== 'ALL') {
+    params.set('genre', genre);
+  }
+  if (platform && platform !== 'ALL') {
+    params.set('platform', platform);
+  }
+
+  const query = params.toString() ? `?${params.toString()}` : '';
   const response = await fetch(`${getApiBaseUrl()}/projects/public${query}`, {
     method: 'GET',
     headers: {
@@ -89,6 +102,12 @@ export async function fetchPublicProjects(
   const formattedProjects = (data.projects || []).map((p) => ({
     ...p,
     coverUrl: formatApiAssetUrl(p.coverUrl),
+    founder: p.founder
+      ? {
+          ...p.founder,
+          avatarUrl: formatApiAssetUrl(p.founder.avatarUrl),
+        }
+      : null,
   }));
 
   return {

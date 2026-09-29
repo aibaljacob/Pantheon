@@ -15,6 +15,25 @@ export interface TaxonomyItemRef {
   description?: string | null;
 }
 
+export interface GameBlueprintContextInput {
+  tagline?: string | null;
+  targetAudience?: string | null;
+  cameraPerspective?: string | null;
+  artStyle?: string | null;
+  audioTone?: string | null;
+  networkModel?: string | null;
+  targetFps?: number | null;
+  targetResolution?: string | null;
+  coreLoop?: string | null;
+  summary?: string | null;
+  pillars?: Array<{ title: string; description: string }> | null;
+  keyFeatures?: Array<{
+    title: string;
+    description: string;
+    category?: string;
+  }> | null;
+}
+
 export interface ProjectContextInput {
   name: string;
   description: string;
@@ -23,6 +42,7 @@ export interface ProjectContextInput {
   gameEngine?: string | null;
   status: string;
   existingRoleNames: string[];
+  blueprint?: GameBlueprintContextInput | null;
 }
 
 export interface RawAiRecommendationOutput {
@@ -96,6 +116,43 @@ export class AiRecommendationService {
       .map((t) => `- ID: "${t.id}" | Name: "${t.name}"`)
       .join('\n');
 
+    const blueprintSection = project.blueprint
+      ? `
+=== GAME BLUEPRINT SPECIFICATIONS ===
+Tagline / Concept: ${project.blueprint.tagline || 'Unspecified'}
+Target Audience: ${project.blueprint.targetAudience || 'Unspecified'}
+Camera Perspective: ${project.blueprint.cameraPerspective || 'Unspecified'}
+Art & Visual Direction: ${project.blueprint.artStyle || 'Unspecified'}
+Audio Tone & Sound Direction: ${project.blueprint.audioTone || 'Unspecified'}
+Network & Multiplayer Model: ${project.blueprint.networkModel || 'Unspecified'}
+Target Performance: ${project.blueprint.targetFps ? `${project.blueprint.targetFps} FPS` : 'Standard'} @ ${project.blueprint.targetResolution || 'Standard'}
+Core Gameplay Loop: ${project.blueprint.coreLoop || 'Unspecified'}
+Summary: ${project.blueprint.summary || 'Unspecified'}
+
+Design Pillars:
+${
+  Array.isArray(project.blueprint.pillars) &&
+  project.blueprint.pillars.length > 0
+    ? project.blueprint.pillars
+        .map((p, idx) => `${idx + 1}. ${p.title}: ${p.description}`)
+        .join('\n')
+    : 'None specified'
+}
+
+Key Deliverables / Features:
+${
+  Array.isArray(project.blueprint.keyFeatures) &&
+  project.blueprint.keyFeatures.length > 0
+    ? project.blueprint.keyFeatures
+        .map(
+          (f) => `- [${f.category || 'FEATURE'}] ${f.title}: ${f.description}`,
+        )
+        .join('\n')
+    : 'None specified'
+}
+`
+      : '';
+
     const prompt = `
 Analyze the following game production project and recommend 2-4 critical open roles needed for team formation.
 
@@ -111,12 +168,13 @@ Already Existing Roles on Team: ${
         ? project.existingRoleNames.join(', ')
         : 'None'
     }
-
+${blueprintSection}
 === MANDATORY TAXONOMY RULES ===
 1. You MUST ONLY select roleId from the Recognized Professional Roles list below.
 2. You MUST ONLY select skillIds from the Recognized Skills list below.
 3. You MUST ONLY select toolIds from the Recognized Tools list below.
 4. DO NOT invent fake UUIDs or raw text names for roleId, skillIds, or toolIds.
+5. If Game Blueprint specifications (design pillars, network architecture, art style, key deliverables) are provided above, prioritize roles and skills that directly address those architectural, technical, artistic, and gameplay requirements, and cite them in your reasoning.
 
 === RECOGNIZED PROFESSIONAL ROLES ===
 ${rolesListStr}
@@ -328,7 +386,28 @@ ${toolsListStr}
       (r) => !existingSet.has(r.name.toLowerCase()),
     );
 
+    const bp = project.blueprint;
+    const blueprintKeywords: string[] = [];
+    if (
+      bp?.networkModel &&
+      /multiplayer|dedicated|co-op|coop|p2p|server|online/i.test(
+        bp.networkModel,
+      )
+    ) {
+      blueprintKeywords.push('Network', 'Backend', 'Online');
+    }
+    if (
+      bp?.artStyle &&
+      /3d|nanite|lumen|model|stylized|photoreal|environment/i.test(bp.artStyle)
+    ) {
+      blueprintKeywords.push('3D', 'Technical Artist', 'Environment');
+    }
+    if (bp?.audioTone) {
+      blueprintKeywords.push('Audio', 'Sound');
+    }
+
     const preferredKeywords = [
+      ...blueprintKeywords,
       'Programmer',
       'Designer',
       'Artist',
@@ -369,6 +448,12 @@ ${toolsListStr}
         reasoning = `High-priority visual asset creation and art pipelines are needed to establish the visual world and visual benchmark.`;
       } else if (r.name.toLowerCase().includes('design')) {
         reasoning = `Essential to design levels, encounters, and core gameplay progression for ${project.genre || 'this title'}.`;
+      }
+
+      if (bp?.pillars && Array.isArray(bp.pillars) && bp.pillars.length > 0) {
+        reasoning += ` Directly supports Game Blueprint Pillar: "${bp.pillars[0].title}".`;
+      } else if (bp?.tagline) {
+        reasoning += ` Aligned with Blueprint vision: "${bp.tagline}".`;
       }
 
       fallbackRecommendations.push({

@@ -104,7 +104,7 @@ export function PlaytestDetailPage() {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
-    if (!playtest || !projectId) return;
+    if (!playtest || !playtest.playableBuild || !projectId) return;
     try {
       setIsDownloading(true);
       const res = await apiClient.get(
@@ -234,34 +234,42 @@ export function PlaytestDetailPage() {
               </span>
               <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-[#363433] bg-[#141312] text-xs font-mono text-[#cac6bc]">
                 <GitCommit className="h-3.5 w-3.5" />
-                {playtest.playableBuild.buildJob?.commitHash?.substring(0, 7) || 'Unknown Commit'}
+                {playtest.playableBuild?.buildJob?.commitHash?.substring(0, 7) || 'Unknown Commit'}
               </span>
             </div>
             
             <h1 className="font-headline text-3xl font-bold text-[#ffffff] mb-2">{playtest.title}</h1>
-            <p className="text-sm font-mono text-[#8c887e] flex gap-3">
-              <span>Build: {playtest.playableBuild.title} (v{playtest.playableBuild.version})</span>
-              <span>•</span>
-              <span>Platform: {playtest.playableBuild.platform}</span>
-            </p>
+            {playtest.playableBuild ? (
+              <p className="text-sm font-mono text-[#8c887e] flex gap-3">
+                <span>Build: {playtest.playableBuild.title} (v{playtest.playableBuild.version})</span>
+                <span>•</span>
+                <span>Platform: {playtest.playableBuild.platform}</span>
+              </p>
+            ) : (
+              <p className="text-sm font-mono text-[#8c887e]">
+                <span>Build: Build Removed</span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-3 w-full md:w-auto">
             {playtest.isActive && (
               <>
-                <Button
-                  variant="primary"
-                  icon={
-                    <Download
-                      className={`h-4 w-4 ${isDownloading ? 'animate-bounce' : ''}`}
-                    />
-                  }
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  className="w-full"
-                >
-                  {isDownloading ? 'Downloading...' : 'Download Build'}
-                </Button>
+                {playtest.playableBuild && (
+                  <Button
+                    variant="primary"
+                    icon={
+                      <Download
+                        className={`h-4 w-4 ${isDownloading ? 'animate-bounce' : ''}`}
+                      />
+                    }
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    className="w-full"
+                  >
+                    {isDownloading ? 'Downloading...' : 'Download Build'}
+                  </Button>
+                )}
                 <Button variant="secondary" icon={<MessageSquare className="h-4 w-4" />} onClick={() => setIsFeedbackModalOpen(true)} className="w-full">
                   Submit Feedback
                 </Button>
@@ -322,7 +330,7 @@ export function PlaytestDetailPage() {
                         
                         <div className="flex items-center justify-between pt-3 border-t border-[#2b2a29]">
                           <div className="text-xs font-mono text-[#66645c]">
-                            Reported by @{fb.reporter.username}
+                            Reported by @{fb.reporter?.username || 'Deleted User'}
                           </div>
                           
                           {fb.status === 'CONVERTED_TO_TASK' && fb.convertedTask ? (

@@ -105,7 +105,9 @@ export class BaselineComparisonService {
     }
 
     const excludedUserIds = new Set<string>(
-      project.members.map((m) => m.userId),
+      project.members
+        .map((m) => m.userId)
+        .filter((id): id is string => Boolean(id)),
     );
     excludedUserIds.add(project.founderId);
 
@@ -145,6 +147,7 @@ export class BaselineComparisonService {
 
       historicalCollabMap = new Map();
       for (const m of pastMemberships) {
+        if (!m.userId) continue;
         let set = historicalCollabMap.get(m.userId);
         if (!set) {
           set = new Set();

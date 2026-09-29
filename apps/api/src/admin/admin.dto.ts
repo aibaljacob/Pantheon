@@ -1,6 +1,5 @@
 import {
   IsBoolean,
-  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
@@ -160,7 +159,7 @@ export class AdminProjectDetailDto extends AdminProjectItemDto {
   savedAiRecommendations?: any;
   members: {
     id: string;
-    userId: string;
+    userId: string | null;
     username: string;
     displayName: string;
     email: string;

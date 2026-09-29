@@ -1,9 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { MilestonesService } from './milestones.service';
 import { ProjectAuthorizationService } from './project-authorization.service';
@@ -16,6 +12,7 @@ import {
   Role,
   TaskPriority,
   TaskStatus,
+  TaskType,
 } from '@prisma/client';
 
 describe('Tasks & Milestones Module', () => {
@@ -74,6 +71,15 @@ describe('Tasks & Milestones Module', () => {
         updateMany: jest.fn(),
         delete: jest.fn(),
       },
+      taskDependency: {
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        createMany: jest.fn(),
+        delete: jest.fn(),
+        deleteMany: jest.fn(),
+      },
       milestone: {
         findFirst: jest.fn(),
         findMany: jest.fn(),
@@ -81,7 +87,10 @@ describe('Tasks & Milestones Module', () => {
         update: jest.fn(),
         delete: jest.fn(),
       },
-      $transaction: jest.fn(async (cb: any) => cb(prismaMock)),
+      $transaction: jest.fn(
+        async (cb: (prisma: typeof prismaMock) => Promise<unknown>) =>
+          await cb(prismaMock),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -606,6 +615,398 @@ describe('Tasks & Milestones Module', () => {
           assigneeId: null,
         },
       });
+    });
+  });
+
+  // ==========================================
+  // PRODUCTION TASK UPGRADE TESTS
+  // ==========================================
+  describe('Production Task Upgrade: Type, Due Date, Dependencies, Blocked Reason', () => {
+    const baseMockTask = {
+      id: 'task-1',
+      projectId: mockProjectId,
+      taskNumber: 1,
+      title: 'Core Engine Loop',
+      description: 'Implement main tick',
+      type: TaskType.FEATURE,
+      status: TaskStatus.TODO,
+      priority: TaskPriority.MEDIUM,
+      dueDate: null,
+      blockedReason: null,
+      assigneeId: null,
+      milestoneId: null,
+      dependencies: [],
+      dependents: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('26. should create a task with specific task type (e.g. BUG, AUDIO) and update task type', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce(null);
+      prismaMock.task.create.mockResolvedValueOnce({
+        ...baseMockTask,
+        type: TaskType.BUG,
+        title: 'Fix sound crackling',
+      });
+
+      const created = await tasksService.createTask(
+        mockProjectId,
+        {
+          title: 'Fix sound crackling',
+          type: TaskType.BUG,
+        },
+        mockFounderId,
+      );
+
+      expect(created.type).toBe(TaskType.BUG);
+
+      // Now test updating task type
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...baseMockTask,
+        type: TaskType.BUG,
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...baseMockTask,
+        type: TaskType.AUDIO,
+      });
+
+      const updated = await tasksService.updateTask(
+        mockProjectId,
+        'task-1',
+        { type: TaskType.AUDIO },
+        mockFounderId,
+      );
+
+      expect(updated.type).toBe(TaskType.AUDIO);
+    });
+
+    it('27. should set and retrieve due date on task creation and update', async () => {
+      const targetDueDate = new Date('2026-10-31T23:59:59.000Z');
+      prismaMock.task.findFirst.mockResolvedValueOnce(null);
+      prismaMock.task.create.mockResolvedValueOnce({
+        ...baseMockTask,
+        dueDate: targetDueDate,
+      });
+
+      const created = await tasksService.createTask(
+        mockProjectId,
+        {
+          title: 'Alpha milestone polish',
+          dueDate: targetDueDate.toISOString(),
+        },
+        mockFounderId,
+      );
+
+      expect(created.dueDate).toBe(targetDueDate.toISOString());
+
+      // Update due date
+      const newDueDate = new Date('2026-11-15T00:00:00.000Z');
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...baseMockTask,
+        dueDate: targetDueDate,
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...baseMockTask,
+        dueDate: newDueDate,
+      });
+
+      const updated = await tasksService.updateTask(
+        mockProjectId,
+        'task-1',
+        { dueDate: newDueDate.toISOString() },
+        mockFounderId,
+      );
+
+      expect(updated.dueDate).toBe(newDueDate.toISOString());
+    });
+
+    it('28. should set blocked status with a blocked reason, and clear blocked reason when resolved', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...baseMockTask,
+        status: TaskStatus.IN_PROGRESS,
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...baseMockTask,
+        status: TaskStatus.BLOCKED,
+        blockedReason: 'Waiting on physics middleware license approval',
+      });
+
+      const blockedTask = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-1',
+        TaskStatus.BLOCKED,
+        mockFounderId,
+        undefined,
+        'Waiting on physics middleware license approval',
+      );
+
+      expect(blockedTask.status).toBe(TaskStatus.BLOCKED);
+      expect(blockedTask.blockedReason).toBe(
+        'Waiting on physics middleware license approval',
+      );
+
+      // Resolving task (e.g. to DONE) clears blocked reason
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...baseMockTask,
+        status: TaskStatus.BLOCKED,
+        blockedReason: 'Waiting on physics middleware license approval',
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...baseMockTask,
+        status: TaskStatus.DONE,
+        blockedReason: null,
+      });
+
+      const unblockedTask = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-1',
+        TaskStatus.DONE,
+        mockFounderId,
+      );
+
+      expect(unblockedTask.status).toBe(TaskStatus.DONE);
+      expect(unblockedTask.blockedReason).toBeNull();
+    });
+
+    it('29. should successfully add a valid dependency between tasks in the same project', async () => {
+      const taskA = { ...baseMockTask, id: 'task-A', taskNumber: 1 };
+      const taskB = { ...baseMockTask, id: 'task-B', taskNumber: 2 };
+
+      // 1) find task A
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskA);
+      // 2) find target task B in same project
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskB);
+      // 3) check duplicate
+      prismaMock.taskDependency.findUnique.mockResolvedValueOnce(null);
+      // 4) check cycle: task-B has no dependencies
+      prismaMock.taskDependency.findMany.mockResolvedValueOnce([]);
+      // 5) create dependency
+      prismaMock.taskDependency.create.mockResolvedValueOnce({
+        taskId: 'task-A',
+        dependsOnTaskId: 'task-B',
+      });
+      // 6) return updated task A with dependency
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...taskA,
+        dependencies: [
+          {
+            dependsOnTask: {
+              id: 'task-B',
+              taskNumber: 2,
+              title: taskB.title,
+              status: taskB.status,
+            },
+          },
+        ],
+      });
+
+      const result = await tasksService.addDependency(
+        mockProjectId,
+        'task-A',
+        'task-B',
+        mockFounderId,
+      );
+
+      expect(prismaMock.taskDependency.create).toHaveBeenCalledWith({
+        data: {
+          taskId: 'task-A',
+          dependsOnTaskId: 'task-B',
+        },
+      });
+      expect(result.dependencies).toHaveLength(1);
+      expect(result.dependencies[0].id).toBe('task-B');
+      expect(result.dependencies[0].taskCode).toBe('TASK-2');
+    });
+
+    it('30. should reject self-dependency (taskId === dependsOnTaskId)', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce(baseMockTask);
+
+      await expect(
+        tasksService.addDependency(
+          mockProjectId,
+          'task-1',
+          'task-1',
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException('A task cannot depend on itself.'),
+      );
+
+      expect(prismaMock.taskDependency.create).not.toHaveBeenCalled();
+    });
+
+    it('31. should reject cross-project dependency', async () => {
+      const taskInProject = { ...baseMockTask, id: 'task-1' };
+
+      // Task 1 exists in project
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskInProject);
+      // Prerequisite task does not exist in this project (returns null)
+      prismaMock.task.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        tasksService.addDependency(
+          mockProjectId,
+          'task-1',
+          'task-from-foreign-project',
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Prerequisite task does not exist in this project.',
+        ),
+      );
+
+      expect(prismaMock.taskDependency.create).not.toHaveBeenCalled();
+    });
+
+    it('32. should reject duplicate dependency relationship', async () => {
+      const taskA = { ...baseMockTask, id: 'task-A' };
+      const taskB = { ...baseMockTask, id: 'task-B' };
+
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskA);
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskB);
+      // Duplicate found
+      prismaMock.taskDependency.findUnique.mockResolvedValueOnce({
+        id: 'existing-dep-uuid',
+        taskId: 'task-A',
+        dependsOnTaskId: 'task-B',
+      });
+
+      await expect(
+        tasksService.addDependency(
+          mockProjectId,
+          'task-A',
+          'task-B',
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException('This dependency relationship already exists.'),
+      );
+
+      expect(prismaMock.taskDependency.create).not.toHaveBeenCalled();
+    });
+
+    it('33. should reject direct circular dependency (A -> B -> A)', async () => {
+      // Trying to make Task A depend on Task B, when Task B already depends on Task A
+      const taskA = { ...baseMockTask, id: 'task-A' };
+      const taskB = { ...baseMockTask, id: 'task-B' };
+
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskA);
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskB);
+      prismaMock.taskDependency.findUnique.mockResolvedValueOnce(null);
+
+      // When traversing from Task B: Task B has prerequisite Task A
+      prismaMock.taskDependency.findMany.mockResolvedValueOnce([
+        { dependsOnTaskId: 'task-A' },
+      ]);
+
+      await expect(
+        tasksService.addDependency(
+          mockProjectId,
+          'task-A',
+          'task-B',
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Circular dependency detected. A task cannot depend on a task that depends on it.',
+        ),
+      );
+
+      expect(prismaMock.taskDependency.create).not.toHaveBeenCalled();
+    });
+
+    it('34. should reject multi-hop circular dependency (A -> B -> C -> A)', async () => {
+      // We want to add Task A depends on Task C.
+      // Task C depends on Task B, and Task B depends on Task A.
+      const taskA = { ...baseMockTask, id: 'task-A' };
+      const taskC = { ...baseMockTask, id: 'task-C' };
+
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskA);
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskC);
+      prismaMock.taskDependency.findUnique.mockResolvedValueOnce(null);
+
+      // Traversal starts from Task C:
+      // Step 1: dependencies of Task C -> [Task B]
+      prismaMock.taskDependency.findMany.mockResolvedValueOnce([
+        { dependsOnTaskId: 'task-B' },
+      ]);
+      // Step 2: dependencies of Task B -> [Task A]
+      prismaMock.taskDependency.findMany.mockResolvedValueOnce([
+        { dependsOnTaskId: 'task-A' },
+      ]);
+
+      await expect(
+        tasksService.addDependency(
+          mockProjectId,
+          'task-A',
+          'task-C',
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Circular dependency detected. A task cannot depend on a task that depends on it.',
+        ),
+      );
+
+      expect(prismaMock.taskDependency.create).not.toHaveBeenCalled();
+    });
+
+    it('35. should remove an existing dependency relationship', async () => {
+      const taskA = { ...baseMockTask, id: 'task-A' };
+
+      prismaMock.task.findFirst.mockResolvedValueOnce(taskA);
+      prismaMock.taskDependency.findUnique.mockResolvedValueOnce({
+        id: 'dep-uuid-1',
+        taskId: 'task-A',
+        dependsOnTaskId: 'task-B',
+      });
+      prismaMock.taskDependency.delete.mockResolvedValueOnce({
+        id: 'dep-uuid-1',
+      });
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...taskA,
+        dependencies: [],
+      });
+
+      const result = await tasksService.removeDependency(
+        mockProjectId,
+        'task-A',
+        'task-B',
+        mockFounderId,
+      );
+
+      expect(prismaMock.taskDependency.delete).toHaveBeenCalledWith({
+        where: {
+          taskId_dependsOnTaskId: {
+            taskId: 'task-A',
+            dependsOnTaskId: 'task-B',
+          },
+        },
+      });
+      expect(result.dependencies).toHaveLength(0);
+    });
+
+    it('36. should enforce authorization rules for dependency management', async () => {
+      // Unrelated user cannot add dependency
+      await expect(
+        tasksService.addDependency(
+          mockProjectId,
+          'task-A',
+          'task-B',
+          mockUnrelatedUserId,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      // Removed member cannot remove dependency
+      await expect(
+        tasksService.removeDependency(
+          mockProjectId,
+          'task-A',
+          'task-B',
+          mockRemovedMemberId,
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

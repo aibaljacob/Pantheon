@@ -391,7 +391,7 @@ model Project {
   repositoryData             Json?
   createdAt                  DateTime                @default(now())
   updatedAt                  DateTime                @updatedAt
-  founder                    User                    @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Cascade)
+  founder                    User                    @relation("FoundedProjects", fields: [founderId], references: [id], onDelete: Restrict)
   members                    ProjectMember[]
   openRoles                  ProjectRole[]
   invitations                ProjectInvitation[]
@@ -403,9 +403,34 @@ model Project {
   playableBuilds             PlayableBuild[]
   playtestSessions           PlaytestSession[]
   buildRunners               BuildRunner[]
+  blueprint                  GameBlueprint?
 
   @@index([founderId])
   @@index([moderationStatus])
+}
+
+model GameBlueprint {
+  id                String   @id @default(uuid())
+  projectId         String   @unique
+  tagline           String?
+  targetAudience    String?
+  cameraPerspective String?
+  artStyle          String?
+  audioTone         String?
+  networkModel      String?
+  targetFps         Int?
+  targetResolution  String?
+  coreLoop          String?  @db.Text
+  summary           String?  @db.Text
+  pillars           Json?
+  keyFeatures       Json?
+  targetSpecs       Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 enum ProjectMemberStatus {
@@ -417,7 +442,7 @@ enum ProjectMemberStatus {
 model ProjectMember {
   id            String              @id @default(uuid())
   projectId     String
-  userId        String
+  userId        String?
   role          String              @default("Member")
   projectRoleId String?
   status        ProjectMemberStatus @default(ACTIVE)
@@ -425,7 +450,7 @@ model ProjectMember {
   leftAt        DateTime?
   updatedAt     DateTime            @default(now()) @updatedAt
   project       Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   projectRole   ProjectRole?        @relation("PrimaryProjectRole", fields: [projectRoleId], references: [id], onDelete: SetNull)
   assignedRoles ProjectRole[]       @relation("AssignedProjectRoles")
 
@@ -574,12 +599,12 @@ model RepoCommit {
   hash         String            @unique
   message      String
   branchName   String
-  authorId     String
+  authorId     String?
   changedFiles String[]          @default([])
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
   repository   ProjectRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  author       User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author       User?             @relation(fields: [authorId], references: [id], onDelete: SetNull)
   files        RepoFile[]
 
   @@index([repositoryId])
@@ -687,6 +712,17 @@ model ProjectApplication {
   @@index([applicantId, projectRoleId, status])
 }
 
+enum TaskType {
+  FEATURE
+  BUG
+  ART
+  AUDIO
+  CODE
+  DESIGN
+  TEST
+  OTHER
+}
+
 enum TaskStatus {
   BACKLOG
   TODO
@@ -723,30 +759,51 @@ model Milestone {
 }
 
 model Task {
-  id          String       @id @default(uuid())
-  projectId   String
-  milestoneId String?
-  taskNumber  Int
-  title       String
-  description String?      @db.Text
-  status      TaskStatus   @default(TODO)
-  priority    TaskPriority @default(MEDIUM)
-  assigneeId  String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id            String       @id @default(uuid())
+  projectId     String
+  milestoneId   String?
+  taskNumber    Int
+  title         String
+  description   String?      @db.Text
+  type          TaskType     @default(FEATURE)
+  status        TaskStatus   @default(TODO)
+  priority      TaskPriority @default(MEDIUM)
+  dueDate       DateTime?
+  blockedReason String?      @db.Text
+  assigneeId    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   project           Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
   milestone         Milestone?        @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
   assignee          User?             @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
   commitLinks       TaskCommitLink[]
   convertedFeedback PlaytestFeedback?
+  dependencies      TaskDependency[]  @relation("TaskDependencies")
+  dependents        TaskDependency[]  @relation("TaskDependents")
 
   @@unique([projectId, taskNumber])
   @@index([projectId])
   @@index([milestoneId])
   @@index([assigneeId])
+  @@index([type])
   @@index([status])
   @@index([priority])
+  @@index([dueDate])
+}
+
+model TaskDependency {
+  id              String   @id @default(uuid())
+  taskId          String
+  dependsOnTaskId String
+  createdAt       DateTime @default(now())
+
+  task          Task @relation("TaskDependencies", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnTask Task @relation("TaskDependents", fields: [dependsOnTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnTaskId])
+  @@index([taskId])
+  @@index([dependsOnTaskId])
 }
 
 model TaskCommitLink {
@@ -900,19 +957,19 @@ enum FeedbackStatus {
 model PlaytestSession {
   id              String    @id @default(uuid())
   projectId       String
-  playableBuildId String
+  playableBuildId String?
   title           String
   instructions    String?   @db.Text
   isActive        Boolean   @default(true)
   startDate       DateTime?
   endDate         DateTime?
-  createdById     String
+  createdById     String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   project       Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  playableBuild PlayableBuild      @relation(fields: [playableBuildId], references: [id], onDelete: Cascade)
-  createdBy     User               @relation("CreatedPlaytests", fields: [createdById], references: [id], onDelete: Cascade)
+  playableBuild PlayableBuild?     @relation(fields: [playableBuildId], references: [id], onDelete: SetNull)
+  createdBy     User?              @relation("CreatedPlaytests", fields: [createdById], references: [id], onDelete: SetNull)
   feedback      PlaytestFeedback[]
 
   @@index([projectId])
@@ -924,7 +981,7 @@ model PlaytestSession {
 model PlaytestFeedback {
   id              String           @id @default(uuid())
   sessionId       String
-  reporterId      String
+  reporterId      String?
   convertedTaskId String?          @unique
   title           String
   description     String           @db.Text
@@ -936,7 +993,7 @@ model PlaytestFeedback {
   updatedAt       DateTime         @updatedAt
 
   session       PlaytestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  reporter      User            @relation("ReportedFeedback", fields: [reporterId], references: [id], onDelete: Cascade)
+  reporter      User?           @relation("ReportedFeedback", fields: [reporterId], references: [id], onDelete: SetNull)
   convertedTask Task?           @relation(fields: [convertedTaskId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])

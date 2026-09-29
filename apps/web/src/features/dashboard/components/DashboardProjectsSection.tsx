@@ -308,7 +308,7 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <Link to="/dashboard#discover">
+              <Link to="/discover">
                 <Button variant="secondary" size="sm" icon={<Compass className="h-4 w-4" />}>
                   Explore Projects
                 </Button>

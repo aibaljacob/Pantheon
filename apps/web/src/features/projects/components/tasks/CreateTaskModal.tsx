@@ -8,6 +8,7 @@ import type {
   TaskItem,
   TaskPriority,
   TaskStatus,
+  TaskType,
 } from '../../types';
 
 interface CreateTaskModalProps {
@@ -29,8 +30,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
 }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [type, setType] = useState<TaskType>('FEATURE');
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [status, setStatus] = useState<TaskStatus>('TODO');
+  const [dueDate, setDueDate] = useState<string>('');
+  const [blockedReason, setBlockedReason] = useState<string>('');
   const [assigneeId, setAssigneeId] = useState<string>('');
   const [milestoneId, setMilestoneId] = useState<string>(defaultMilestoneId || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,14 +52,20 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       await onCreate({
         title: title.trim(),
         description: description.trim() || undefined,
+        type,
         priority,
         status,
+        dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        blockedReason:
+          status === 'BLOCKED' && blockedReason.trim()
+            ? blockedReason.trim()
+            : undefined,
         assigneeId: assigneeId || undefined,
         milestoneId: milestoneId || undefined,
       });
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to create task.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create task.');
     } finally {
       setIsSubmitting(false);
     }
@@ -115,6 +125,26 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wider text-[#8c887e]">
+                Task Type
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as TaskType)}
+                className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3 py-2 text-xs text-[#e6e2df] focus:border-amber-400 focus:outline-none"
+              >
+                <option value="FEATURE">Feature</option>
+                <option value="BUG">Bug</option>
+                <option value="ART">Art</option>
+                <option value="AUDIO">Audio</option>
+                <option value="CODE">Code</option>
+                <option value="DESIGN">Design</option>
+                <option value="TEST">Test</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-[#8c887e]">
                 Priority
               </label>
               <select
@@ -128,10 +158,12 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <option value="CRITICAL">Critical</option>
               </select>
             </div>
+          </div>
 
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] uppercase tracking-wider text-[#8c887e]">
-                Initial Status
+                Status
               </label>
               <select
                 value={status}
@@ -141,10 +173,38 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 <option value="TODO">To Do</option>
                 <option value="IN_PROGRESS">In Progress</option>
                 <option value="IN_REVIEW">In Review</option>
+                <option value="BLOCKED">Blocked</option>
                 <option value="BACKLOG">Backlog</option>
               </select>
             </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] uppercase tracking-wider text-[#8c887e]">
+                Due Date
+              </label>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded-xl border border-[#363433] bg-[#141312] px-3 py-2 text-xs text-[#e6e2df] focus:border-amber-400 focus:outline-none"
+              />
+            </div>
           </div>
+
+          {status === 'BLOCKED' && (
+            <div className="space-y-1 animate-fadeIn">
+              <label className="text-[10px] uppercase tracking-wider text-red-400 font-semibold">
+                Blocked Reason
+              </label>
+              <input
+                type="text"
+                value={blockedReason}
+                onChange={(e) => setBlockedReason(e.target.value)}
+                placeholder="Why is this task blocked? (e.g. waiting for asset approval)"
+                className="w-full rounded-xl border border-red-900/50 bg-[#141312] px-3 py-2 text-xs text-red-200 focus:border-red-400 focus:outline-none"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">

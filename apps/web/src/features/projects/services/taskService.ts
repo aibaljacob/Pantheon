@@ -2,9 +2,11 @@ import type {
   CreateMilestoneInput,
   CreateTaskInput,
   MilestoneItem,
+  TaskCommitItem,
   TaskItem,
   TaskPriority,
   TaskStatus,
+  TaskType,
   UpdateMilestoneInput,
   UpdateTaskInput,
 } from '../types';
@@ -113,6 +115,7 @@ export async function deleteProjectMilestone(
 // ==========================================
 
 export interface TaskFilters {
+  type?: TaskType;
   status?: TaskStatus;
   priority?: TaskPriority;
   assigneeId?: string;
@@ -129,6 +132,7 @@ export async function fetchProjectTasks(
   const url = new URL(`${getApiBaseUrl()}/projects/${projectId}/tasks`);
 
   if (filters) {
+    if (filters.type) url.searchParams.set('type', filters.type);
     if (filters.status) url.searchParams.set('status', filters.status);
     if (filters.priority) url.searchParams.set('priority', filters.priority);
     if (filters.assigneeId) url.searchParams.set('assigneeId', filters.assigneeId);
@@ -212,19 +216,65 @@ export async function updateTaskStatus(
   taskId: string,
   status: TaskStatus,
   accessToken: string,
+  blockedReason?: string | null,
 ): Promise<TaskItem> {
   const response = await fetch(
     `${getApiBaseUrl()}/projects/${projectId}/tasks/${taskId}/status`,
     {
       method: 'PATCH',
       headers: buildHeaders(accessToken),
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, blockedReason }),
     },
   );
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
     throw new Error(err.message || 'Failed to update task status.');
+  }
+
+  return response.json();
+}
+
+export async function addTaskDependency(
+  projectId: string,
+  taskId: string,
+  dependsOnTaskId: string,
+  accessToken: string,
+): Promise<TaskItem> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/tasks/${taskId}/dependencies`,
+    {
+      method: 'POST',
+      headers: buildHeaders(accessToken),
+      body: JSON.stringify({ dependsOnTaskId }),
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to add task dependency.');
+  }
+
+  return response.json();
+}
+
+export async function removeTaskDependency(
+  projectId: string,
+  taskId: string,
+  dependsOnTaskId: string,
+  accessToken: string,
+): Promise<TaskItem> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/tasks/${taskId}/dependencies/${dependsOnTaskId}`,
+    {
+      method: 'DELETE',
+      headers: buildHeaders(accessToken),
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to remove task dependency.');
   }
 
   return response.json();
@@ -298,7 +348,7 @@ export async function fetchProjectTaskCommits(
   projectId: string,
   taskId: string,
   accessToken?: string | null,
-): Promise<any[]> {
+): Promise<TaskCommitItem[]> {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/tasks/${taskId}/commits`, {
     method: 'GET',
     headers: buildHeaders(accessToken),
@@ -321,8 +371,44 @@ export const taskService = {
     createProjectTask(projectId, input, token ?? useAuthStore.getState().accessToken ?? ''),
   updateTask: (projectId: string, taskId: string, input: UpdateTaskInput, token?: string | null) =>
     updateProjectTask(projectId, taskId, input, token ?? useAuthStore.getState().accessToken ?? ''),
-  updateTaskStatus: (projectId: string, taskId: string, status: TaskStatus, token?: string | null) =>
-    updateTaskStatus(projectId, taskId, status, token ?? useAuthStore.getState().accessToken ?? ''),
+  updateTaskStatus: (
+    projectId: string,
+    taskId: string,
+    status: TaskStatus,
+    token?: string | null,
+    blockedReason?: string | null,
+  ) =>
+    updateTaskStatus(
+      projectId,
+      taskId,
+      status,
+      token ?? useAuthStore.getState().accessToken ?? '',
+      blockedReason,
+    ),
+  addDependency: (
+    projectId: string,
+    taskId: string,
+    dependsOnTaskId: string,
+    token?: string | null,
+  ) =>
+    addTaskDependency(
+      projectId,
+      taskId,
+      dependsOnTaskId,
+      token ?? useAuthStore.getState().accessToken ?? '',
+    ),
+  removeDependency: (
+    projectId: string,
+    taskId: string,
+    dependsOnTaskId: string,
+    token?: string | null,
+  ) =>
+    removeTaskDependency(
+      projectId,
+      taskId,
+      dependsOnTaskId,
+      token ?? useAuthStore.getState().accessToken ?? '',
+    ),
   updateTaskAssignee: (projectId: string, taskId: string, assigneeId: string | null, token?: string | null) =>
     updateTaskAssignee(projectId, taskId, assigneeId, token ?? useAuthStore.getState().accessToken ?? ''),
   updateTaskMilestone: (projectId: string, taskId: string, milestoneId: string | null, token?: string | null) =>

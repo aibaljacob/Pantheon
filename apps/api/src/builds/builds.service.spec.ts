@@ -186,11 +186,11 @@ describe('Builds Module - BuildsService', () => {
         findFirst: jest.fn().mockImplementation((args: any) => {
           if (
             args.where?.projectId === mockProjectId &&
-            (args.where?.OR?.some(
+            args.where?.OR?.some(
               (cond: any) =>
                 cond.id === mockPlayableBuild.id ||
                 cond.buildJobId === mockPlayableBuild.id,
-            ))
+            )
           ) {
             return Promise.resolve({
               ...mockPlayableBuild,
@@ -794,8 +794,8 @@ describe('Builds Module - BuildsService', () => {
       expect(result.filename).toBe('cyber-odyssey-v0.1.0.zip');
       expect(result.size).toBeGreaterThan(0);
 
-      await new Promise((resolve) => {
-        result.stream.on('close', resolve);
+      await new Promise<void>((resolve) => {
+        result.stream.on('close', () => resolve());
         result.stream.destroy();
       });
     });
@@ -821,11 +821,10 @@ describe('Builds Module - BuildsService', () => {
       expect(result.stream).toBeDefined();
       expect(result.filename).toBe('cyber-odyssey-v0.1.0.zip');
 
-      await new Promise((resolve) => {
-        result.stream.on('close', resolve);
+      await new Promise<void>((resolve) => {
+        result.stream.on('close', () => resolve());
         result.stream.destroy();
       });
     });
   });
 });
-

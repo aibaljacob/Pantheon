@@ -178,12 +178,20 @@ function PlaytestCard({ projectId, playtest }: { projectId: string, playtest: Pl
             {playtest.title}
           </h4>
           <p className="text-xs font-mono text-[#8c887e] mt-1 flex items-center gap-1.5">
-            <span className="px-2 py-0.5 rounded-full border border-[#363433] bg-[#201f1e] text-[10px]">
-              {playtest.playableBuild.version}
-            </span>
-            <span className="px-2 py-0.5 rounded-full border border-[#363433] bg-[#201f1e] text-[10px]">
-              {playtest.playableBuild.platform}
-            </span>
+            {playtest.playableBuild ? (
+              <>
+                <span className="px-2 py-0.5 rounded-full border border-[#363433] bg-[#201f1e] text-[10px]">
+                  {playtest.playableBuild.version}
+                </span>
+                <span className="px-2 py-0.5 rounded-full border border-[#363433] bg-[#201f1e] text-[10px]">
+                  {playtest.playableBuild.platform}
+                </span>
+              </>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full border border-[#363433] bg-[#201f1e] text-[10px] text-[#8c887e]">
+                Build Removed
+              </span>
+            )}
           </p>
         </div>
         

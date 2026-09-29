@@ -83,6 +83,14 @@ export class UpdateProjectDto {
   gameEngine?: string;
 }
 
+export class PublicProjectRolePreviewDto {
+  id: string;
+  title: string;
+  roleName: string;
+  experienceLevel: ProjectRoleExperienceLevel;
+  commitment: ProjectRoleCommitment;
+}
+
 export class DashboardProjectDto {
   id: string;
   name: string;
@@ -98,6 +106,9 @@ export class DashboardProjectDto {
   userRole?: string;
   isFounder: boolean;
   updatedAt: string;
+  founder?: ProjectFounderDto | null;
+  openRoleCount?: number;
+  openRoles?: PublicProjectRolePreviewDto[];
 }
 
 export class DashboardProjectsResponseDto {
@@ -113,7 +124,7 @@ export class ProjectFounderDto {
 
 export class ProjectMemberDetailDto {
   id: string;
-  userId: string;
+  userId?: string | null;
   username: string;
   displayName: string;
   avatarUrl?: string | null;
@@ -140,7 +151,7 @@ export class AssignedProjectRoleDto {
 export class ProjectActiveTeamMemberDto {
   id: string;
   membershipId: string;
-  userId: string;
+  userId?: string | null;
   username: string;
   displayName: string;
   avatarUrl?: string | null;
@@ -157,7 +168,7 @@ export class ProjectActiveTeamMemberDto {
 export class ProjectFormerTeamMemberDto {
   id: string;
   membershipId: string;
-  userId: string;
+  userId?: string | null;
   username: string;
   displayName: string;
   avatarUrl?: string | null;
@@ -208,6 +219,31 @@ export class AssignRoleToUserDto {
   userId: string;
 }
 
+export type ProjectViewerRelationship =
+  | 'FOUNDER'
+  | 'ACTIVE_MEMBER'
+  | 'APPLICANT'
+  | 'INVITEE'
+  | 'NON_MEMBER'
+  | 'VISITOR';
+
+export class ViewerPendingApplicationDto {
+  id: string;
+  projectRoleId: string;
+  roleTitle: string;
+  message?: string | null;
+  createdAt: string;
+}
+
+export class ViewerPendingInvitationDto {
+  id: string;
+  projectRoleId: string;
+  roleTitle: string;
+  inviterName: string;
+  message?: string | null;
+  createdAt: string;
+}
+
 export class ProjectDetailResponseDto {
   id: string;
   name: string;
@@ -226,6 +262,10 @@ export class ProjectDetailResponseDto {
   memberCount: number;
   isFounder: boolean;
   isMember: boolean;
+  viewerRelationship: ProjectViewerRelationship;
+  viewerRole?: string | null;
+  viewerPendingApplication?: ViewerPendingApplicationDto | null;
+  viewerPendingInvitation?: ViewerPendingInvitationDto | null;
 }
 
 export class CreateProjectRoleDto {

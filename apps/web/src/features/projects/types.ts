@@ -1,3 +1,11 @@
+export interface PublicProjectRolePreview {
+  id: string;
+  title: string;
+  roleName: string;
+  experienceLevel: string;
+  commitment: string;
+}
+
 export interface DashboardProjectItem {
   id: string;
   name: string;
@@ -13,6 +21,14 @@ export interface DashboardProjectItem {
   userRole: string; // e.g. "Founder" or "Gameplay Programmer · Member"
   isFounder: boolean;
   updatedAt: string;
+  founder?: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  } | null;
+  openRoleCount?: number;
+  openRoles?: PublicProjectRolePreview[];
 }
 
 export interface DashboardProjectsResponse {
@@ -56,6 +72,31 @@ export interface ProjectMemberDetail {
   joinedAt: string;
 }
 
+export type ViewerRelationship =
+  | 'FOUNDER'
+  | 'ACTIVE_MEMBER'
+  | 'APPLICANT'
+  | 'INVITEE'
+  | 'NON_MEMBER'
+  | 'VISITOR';
+
+export interface ViewerPendingApplication {
+  id: string;
+  projectRoleId: string;
+  roleTitle: string;
+  message?: string | null;
+  createdAt: string;
+}
+
+export interface ViewerPendingInvitation {
+  id: string;
+  projectRoleId: string;
+  roleTitle: string;
+  inviterName: string;
+  message?: string | null;
+  createdAt: string;
+}
+
 export interface ProjectDetail {
   id: string;
   name: string;
@@ -74,6 +115,10 @@ export interface ProjectDetail {
   memberCount: number;
   isFounder: boolean;
   isMember: boolean;
+  viewerRelationship?: ViewerRelationship;
+  viewerRole?: string | null;
+  viewerPendingApplication?: ViewerPendingApplication | null;
+  viewerPendingInvitation?: ViewerPendingInvitation | null;
 }
 
 export type ProjectRoleStatus = 'OPEN' | 'IN_REVIEW' | 'FILLED' | 'CLOSED';
@@ -178,7 +223,7 @@ export interface ProjectActiveTeamMember {
 export interface ProjectFormerTeamMember {
   id: string;
   membershipId?: string;
-  userId: string;
+  userId?: string | null;
   username: string;
   displayName: string;
   avatarUrl?: string | null;
@@ -203,6 +248,16 @@ export interface ProjectTeamResponse {
 
 export type ProjectTaskMember = ProjectMemberDetail | ProjectActiveTeamMember;
 
+export type TaskType =
+  | 'FEATURE'
+  | 'BUG'
+  | 'ART'
+  | 'AUDIO'
+  | 'CODE'
+  | 'DESIGN'
+  | 'TEST'
+  | 'OTHER';
+
 export type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'BLOCKED' | 'DONE';
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
@@ -219,6 +274,30 @@ export interface TaskMilestoneSummary {
   title: string;
 }
 
+export interface TaskDependencySummary {
+  id: string;
+  taskNumber: number;
+  taskCode: string;
+  title: string;
+  status: TaskStatus;
+}
+
+export interface TaskCommitItem {
+  id: string;
+  taskId: string;
+  commitHash: string;
+  commitMsg: string;
+  authorName: string;
+  branchName: string;
+  timestamp: string;
+  author?: {
+    id: string;
+    username: string;
+    avatarUrl?: string | null;
+    displayName?: string | null;
+  } | null;
+}
+
 export interface TaskItem {
   id: string;
   projectId: string;
@@ -226,12 +305,17 @@ export interface TaskItem {
   taskCode: string;
   title: string;
   description?: string | null;
+  type: TaskType;
   status: TaskStatus;
   priority: TaskPriority;
+  dueDate?: string | null;
+  blockedReason?: string | null;
   assigneeId?: string | null;
   assignee?: TaskAssignee | null;
   milestoneId?: string | null;
   milestone?: TaskMilestoneSummary | null;
+  dependencies?: TaskDependencySummary[];
+  dependents?: TaskDependencySummary[];
   createdAt: string;
   updatedAt: string;
 }
@@ -253,19 +337,27 @@ export interface MilestoneItem {
 export interface CreateTaskInput {
   title: string;
   description?: string;
+  type?: TaskType;
   priority?: TaskPriority;
   status?: TaskStatus;
+  dueDate?: string;
+  blockedReason?: string;
   milestoneId?: string;
   assigneeId?: string;
+  dependencyTaskIds?: string[];
 }
 
 export interface UpdateTaskInput {
   title?: string;
   description?: string;
+  type?: TaskType;
   priority?: TaskPriority;
   status?: TaskStatus;
+  dueDate?: string | null;
+  blockedReason?: string | null;
   milestoneId?: string | null;
   assigneeId?: string | null;
+  dependencyTaskIds?: string[];
 }
 
 export interface CreateMilestoneInput {
@@ -369,14 +461,63 @@ export interface PlaytestSession {
   isActive: boolean;
   startDate: string | null;
   endDate: string | null;
-  playableBuild: {
+  playableBuild?: {
+    id?: string;
     version: string;
     platform: string;
     title: string;
-  };
+    buildJob?: { commitHash?: string };
+  } | null;
   _count: {
     feedback: number;
   };
   createdAt: string;
+}
+
+export interface GamePillar {
+  title: string;
+  description: string;
+}
+
+export interface GameFeature {
+  title: string;
+  description: string;
+  category?: 'GAMEPLAY' | 'TECHNICAL' | 'ART' | 'AUDIO' | string;
+}
+
+export interface GameBlueprint {
+  id: string;
+  projectId: string;
+  tagline?: string | null;
+  targetAudience?: string | null;
+  cameraPerspective?: string | null;
+  artStyle?: string | null;
+  audioTone?: string | null;
+  networkModel?: string | null;
+  targetFps?: number | null;
+  targetResolution?: string | null;
+  coreLoop?: string | null;
+  summary?: string | null;
+  pillars?: GamePillar[] | null;
+  keyFeatures?: GameFeature[] | null;
+  targetSpecs?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertGameBlueprintInput {
+  tagline?: string;
+  targetAudience?: string;
+  cameraPerspective?: string;
+  artStyle?: string;
+  audioTone?: string;
+  networkModel?: string;
+  targetFps?: number;
+  targetResolution?: string;
+  coreLoop?: string;
+  summary?: string;
+  pillars?: GamePillar[];
+  keyFeatures?: GameFeature[];
+  targetSpecs?: Record<string, unknown>;
 }
 

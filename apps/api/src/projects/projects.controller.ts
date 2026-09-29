@@ -23,7 +23,6 @@ import {
   AssignProjectMemberRolesDto,
   AssignRoleToUserDto,
   CandidateQueryDto,
-  ChangeProjectMemberRoleDto,
   CreateProjectDto,
   CreateProjectRoleDto,
   ProjectActiveTeamMemberDto,
@@ -72,8 +71,10 @@ export class ProjectsController {
   @Get('public')
   getPublicProjects(
     @Query('search') search?: string,
+    @Query('genre') genre?: string,
+    @Query('platform') platform?: string,
   ): Promise<DashboardProjectsResponseDto> {
-    return this.projectsService.getPublicProjects(search);
+    return this.projectsService.getPublicProjects(search, genre, platform);
   }
 
   @UseGuards(OptionalJwtAuthGuard)

@@ -268,7 +268,7 @@ export class PlaytestService {
     }
 
     const taskTitle = feedback.title;
-    const taskDescription = `**Playtest Feedback**\nSeverity: ${feedback.severity}\nReporter: ${feedback.reporterId}\nBuild: ${feedback.session.playableBuild.version}\nCommit: ${feedback.commitHash || 'N/A'}\n\n${feedback.description}`;
+    const taskDescription = `**Playtest Feedback**\nSeverity: ${feedback.severity}\nReporter: ${feedback.reporterId || 'Anonymous'}\nBuild: ${feedback.session.playableBuild?.version || 'N/A'}\nCommit: ${feedback.commitHash || 'N/A'}\n\n${feedback.description}`;
 
     // Map severity to Priority roughly
     let priority: TaskPriority = TaskPriority.MEDIUM;

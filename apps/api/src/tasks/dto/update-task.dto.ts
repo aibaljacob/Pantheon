@@ -1,11 +1,13 @@
 import {
+  IsArray,
   IsEnum,
+  IsISO8601,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
 } from 'class-validator';
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
 
 export class UpdateTaskDto {
   @IsOptional()
@@ -19,6 +21,10 @@ export class UpdateTaskDto {
   description?: string;
 
   @IsOptional()
+  @IsEnum(TaskType)
+  type?: TaskType;
+
+  @IsOptional()
   @IsEnum(TaskPriority)
   priority?: TaskPriority;
 
@@ -27,10 +33,24 @@ export class UpdateTaskDto {
   status?: TaskStatus;
 
   @IsOptional()
+  @IsISO8601()
+  dueDate?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  blockedReason?: string | null;
+
+  @IsOptional()
   @IsUUID()
   milestoneId?: string | null;
 
   @IsOptional()
   @IsUUID()
   assigneeId?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  dependencyTaskIds?: string[];
 }

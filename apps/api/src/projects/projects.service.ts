@@ -14,10 +14,16 @@ import type {
   DashboardProjectsResponseDto,
   ProjectDetailResponseDto,
   ProjectRoleResponseDto,
+  ProjectViewerRelationship,
   UpdateProjectDto,
   UpdateProjectRoleDto,
+  ViewerPendingApplicationDto,
+  ViewerPendingInvitationDto,
 } from './projects.dto';
 import {
+  Prisma,
+  ProjectApplicationStatus,
+  ProjectInvitationStatus,
   ProjectMemberStatus,
   ProjectModerationStatus,
   ProjectRoleCommitment,
@@ -239,9 +245,11 @@ export class ProjectsService {
 
   async getPublicProjects(
     search?: string,
+    genre?: string,
+    platform?: string,
   ): Promise<DashboardProjectsResponseDto> {
     // Database-level filter: ONLY return PUBLISHED projects
-    const where: any = {
+    const where: Prisma.ProjectWhereInput = {
       moderationStatus: ProjectModerationStatus.PUBLISHED,
     };
 
@@ -255,9 +263,44 @@ export class ProjectsService {
       ];
     }
 
+    if (genre && genre.trim() && genre !== 'ALL') {
+      where.genre = { contains: genre.trim(), mode: 'insensitive' };
+    }
+
+    if (platform && platform.trim() && platform !== 'ALL') {
+      where.platform = { contains: platform.trim(), mode: 'insensitive' };
+    }
+
     const projects = await this.prisma.project.findMany({
       where,
       include: {
+        founder: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+        openRoles: {
+          where: {
+            status: ProjectRoleStatus.OPEN,
+          },
+          include: {
+            role: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          take: 4,
+        },
         members: {
           select: {
             userId: true,
@@ -267,6 +310,11 @@ export class ProjectsService {
         _count: {
           select: {
             members: true,
+            openRoles: {
+              where: {
+                status: ProjectRoleStatus.OPEN,
+              },
+            },
           },
         },
       },
@@ -275,22 +323,46 @@ export class ProjectsService {
       },
     });
 
-    const mappedProjects: DashboardProjectDto[] = projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      description: p.description,
-      coverUrl: p.coverUrl,
-      status: p.status,
-      moderationStatus: p.moderationStatus,
-      genre: p.genre,
-      platform: p.platform,
-      gameEngine: p.gameEngine,
-      memberCount: p._count.members,
-      userRole: 'Project',
-      isFounder: false,
-      updatedAt: p.updatedAt.toISOString(),
-    }));
+    const mappedProjects: DashboardProjectDto[] = projects.map((p) => {
+      const founderDisplayName =
+        p.founder?.profile?.displayName ||
+        `${p.founder?.profile?.firstName || ''} ${p.founder?.profile?.lastName || ''}`.trim() ||
+        p.founder?.username ||
+        'Founder';
+
+      return {
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        coverUrl: p.coverUrl,
+        status: p.status,
+        moderationStatus: p.moderationStatus,
+        genre: p.genre,
+        platform: p.platform,
+        gameEngine: p.gameEngine,
+        memberCount: p._count.members,
+        userRole: 'Project',
+        isFounder: false,
+        updatedAt: p.updatedAt.toISOString(),
+        founder: p.founder
+          ? {
+              id: p.founder.id,
+              username: p.founder.username,
+              displayName: founderDisplayName,
+              avatarUrl: p.founder.profile?.avatarUrl || null,
+            }
+          : null,
+        openRoleCount: p._count.openRoles,
+        openRoles: (p.openRoles || []).map((r) => ({
+          id: r.id,
+          title: r.title || r.role.name,
+          roleName: r.role.name,
+          experienceLevel: r.experienceLevel,
+          commitment: r.commitment,
+        })),
+      };
+    });
 
     return {
       projects: mappedProjects,
@@ -432,9 +504,10 @@ export class ProjectsService {
 
     const mappedMembers = project.members.map((m) => {
       const displayName =
-        m.user.profile?.displayName ||
-        `${m.user.profile?.firstName || ''} ${m.user.profile?.lastName || ''}`.trim() ||
-        m.user.username;
+        m.user?.profile?.displayName ||
+        `${m.user?.profile?.firstName || ''} ${m.user?.profile?.lastName || ''}`.trim() ||
+        m.user?.username ||
+        'Former Member';
 
       const roleMap = new Map<string, any>();
       for (const r of m.assignedRoles || []) {
@@ -481,11 +554,11 @@ export class ProjectsService {
 
       return {
         id: m.id,
-        userId: m.userId,
-        username: m.user.username,
+        userId: m.userId ?? null,
+        username: m.user?.username || 'deleted_user',
         displayName,
-        avatarUrl: m.user.profile?.avatarUrl || null,
-        headline: m.user.profile?.headline || null,
+        avatarUrl: m.user?.profile?.avatarUrl || null,
+        headline: m.user?.profile?.headline || null,
         role: primaryRoleTitle,
         projectRoleId: primaryRole?.id || m.projectRoleId || null,
         projectRoleTitle: primaryRole?.title || m.projectRole?.title || null,
@@ -496,6 +569,99 @@ export class ProjectsService {
         leftAt: m.leftAt ? m.leftAt.toISOString() : null,
       };
     });
+
+    let viewerRelationship: ProjectViewerRelationship = 'VISITOR';
+    let viewerRole: string | null = null;
+    let viewerPendingApplication: ViewerPendingApplicationDto | null = null;
+    let viewerPendingInvitation: ViewerPendingInvitationDto | null = null;
+
+    if (currentUserId) {
+      if (isFounder || isAdmin) {
+        viewerRelationship = 'FOUNDER';
+        viewerRole = isFounder ? 'Founder' : 'Administrator';
+      } else if (isMember) {
+        viewerRelationship = 'ACTIVE_MEMBER';
+        const memberRecord = mappedMembers.find((m) => m.userId === currentUserId);
+        viewerRole = memberRecord?.role || 'Member';
+      } else {
+        const [pendingInvitation, pendingApplication] = await Promise.all([
+          this.prisma.projectInvitation.findFirst({
+            where: {
+              projectId: project.id,
+              inviteeId: currentUserId,
+              status: ProjectInvitationStatus.PENDING,
+            },
+            include: {
+              projectRole: {
+                select: {
+                  id: true,
+                  title: true,
+                  role: { select: { name: true } },
+                },
+              },
+              inviter: {
+                select: {
+                  id: true,
+                  username: true,
+                  profile: { select: { displayName: true } },
+                },
+              },
+            },
+          }),
+          this.prisma.projectApplication.findFirst({
+            where: {
+              projectId: project.id,
+              applicantId: currentUserId,
+              status: ProjectApplicationStatus.PENDING,
+            },
+            include: {
+              projectRole: {
+                select: {
+                  id: true,
+                  title: true,
+                  role: { select: { name: true } },
+                },
+              },
+            },
+          }),
+        ]);
+
+        if (pendingInvitation) {
+          viewerPendingInvitation = {
+            id: pendingInvitation.id,
+            projectRoleId: pendingInvitation.projectRoleId,
+            roleTitle:
+              pendingInvitation.projectRole.title ||
+              pendingInvitation.projectRole.role.name,
+            inviterName:
+              pendingInvitation.inviter.profile?.displayName ||
+              pendingInvitation.inviter.username,
+            message: pendingInvitation.message || null,
+            createdAt: pendingInvitation.createdAt.toISOString(),
+          };
+        }
+
+        if (pendingApplication) {
+          viewerPendingApplication = {
+            id: pendingApplication.id,
+            projectRoleId: pendingApplication.projectRoleId,
+            roleTitle:
+              pendingApplication.projectRole.title ||
+              pendingApplication.projectRole.role.name,
+            message: pendingApplication.message || null,
+            createdAt: pendingApplication.createdAt.toISOString(),
+          };
+        }
+
+        if (pendingInvitation) {
+          viewerRelationship = 'INVITEE';
+        } else if (pendingApplication) {
+          viewerRelationship = 'APPLICANT';
+        } else {
+          viewerRelationship = 'NON_MEMBER';
+        }
+      }
+    }
 
     return {
       id: project.id,
@@ -520,6 +686,10 @@ export class ProjectsService {
       memberCount: project.members.length,
       isFounder,
       isMember,
+      viewerRelationship,
+      viewerRole,
+      viewerPendingApplication,
+      viewerPendingInvitation,
     };
   }
 
@@ -1100,6 +1270,7 @@ export class ProjectsService {
         openRoles: {
           include: { role: true },
         },
+        blueprint: true,
       },
     });
 
@@ -1130,7 +1301,7 @@ export class ProjectsService {
 
     const existingRoleNames = project.openRoles.map((r) => r.role.name);
 
-    // AI execution
+    // AI execution with blueprint context if available
     const recommendedRoles = await this.aiService.generateRoleRecommendations(
       {
         name: project.name,
@@ -1140,6 +1311,26 @@ export class ProjectsService {
         gameEngine: project.gameEngine,
         status: project.status,
         existingRoleNames,
+        blueprint: project.blueprint
+          ? {
+              tagline: project.blueprint.tagline,
+              targetAudience: project.blueprint.targetAudience,
+              cameraPerspective: project.blueprint.cameraPerspective,
+              artStyle: project.blueprint.artStyle,
+              audioTone: project.blueprint.audioTone,
+              networkModel: project.blueprint.networkModel,
+              targetFps: project.blueprint.targetFps,
+              targetResolution: project.blueprint.targetResolution,
+              coreLoop: project.blueprint.coreLoop,
+              summary: project.blueprint.summary,
+              pillars: Array.isArray(project.blueprint.pillars)
+                ? (project.blueprint.pillars as any)
+                : null,
+              keyFeatures: Array.isArray(project.blueprint.keyFeatures)
+                ? (project.blueprint.keyFeatures as any)
+                : null,
+            }
+          : null,
       },
       rolesTaxonomy,
       skillsTaxonomy,

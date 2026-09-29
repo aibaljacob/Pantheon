@@ -1,7 +1,11 @@
 import { IsEnum, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
-import { TaskPriority, TaskStatus } from '@prisma/client';
+import { TaskPriority, TaskStatus, TaskType } from '@prisma/client';
 
 export class TaskQueryDto {
+  @IsOptional()
+  @IsEnum(TaskType)
+  type?: TaskType;
+
   @IsOptional()
   @IsEnum(TaskStatus)
   status?: TaskStatus;

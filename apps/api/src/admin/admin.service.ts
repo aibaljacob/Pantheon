@@ -417,17 +417,18 @@ export class AdminService {
 
     const membersMapped = p.members.map((m) => {
       const mDisplayName =
-        m.user.profile?.displayName ||
-        `${m.user.profile?.firstName || ''} ${m.user.profile?.lastName || ''}`.trim() ||
-        m.user.username;
+        m.user?.profile?.displayName ||
+        `${m.user?.profile?.firstName || ''} ${m.user?.profile?.lastName || ''}`.trim() ||
+        m.user?.username ||
+        'Former Member';
 
       return {
         id: m.id,
-        userId: m.userId,
-        username: m.user.username,
+        userId: m.userId ?? null,
+        username: m.user?.username || 'deleted_user',
         displayName: mDisplayName,
-        email: m.user.email,
-        avatarUrl: m.user.profile?.avatarUrl,
+        email: m.user?.email || '',
+        avatarUrl: m.user?.profile?.avatarUrl ?? null,
         role: m.role,
         joinedAt: m.joinedAt.toISOString(),
       };

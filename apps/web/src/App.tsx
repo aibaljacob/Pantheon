@@ -12,6 +12,7 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { EmailVerifiedPage } from './pages/EmailVerifiedPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { DiscoverProjectsPage } from './pages/DiscoverProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { PlaytestNewPage } from './pages/PlaytestNewPage';
 import { PlaytestDetailPage } from './pages/PlaytestDetailPage';
@@ -36,6 +37,8 @@ export function App() {
           <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
           {/* Canonical Public User Profile Route */}
           <Route path="/u/:username" element={<ProfilePage />} />
+          {/* Project Discovery Route */}
+          <Route path="/discover" element={<DiscoverProjectsPage />} />
           {/* Canonical Project Details Route */}
           <Route path="/projects/:id" element={<ProjectDetailPage />} />
           

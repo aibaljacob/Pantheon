@@ -26,11 +26,14 @@ import { BaselineComparisonService } from './graph-team-formation/baseline-compa
 import { ResearchExperimentRunner } from './graph-team-formation/research-experiment-runner';
 import { TasksModule } from '../tasks/tasks.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GameBlueprintController } from './blueprint/game-blueprint.controller';
+import { GameBlueprintService } from './blueprint/game-blueprint.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, TasksModule, NotificationsModule],
   controllers: [
     ProjectsController,
+    GameBlueprintController,
     ProjectInvitationsController,
     UserInvitationsController,
     ProjectRepositoryController,
@@ -38,6 +41,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   ],
   providers: [
     ProjectsService,
+    GameBlueprintService,
     ProjectMembersService,
     AiRecommendationService,
     TalentMatchingService,
@@ -56,6 +60,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   ],
   exports: [
     ProjectsService,
+    GameBlueprintService,
     ProjectMembersService,
     AiRecommendationService,
     TalentMatchingService,

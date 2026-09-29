@@ -26,6 +26,7 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TaskQueryDto } from './dto/task-query.dto';
 import {
+  AddTaskDependencyDto,
   UpdateTaskAssigneeDto,
   UpdateTaskMilestoneDto,
   UpdateTaskStatusDto,
@@ -116,6 +117,7 @@ export class TasksController {
       dto.status,
       user.id,
       user.role,
+      dto.blockedReason,
     );
   }
 
@@ -193,6 +195,46 @@ export class TasksController {
       taskId,
       user?.id,
       user?.role,
+    );
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Add a prerequisite dependency to a task' })
+  @ApiResponse({ status: 201, description: 'Dependency added successfully' })
+  @UseGuards(JwtAuthGuard)
+  @Post(':taskId/dependencies')
+  addDependency(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: AddTaskDependencyDto,
+  ): Promise<TaskResponseDto> {
+    return this.tasksService.addDependency(
+      projectId,
+      taskId,
+      dto.dependsOnTaskId,
+      user.id,
+      user.role,
+    );
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Remove a prerequisite dependency from a task' })
+  @ApiResponse({ status: 200, description: 'Dependency removed successfully' })
+  @UseGuards(JwtAuthGuard)
+  @Delete(':taskId/dependencies/:dependsOnTaskId')
+  removeDependency(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Param('dependsOnTaskId') dependsOnTaskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    return this.tasksService.removeDependency(
+      projectId,
+      taskId,
+      dependsOnTaskId,
+      user.id,
+      user.role,
     );
   }
 }

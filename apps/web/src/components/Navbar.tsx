@@ -62,6 +62,13 @@ export const Navbar: React.FC = () => {
             How It Works
             <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-pantheon-ivory transition-all duration-200 group-hover:w-full" />
           </a>
+          <Link
+            to="/discover"
+            className="hover:text-pantheon-ivory text-pantheon-ivory/90 transition-colors py-1 relative group focus:outline-none focus:text-pantheon-ivory font-semibold"
+          >
+            Discover
+            <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-pantheon-ivory transition-all duration-200 group-hover:w-full" />
+          </Link>
         </nav>
 
         {/* Actions */}
@@ -116,6 +123,13 @@ export const Navbar: React.FC = () => {
             >
               How It Works
             </a>
+            <Link
+              to="/discover"
+              onClick={() => setMobileMenuOpen(false)}
+              className="hover:text-pantheon-ivory text-pantheon-ivory py-1 border-b border-pantheon-border-dark font-semibold"
+            >
+              Discover Projects
+            </Link>
           </nav>
 
           <div className="pt-4 flex flex-col gap-3 border-t border-pantheon-border-dark">

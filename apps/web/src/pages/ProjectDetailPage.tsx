@@ -21,6 +21,11 @@ import {
   LayoutDashboard,
   Send,
   CheckSquare,
+  Compass,
+  CheckCircle2,
+  LogIn,
+  Mail,
+  Eye,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
@@ -32,6 +37,7 @@ import type {
   DraftRoleRecommendation,
   ProjectDetail,
   ProjectRoleItem,
+  ViewerRelationship,
 } from '../features/projects/types';
 import {
   fetchProjectDetails,
@@ -40,6 +46,8 @@ import {
   fetchAiRoleRecommendations,
   rescanAiRoleRecommendations,
 } from '../features/projects/services/projectService';
+import { respondToInvitation } from '../features/projects/services/talentMatchingService';
+import { withdrawCandidateApplication } from '../features/projects/services/projectApplicationService';
 import { EditProjectModal } from '../features/profile/components/EditProjectModal';
 import { AddEditRoleModal } from '../features/profile/components/AddEditRoleModal';
 import { AiRoleRecommendationsSection } from '../features/projects/components/AiRoleRecommendationsSection';
@@ -53,6 +61,7 @@ import { ProductionProgressCard } from '../features/projects/components/tasks/Pr
 import { BuildsTab } from '../features/projects/components/builds/BuildsTab';
 import { PlaytestsTab } from '../features/projects/components/playtest/PlaytestsTab';
 import { useWorkspaceStore } from '../features/projects/store/workspaceStore';
+import { BlueprintTab } from '../features/projects/components/blueprint/BlueprintTab';
 
 function formatStatus(status: string): string {
   switch (status) {
@@ -138,16 +147,15 @@ function formatRoleStatusBadge(status: string) {
   }
 }
 
-const VALID_PROJECT_TABS = [
-  'overview',
-  'team',
-  'tasks',
-  'builds',
-  'playtests',
-  'repo',
-  'applications',
-] as const;
-type ProjectTabType = typeof VALID_PROJECT_TABS[number];
+type ProjectTabType =
+  | 'overview'
+  | 'blueprint'
+  | 'team'
+  | 'tasks'
+  | 'builds'
+  | 'playtests'
+  | 'repo'
+  | 'applications';
 
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -155,19 +163,50 @@ export const ProjectDetailPage: React.FC = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
 
-  const requestedTab = searchParams.get('tab') as ProjectTabType | null;
-  const activeProjectTab: ProjectTabType =
-    requestedTab && VALID_PROJECT_TABS.includes(requestedTab) ? requestedTab : 'overview';
-
-  const setActiveProjectTab = (tab: ProjectTabType) => {
-    setSearchParams(tab === 'overview' ? {} : { tab });
-  };
-
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [roles, setRoles] = useState<ProjectRoleItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const [actionFeedback, setActionFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false);
+
+  // Authoritative viewer relationship resolution
+  const viewerRelationship: ViewerRelationship =
+    project?.viewerRelationship ||
+    (project?.isFounder || currentUser?.role === 'Administrator'
+      ? 'FOUNDER'
+      : project?.isMember
+        ? 'ACTIVE_MEMBER'
+        : currentUser
+          ? 'NON_MEMBER'
+          : 'VISITOR');
+
+  const isFounder = viewerRelationship === 'FOUNDER';
+  const isMember = viewerRelationship === 'ACTIVE_MEMBER' || isFounder;
+  const isApplicant = viewerRelationship === 'APPLICANT';
+  const isInvitee = viewerRelationship === 'INVITEE';
+  const isVisitor = viewerRelationship === 'VISITOR';
+  const canAccessWorkspace = isFounder || isMember;
+
+  const allowedTabs: ProjectTabType[] = canAccessWorkspace
+    ? isFounder
+      ? ['overview', 'blueprint', 'team', 'tasks', 'builds', 'repo', 'playtests', 'applications']
+      : ['overview', 'blueprint', 'team', 'tasks', 'builds', 'repo', 'playtests']
+    : ['overview', 'blueprint', 'team'];
+
+  const requestedTab = searchParams.get('tab') as ProjectTabType | null;
+  const activeProjectTab: ProjectTabType =
+    requestedTab && allowedTabs.includes(requestedTab) ? requestedTab : 'overview';
+
+  const setActiveProjectTab = (tab: ProjectTabType) => {
+    if (!allowedTabs.includes(tab)) return;
+    setSearchParams(tab === 'overview' ? {} : { tab });
+  };
 
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
@@ -179,6 +218,54 @@ export const ProjectDetailPage: React.FC = () => {
   const [aiRecommendations, setAiRecommendations] = useState<
     DraftRoleRecommendation[]
   >([]);
+
+  const handleRespondInvitation = async (action: 'ACCEPT' | 'REJECT') => {
+    if (!project?.viewerPendingInvitation || !accessToken) return;
+    setIsProcessingAction(true);
+    setActionFeedback(null);
+    try {
+      await respondToInvitation(accessToken, project.viewerPendingInvitation.id, action);
+      setActionFeedback({
+        type: 'success',
+        message:
+          action === 'ACCEPT'
+            ? 'Invitation accepted! Welcome to the team.'
+            : 'Invitation declined.',
+      });
+      loadProject();
+    } catch (err: unknown) {
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to respond to invitation.',
+      });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleWithdrawApplication = async () => {
+    if (!project?.viewerPendingApplication || !accessToken) return;
+    if (!window.confirm('Are you sure you want to withdraw your application for this role?')) {
+      return;
+    }
+    setIsProcessingAction(true);
+    setActionFeedback(null);
+    try {
+      await withdrawCandidateApplication(accessToken, project.viewerPendingApplication.id);
+      setActionFeedback({
+        type: 'success',
+        message: 'Your application has been withdrawn.',
+      });
+      loadProject();
+    } catch (err: unknown) {
+      setActionFeedback({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to withdraw application.',
+      });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
 
   const scanAiRecommendations = async (projectId: string, token?: string | null) => {
     if (!token) return;
@@ -359,8 +446,8 @@ export const ProjectDetailPage: React.FC = () => {
 
     return (
       <div className="space-y-8">
-        {/* Back Link */}
-        <div className="flex items-center justify-between">
+        {/* Top Bar: Back Link & Viewer Relationship Status */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <Link
             to="/projects"
             className="inline-flex items-center gap-2 text-xs font-mono text-[#8c887e] hover:text-[#ffffff] transition-colors"
@@ -369,18 +456,204 @@ export const ProjectDetailPage: React.FC = () => {
             <span>Back to Projects</span>
           </Link>
 
-          {/* Founder Action Button */}
-          {project.isFounder && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsEditModalOpen(true)}
-              icon={<Edit3 className="h-3.5 w-3.5" />}
-            >
-              Edit Project
-            </Button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Viewer Relationship Badge */}
+            {isFounder && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-950/30 px-3 py-1 text-xs font-mono font-semibold text-amber-300">
+                <Crown className="h-3.5 w-3.5 text-amber-400" />
+                Studio Founder
+              </span>
+            )}
+            {isMember && !isFounder && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-950/20 px-3 py-1 text-xs font-mono font-medium text-emerald-400">
+                <UserCheck className="h-3.5 w-3.5" />
+                {project.viewerRole || 'Active Member'}
+              </span>
+            )}
+            {isApplicant && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-950/20 px-3 py-1 text-xs font-mono text-amber-300">
+                <Clock className="h-3.5 w-3.5 text-amber-400" />
+                Applicant (Under Review)
+              </span>
+            )}
+            {isInvitee && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-950/20 px-3 py-1 text-xs font-mono text-blue-300">
+                <Mail className="h-3.5 w-3.5 text-blue-400" />
+                Invited to Team
+              </span>
+            )}
+            {isVisitor && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#363433] bg-[#201f1e] px-3 py-1 text-xs font-mono text-[#8c887e]">
+                <Eye className="h-3.5 w-3.5" />
+                Public Visitor
+              </span>
+            )}
+
+            {/* Founder Action Button */}
+            {isFounder && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsEditModalOpen(true)}
+                icon={<Edit3 className="h-3.5 w-3.5" />}
+              >
+                Edit Project
+              </Button>
+            )}
+          </div>
         </div>
+
+        {/* Action Feedback Banner */}
+        {actionFeedback && (
+          <div
+            className={`rounded-2xl border p-4 flex items-center justify-between gap-3 text-xs font-mono ${
+              actionFeedback.type === 'success'
+                ? 'border-emerald-500/30 bg-emerald-950/20 text-emerald-200'
+                : 'border-red-500/30 bg-red-950/20 text-red-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              {actionFeedback.type === 'success' ? (
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+              )}
+              <span>{actionFeedback.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActionFeedback(null)}
+              className="text-xs hover:underline opacity-80"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* Pending Invitation Banner */}
+        {isInvitee && project.viewerPendingInvitation && (
+          <div className="rounded-3xl border border-blue-500/30 bg-gradient-to-r from-blue-950/30 via-[#1c1b1a] to-[#141312] p-5 sm:p-6 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-500/40 bg-blue-950/40 text-blue-400">
+                  <Mail className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-headline text-base font-bold text-[#ffffff]">
+                      Team Invitation
+                    </h3>
+                    <span className="rounded-full border border-blue-500/30 bg-blue-950/20 px-2.5 py-0.5 text-[10px] font-mono text-blue-300">
+                      PENDING
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#cac6bc] font-sans">
+                    You have been invited by the studio founder to join this production as{' '}
+                    <span className="font-bold text-[#ffffff] font-mono">
+                      {project.viewerPendingInvitation.roleTitle}
+                    </span>
+                    .
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 self-end sm:self-center">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={isProcessingAction}
+                  onClick={() => handleRespondInvitation('REJECT')}
+                >
+                  Decline
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={isProcessingAction}
+                  icon={
+                    isProcessingAction ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )
+                  }
+                  onClick={() => handleRespondInvitation('ACCEPT')}
+                >
+                  Accept Invitation
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pending Application Banner */}
+        {isApplicant && project.viewerPendingApplication && (
+          <div className="rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/25 via-[#1c1b1a] to-[#141312] p-5 sm:p-6 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-amber-950/40 text-amber-400">
+                  <Clock className="h-5 w-5" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-headline text-base font-bold text-[#ffffff]">
+                      Application Under Review
+                    </h3>
+                    <span className="rounded-full border border-amber-500/30 bg-amber-950/20 px-2.5 py-0.5 text-[10px] font-mono text-amber-300">
+                      PENDING
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#cac6bc] font-sans">
+                    You applied for the{' '}
+                    <span className="font-bold text-[#ffffff] font-mono">
+                      {project.viewerPendingApplication.roleTitle}
+                    </span>{' '}
+                    position. The studio founder is evaluating your application and profile.
+                  </p>
+                </div>
+              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isProcessingAction}
+                icon={
+                  isProcessingAction ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : undefined
+                }
+                onClick={handleWithdrawApplication}
+              >
+                Withdraw Application
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Visitor CTA Banner */}
+        {isVisitor && (
+          <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-[#48473f] bg-[#201f1e] text-[#cac6bc]">
+                <LogIn className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-headline text-base font-bold text-[#ffffff]">
+                  Public Production View
+                </h3>
+                <p className="text-xs text-[#8c887e] font-sans mt-0.5">
+                  Sign in to Pantheon to apply for open roles, submit playtest feedback, or join the development team.
+                </p>
+              </div>
+            </div>
+
+            <Link to="/login">
+              <Button variant="primary" size="sm" icon={<LogIn className="h-3.5 w-3.5" />}>
+                Sign In to Apply
+              </Button>
+            </Link>
+          </div>
+        )}
 
         {/* Moderation Warning Banners for Founder/Member */}
         {project.moderationStatus === 'PENDING_REVIEW' && (
@@ -465,97 +738,124 @@ export const ProjectDetailPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Navigation Tabs (Overview vs Code & Repository) */}
-        <div className="flex items-center gap-2 border-b border-[#2b2a29] pb-3 text-xs font-mono">
-          <button
-            type="button"
-            onClick={() => setActiveProjectTab('overview')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
-              activeProjectTab === 'overview'
-                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-            }`}
-          >
-            <LayoutDashboard className="h-4 w-4 text-amber-400" />
-            <span>Production Overview</span>
-          </button>
+        {/* Navigation Tabs (Filtered by Role Permissions) */}
+        <div className="flex items-center gap-2 border-b border-[#2b2a29] pb-3 text-xs font-mono overflow-x-auto">
+          {allowedTabs.includes('overview') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('overview')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'overview'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <LayoutDashboard className="h-4 w-4 text-amber-400" />
+              <span>Production Overview</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveProjectTab('team')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
-              activeProjectTab === 'team'
-                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-            }`}
-          >
-            <Users className="h-4 w-4 text-amber-400" />
-            <span>Team</span>
-            <span className="rounded-full bg-[#201f1e] text-[#cac6bc] border border-[#48473f] px-2 py-0.2 text-[9px] font-bold">
-              {project.memberCount}
-            </span>
-          </button>
+          {allowedTabs.includes('blueprint') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('blueprint')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'blueprint'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <Compass className="h-4 w-4 text-amber-400" />
+              <span>Blueprint</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveProjectTab('tasks')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
-              activeProjectTab === 'tasks'
-                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-            }`}
-          >
-            <CheckSquare className="h-4 w-4 text-amber-400" />
-            <span>Tasks & Milestones</span>
-          </button>
+          {allowedTabs.includes('team') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('team')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'team'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <Users className="h-4 w-4 text-amber-400" />
+              <span>Team</span>
+              <span className="rounded-full bg-[#201f1e] text-[#cac6bc] border border-[#48473f] px-2 py-0.2 text-[9px] font-bold">
+                {project.memberCount}
+              </span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveProjectTab('builds')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
-              activeProjectTab === 'builds'
-                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-            }`}
-          >
-            <Cpu className="h-4 w-4 text-amber-400" />
-            <span>Builds & Releases</span>
-          </button>
+          {allowedTabs.includes('tasks') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('tasks')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'tasks'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <CheckSquare className="h-4 w-4 text-amber-400" />
+              <span>Tasks & Milestones</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveProjectTab('repo')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
-              activeProjectTab === 'repo'
-                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-            }`}
-          >
-            <FolderGit2 className="h-4 w-4 text-amber-400" />
-            <span>Code & Repository</span>
-            <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.2 text-[9px] font-bold">
-              Git
-            </span>
-          </button>
+          {allowedTabs.includes('builds') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('builds')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'builds'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <Cpu className="h-4 w-4 text-amber-400" />
+              <span>Builds & Releases</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setActiveProjectTab('playtests')}
-            className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
-              activeProjectTab === 'playtests'
-                ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
-                : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
-            }`}
-          >
-            <Gamepad2 className="h-4 w-4 text-amber-400" />
-            <span>Playtests</span>
-          </button>
+          {allowedTabs.includes('repo') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('repo')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'repo'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <FolderGit2 className="h-4 w-4 text-amber-400" />
+              <span>Code & Repository</span>
+              <span className="rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.2 text-[9px] font-bold">
+                Git
+              </span>
+            </button>
+          )}
 
-          {project.isFounder && (
+          {allowedTabs.includes('playtests') && (
+            <button
+              type="button"
+              onClick={() => setActiveProjectTab('playtests')}
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
+                activeProjectTab === 'playtests'
+                  ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
+                  : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
+              }`}
+            >
+              <Gamepad2 className="h-4 w-4 text-amber-400" />
+              <span>Playtests</span>
+            </button>
+          )}
+
+          {allowedTabs.includes('applications') && (
             <button
               type="button"
               onClick={() => setActiveProjectTab('applications')}
-              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all ${
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 transition-all shrink-0 ${
                 activeProjectTab === 'applications'
                   ? 'bg-[#1c1b1a] border border-[#48473f] text-[#ffffff] font-bold shadow-md'
                   : 'text-[#8c887e] hover:text-[#ffffff] hover:bg-[#1c1b1a]/40'
@@ -582,8 +882,8 @@ export const ProjectDetailPage: React.FC = () => {
               </p>
             </div>
 
-            {/* AI ROLE & TALENT RECOMMENDATIONS (PERSISTENT IN-PAGE SECTION) */}
-            {(project.isFounder || currentUser?.role === 'Administrator') && (
+            {/* AI ROLE & TALENT RECOMMENDATIONS (FOUNDER ONLY) */}
+            {isFounder && (
               <AiRoleRecommendationsSection
                 project={project}
                 recommendations={aiRecommendations}
@@ -616,7 +916,7 @@ export const ProjectDetailPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {project.isFounder && (
+                      {isFounder && (
                         <Button
                           variant="secondary"
                           size="sm"
@@ -633,7 +933,7 @@ export const ProjectDetailPage: React.FC = () => {
                         <p className="text-xs font-mono text-[#8c887e]">
                           No open recruitment roles available at this time.
                         </p>
-                        {project.isFounder && (
+                        {isFounder && (
                           <button
                             type="button"
                             onClick={handleOpenAddRole}
@@ -664,7 +964,7 @@ export const ProjectDetailPage: React.FC = () => {
                                 </p>
                               </div>
 
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="rounded-xl border border-[#363433] bg-[#1c1b1a] px-2.5 py-1 text-[11px] font-mono text-[#cac6bc]">
                                   {formatExperience(role.experienceLevel)}
                                 </span>
@@ -672,19 +972,8 @@ export const ProjectDetailPage: React.FC = () => {
                                   {formatCommitment(role.commitment)}
                                 </span>
 
-                                {!project.isFounder && !project.isMember && role.status === 'OPEN' && (
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    className="ml-2 !py-1 !px-3 text-xs"
-                                    icon={<Send className="h-3 w-3" />}
-                                    onClick={() => setApplyingRole(role)}
-                                  >
-                                    Apply
-                                  </Button>
-                                )}
-
-                                {project.isFounder && (
+                                {/* Role Action: Founder Controls */}
+                                {isFounder && (
                                   <div className="flex items-center gap-1 ml-2">
                                     <button
                                       type="button"
@@ -704,6 +993,45 @@ export const ProjectDetailPage: React.FC = () => {
                                     </button>
                                   </div>
                                 )}
+
+                                {/* Role Action: Applicant already applied */}
+                                {isApplicant && project.viewerPendingApplication?.projectRoleId === role.id && (
+                                  <span className="ml-2 inline-flex items-center gap-1 rounded-xl border border-amber-500/40 bg-amber-950/30 px-3 py-1 text-xs font-mono font-medium text-amber-300">
+                                    <Clock className="h-3 w-3" />
+                                    Applied
+                                  </span>
+                                )}
+
+                                {/* Role Action: Unauthenticated Visitor */}
+                                {isVisitor && role.status === 'OPEN' && (
+                                  <Link to="/login" className="ml-2">
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      className="!py-1 !px-3 text-xs"
+                                      icon={<LogIn className="h-3 w-3" />}
+                                    >
+                                      Sign in to Apply
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {/* Role Action: Eligible Non-Member Candidate */}
+                                {!isFounder &&
+                                  !isMember &&
+                                  !isVisitor &&
+                                  !(isApplicant && project.viewerPendingApplication?.projectRoleId === role.id) &&
+                                  role.status === 'OPEN' && (
+                                    <Button
+                                      variant="secondary"
+                                      size="sm"
+                                      className="ml-2 !py-1 !px-3 text-xs"
+                                      icon={<Send className="h-3 w-3" />}
+                                      onClick={() => setApplyingRole(role)}
+                                    >
+                                      Apply
+                                    </Button>
+                                  )}
                               </div>
                             </div>
 
@@ -842,8 +1170,8 @@ export const ProjectDetailPage: React.FC = () => {
               );
             })()}
 
-            {/* Founder / Admin Candidate Recommendation Section */}
-            {(project.isFounder || currentUser?.role === 'Administrator') && (
+            {/* Founder Candidate Recommendation Section */}
+            {isFounder && (
               <div className="pt-2">
                 <RecommendedTalentSection
                   project={project}
@@ -856,12 +1184,48 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* Right Column: Founder Card, Production Progress & Team Roster */}
           <div className="space-y-6">
-            {/* Real Production Telemetry Card */}
-            <ProductionProgressCard
-              projectId={project.id}
-              accessToken={accessToken}
-              onNavigateTasks={() => setActiveProjectTab('tasks')}
-            />
+            {/* Real Production Telemetry Card for Workspace Members vs Public Profile Card */}
+            {canAccessWorkspace ? (
+              <ProductionProgressCard
+                projectId={project.id}
+                accessToken={accessToken}
+                onNavigateTasks={() => setActiveProjectTab('tasks')}
+              />
+            ) : (
+              <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4 font-mono">
+                <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
+                  <span className="text-xs uppercase tracking-widest text-[#8c887e]">
+                    Production Profile
+                  </span>
+                  <span className="rounded-full border border-[#48473f] bg-[#201f1e] px-2.5 py-0.5 text-[10px] text-[#cac6bc]">
+                    Public Overview
+                  </span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8c887e]">Development Stage</span>
+                    <span className="font-semibold text-[#ffffff]">{formatStatus(project.status)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8c887e]">Engine</span>
+                    <span className="text-[#cac6bc]">{project.gameEngine || 'Custom'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8c887e]">Target Platform</span>
+                    <span className="text-[#cac6bc]">{project.platform || 'Cross-Platform'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#8c887e]">Team Size</span>
+                    <span className="text-[#cac6bc]">{project.memberCount} active creators</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 text-[11px] font-sans text-[#8c887e] leading-relaxed">
+                  Internal tasks, releases, and repository telemetry are restricted to verified production members.
+                </div>
+              </div>
+            )}
 
             {/* Founder Card */}
             <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4">
@@ -919,7 +1283,7 @@ export const ProjectDetailPage: React.FC = () => {
                     onClick={() => setActiveProjectTab('team')}
                     className="text-xs text-amber-400 hover:text-amber-300 ml-1 font-semibold transition-colors"
                   >
-                    Manage →
+                    {canAccessWorkspace ? 'Manage →' : 'View Full Team →'}
                   </button>
                 </div>
               </div>
@@ -971,55 +1335,60 @@ export const ProjectDetailPage: React.FC = () => {
         </div>
       )}
 
+        {/* Tab: Game Blueprint */}
+        {activeProjectTab === 'blueprint' && (
+          <BlueprintTab project={project} />
+        )}
+
         {/* Tab: Team Roster & Founder Management */}
         {activeProjectTab === 'team' && (
           <TeamSection
             projectId={project.id}
             projectName={project.name}
-            isFounder={project.isFounder}
+            isFounder={isFounder}
             roles={roles}
             onTeamUpdated={() => loadProject()}
           />
         )}
 
-        {/* Tab: Tasks & Milestones Management */}
-        {activeProjectTab === 'tasks' && (
+        {/* Tab: Tasks & Milestones Management (Protected) */}
+        {canAccessWorkspace && activeProjectTab === 'tasks' && (
           <TasksTab
             projectId={project.id}
             projectName={project.name}
-            isFounder={project.isFounder}
+            isFounder={isFounder}
             members={project.members}
             currentUser={currentUser}
           />
         )}
 
-        {/* Tab: Game Builds & Releases */}
-        {activeProjectTab === 'builds' && (
+        {/* Tab: Game Builds & Releases (Protected) */}
+        {canAccessWorkspace && activeProjectTab === 'builds' && (
           <BuildsTab
             projectId={project.id}
             projectName={project.name}
-            isFounder={project.isFounder}
+            isFounder={isFounder}
             members={project.members}
             currentUser={currentUser}
           />
         )}
 
-        {/* Tab: Playtests & Feedback */}
-        {activeProjectTab === 'playtests' && (
+        {/* Tab: Playtests & Feedback (Protected) */}
+        {canAccessWorkspace && activeProjectTab === 'playtests' && (
           <PlaytestsTab
             projectId={project.id}
-            isFounder={project.isFounder}
+            isFounder={isFounder}
             currentUser={currentUser}
           />
         )}
 
-        {/* Tab 2: Code & Repository Management */}
-        {activeProjectTab === 'repo' && (
+        {/* Tab 2: Code & Repository Management (Protected) */}
+        {canAccessWorkspace && activeProjectTab === 'repo' && (
           <ProjectRepoTab projectId={project.id} accessToken={accessToken} />
         )}
 
         {/* Tab 3: Candidate Applications Review for Founder */}
-        {activeProjectTab === 'applications' && project.isFounder && (
+        {isFounder && activeProjectTab === 'applications' && (
           <FounderApplicationsSection
             projectId={project.id}
             onMemberAdded={() => loadProject()}
@@ -1027,7 +1396,7 @@ export const ProjectDetailPage: React.FC = () => {
         )}
 
         {/* Edit Project Modal for Founder */}
-        {project.isFounder && (
+        {isFounder && (
           <EditProjectModal
             isOpen={isEditModalOpen}
             project={project}
@@ -1037,7 +1406,7 @@ export const ProjectDetailPage: React.FC = () => {
         )}
 
         {/* Add/Edit Role Modal for Founder */}
-        {project.isFounder && (
+        {isFounder && (
           <AddEditRoleModal
             isOpen={isRoleModalOpen}
             onClose={() => setIsRoleModalOpen(false)}
