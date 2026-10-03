@@ -41,8 +41,9 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
   const invalidateApplications = useWorkspaceStore((state) => state.invalidateApplications);
 
   const [localApplications, setLocalApplications] = useState<FounderApplicationDetail[]>([]);
-  const [loading, setLoading] = useState<boolean>(!cachedApplications);
+  const [isFetching, setIsFetching] = useState<boolean>(!cachedApplications);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const loading = !cachedApplications && isFetching;
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'ACCEPTED' | 'REJECTED'>('ALL');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -54,10 +55,10 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
   const applications = cachedApplications ?? localApplications;
 
   useEffect(() => {
-    if (cachedApplications) {
-      setLoading(false);
+    if (cachedApplications && refreshTrigger === 0) {
+      return;
     }
-    if (!accessToken || cachedApplications) return;
+    if (!accessToken) return;
     let ignore = false;
 
     dedupeRequest(`applications:${projectId}`, () => fetchProjectApplications(accessToken, projectId))
@@ -76,7 +77,7 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
       })
       .finally(() => {
         if (!ignore) {
-          setLoading(false);
+          setIsFetching(false);
           setRefreshing(false);
         }
       });
@@ -88,6 +89,7 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
 
   const handleRefresh = () => {
     setRefreshing(true);
+    setIsFetching(true);
     invalidateApplications(projectId);
     setRefreshTrigger((prev) => prev + 1);
   };
