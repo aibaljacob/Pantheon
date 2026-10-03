@@ -265,7 +265,22 @@ export class ProjectInvitationsService {
       const rejected = await this.prisma.projectInvitation.update({
         where: { id: invitationId },
         data: { status: ProjectInvitationStatus.REJECTED },
+        include: {
+          project: { select: { name: true } },
+          invitee: { select: { username: true } },
+        },
       });
+
+      // Notify inviter
+      await this.notificationsService.createNotification({
+        userId: invitation.inviterId,
+        type: 'INVITATION_REJECTED' as any,
+        title: 'Invitation Declined',
+        message: `@${rejected.invitee.username} declined the invitation to join ${rejected.project.name}.`,
+        entityType: 'ProjectInvitation',
+        entityId: invitationId,
+      });
+
       return this.mapToResponseDto(rejected);
     }
 
@@ -351,6 +366,10 @@ export class ProjectInvitationsService {
       const updatedInvitation = await tx.projectInvitation.update({
         where: { id: invitationId },
         data: { status: ProjectInvitationStatus.ACCEPTED },
+        include: {
+          project: { select: { name: true } },
+          invitee: { select: { username: true } },
+        },
       });
 
       // 6. Update ProjectRole status to FILLED and assign to member
@@ -360,6 +379,16 @@ export class ProjectInvitationsService {
           assignedMemberId: memberId,
           status: ProjectRoleStatus.FILLED,
         },
+      });
+
+      // Notify inviter
+      await this.notificationsService.createNotification({
+        userId: currentInv.inviterId,
+        type: 'INVITATION_ACCEPTED' as any,
+        title: 'Invitation Accepted',
+        message: `@${updatedInvitation.invitee.username} accepted the invitation to join ${updatedInvitation.project.name}!`,
+        entityType: 'ProjectInvitation',
+        entityId: invitationId,
       });
 
       return this.mapToResponseDto(updatedInvitation);

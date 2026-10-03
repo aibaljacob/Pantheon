@@ -896,8 +896,10 @@ export class ProjectsService {
     currentUserId?: string,
     currentUserRole?: string,
   ): Promise<ProjectRoleResponseDto[]> {
-    const project = await this.prisma.project.findUnique({
-      where: { id: projectId },
+    const project = await this.prisma.project.findFirst({
+      where: {
+        OR: [{ id: projectId }, { slug: projectId }],
+      },
       select: {
         id: true,
         founderId: true,
@@ -928,7 +930,7 @@ export class ProjectsService {
 
     const [roles, allMembers, acceptedApps, acceptedInvs] = await Promise.all([
       this.prisma.projectRole.findMany({
-        where: { projectId },
+        where: { projectId: project.id },
         include: {
           role: true,
           requiredSkills: { include: { skill: true } },
@@ -970,7 +972,7 @@ export class ProjectsService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.projectMember.findMany({
-        where: { projectId, status: ProjectMemberStatus.ACTIVE },
+        where: { projectId: project.id, status: ProjectMemberStatus.ACTIVE },
         include: {
           user: {
             select: {
@@ -982,11 +984,11 @@ export class ProjectsService {
         },
       }),
       this.prisma.projectApplication.findMany({
-        where: { projectId, status: 'ACCEPTED' as any },
+        where: { projectId: project.id, status: 'ACCEPTED' as any },
         select: { applicantId: true, projectRoleId: true },
       }),
       this.prisma.projectInvitation.findMany({
-        where: { projectId, status: 'ACCEPTED' as any },
+        where: { projectId: project.id, status: 'ACCEPTED' as any },
         select: { inviteeId: true, projectRoleId: true },
       }),
     ]);

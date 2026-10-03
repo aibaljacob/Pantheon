@@ -298,6 +298,11 @@ export const ProjectDetailPage: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     let ignore = false;
+    
+    setIsLoading(true);
+    setProject(null);
+    setRoles([]);
+    setAiRecommendations([]);
 
     Promise.all([
       fetchProjectDetails(id, accessToken),

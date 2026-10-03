@@ -481,14 +481,16 @@ export class ProjectMembersService {
         throw new BadRequestException('This member is no longer active.');
       }
 
+      const roleConditions: any[] = [{ assignedMemberId: current.id }];
+      if (current.projectRoleId) {
+        roleConditions.push({ id: current.projectRoleId });
+      }
+
       // Free all occupied roles
       await tx.projectRole.updateMany({
         where: {
           projectId,
-          OR: [
-            { assignedMemberId: current.id },
-            { id: current.projectRoleId || undefined },
-          ],
+          OR: roleConditions,
         },
         data: {
           assignedMemberId: null,
@@ -591,14 +593,16 @@ export class ProjectMembersService {
         );
       }
 
+      const roleConditions: any[] = [{ assignedMemberId: current.id }];
+      if (current.projectRoleId) {
+        roleConditions.push({ id: current.projectRoleId });
+      }
+
       // Reopen any occupied roles
       await tx.projectRole.updateMany({
         where: {
           projectId,
-          OR: [
-            { assignedMemberId: current.id },
-            { id: current.projectRoleId || undefined },
-          ],
+          OR: roleConditions,
         },
         data: {
           assignedMemberId: null,

@@ -54,6 +54,9 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
   const applications = cachedApplications ?? localApplications;
 
   useEffect(() => {
+    if (cachedApplications) {
+      setLoading(false);
+    }
     if (!accessToken || cachedApplications) return;
     let ignore = false;
 
