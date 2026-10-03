@@ -367,7 +367,6 @@ describe('ProjectApplicationsService', () => {
 
       const txMock = {
         projectApplication: {
-          findUnique: jest.fn().mockResolvedValue(mockApp),
           update: jest.fn().mockResolvedValue({
             ...mockApp,
             status: ProjectApplicationStatus.ACCEPTED,
@@ -376,23 +375,14 @@ describe('ProjectApplicationsService', () => {
           }),
         },
         projectRole: {
-          findUnique: jest.fn().mockResolvedValue({
-            id: 'role-1',
-            title: 'Senior Audio Designer',
-            role: { name: 'Audio Designer' },
-            status: ProjectRoleStatus.OPEN,
-          }),
-          update: jest.fn().mockResolvedValue({
-            id: 'role-1',
-            status: ProjectRoleStatus.FILLED,
-          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
         },
         projectMember: {
-          findUnique: jest.fn().mockResolvedValue(null),
           create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
         },
       };
 
+      prismaMock.projectMember.findUnique.mockResolvedValue(null);
       prismaMock.$transaction.mockImplementation(async (cb: any) => cb(txMock));
 
       const res = await service.respondToApplication(
@@ -414,8 +404,8 @@ describe('ProjectApplicationsService', () => {
           status: ProjectMemberStatus.ACTIVE,
         },
       });
-      expect(txMock.projectRole.update).toHaveBeenCalledWith({
-        where: { id: 'role-1' },
+      expect(txMock.projectRole.updateMany).toHaveBeenCalledWith({
+        where: { id: 'role-1', status: ProjectRoleStatus.OPEN },
         data: {
           assignedMemberId: 'mem-1',
           status: ProjectRoleStatus.FILLED,
@@ -427,14 +417,14 @@ describe('ProjectApplicationsService', () => {
       prismaMock.projectApplication.findUnique.mockResolvedValue(mockApp);
 
       const txMock = {
-        projectApplication: {
-          findUnique: jest.fn().mockResolvedValue(mockApp),
+        projectMember: {
+          create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
         },
         projectRole: {
-          findUnique: jest.fn().mockResolvedValue({
-            id: 'role-1',
-            status: ProjectRoleStatus.FILLED,
-          }),
+          updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+        },
+        projectApplication: {
+          update: jest.fn(),
         },
       };
 

@@ -433,48 +433,31 @@ export class ProjectApplicationsService {
       return this.mapToResponseDto(rejected);
     }
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const currentApp = await tx.projectApplication.findUnique({
-        where: { id: applicationId },
-      });
-
-      if (
-        !currentApp ||
-        currentApp.status !== ProjectApplicationStatus.PENDING
-      ) {
-        throw new BadRequestException('Application is no longer pending.');
-      }
-
-      const currentRole = await tx.projectRole.findUnique({
-        where: { id: currentApp.projectRoleId },
-        include: { role: true },
-      });
-
-      if (!currentRole || currentRole.status !== ProjectRoleStatus.OPEN) {
-        throw new BadRequestException('Project role is no longer open.');
-      }
-
-      const existingMember = await tx.projectMember.findUnique({
-        where: {
-          projectId_userId: {
-            projectId: currentApp.projectId,
-            userId: currentApp.applicantId,
-          },
+    const existingMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId: application.projectId,
+          userId: application.applicantId,
         },
-      });
+      },
+    });
 
-      if (
-        existingMember &&
-        (!existingMember.status ||
-          existingMember.status === ProjectMemberStatus.ACTIVE)
-      ) {
-        throw new BadRequestException(
-          'Applicant is already a team member of this project.',
-        );
-      }
+    if (
+      existingMember &&
+      (!existingMember.status ||
+        existingMember.status === ProjectMemberStatus.ACTIVE)
+    ) {
+      throw new BadRequestException(
+        'Applicant is already a team member of this project.',
+      );
+    }
 
-      const memberRoleTitle =
-        currentRole.title || currentRole.role?.name || 'Member';
+    const memberRoleTitle =
+      application.projectRole.title ||
+      application.projectRole.role?.name ||
+      'Member';
+
+    const result = await this.prisma.$transaction(async (tx) => {
       let memberId: string;
 
       if (existingMember) {
@@ -483,7 +466,7 @@ export class ProjectApplicationsService {
           data: {
             status: ProjectMemberStatus.ACTIVE,
             role: memberRoleTitle,
-            projectRoleId: currentApp.projectRoleId,
+            projectRoleId: application.projectRoleId,
             joinedAt: new Date(),
             leftAt: null,
           },
@@ -492,27 +475,34 @@ export class ProjectApplicationsService {
       } else {
         const newMember = await tx.projectMember.create({
           data: {
-            projectId: currentApp.projectId,
-            userId: currentApp.applicantId,
+            projectId: application.projectId,
+            userId: application.applicantId,
             role: memberRoleTitle,
-            projectRoleId: currentApp.projectRoleId,
+            projectRoleId: application.projectRoleId,
             status: ProjectMemberStatus.ACTIVE,
           },
         });
         memberId = newMember.id;
       }
 
-      const accepted = await tx.projectApplication.update({
-        where: { id: applicationId },
-        data: { status: ProjectApplicationStatus.ACCEPTED },
-      });
-
-      await tx.projectRole.update({
-        where: { id: currentRole.id },
+      const roleUpdate = await tx.projectRole.updateMany({
+        where: {
+          id: application.projectRoleId,
+          status: ProjectRoleStatus.OPEN,
+        },
         data: {
           assignedMemberId: memberId,
           status: ProjectRoleStatus.FILLED,
         },
+      });
+
+      if (roleUpdate.count === 0) {
+        throw new BadRequestException('Project role is no longer open.');
+      }
+
+      const accepted = await tx.projectApplication.update({
+        where: { id: applicationId },
+        data: { status: ProjectApplicationStatus.ACCEPTED },
       });
 
       return accepted;
