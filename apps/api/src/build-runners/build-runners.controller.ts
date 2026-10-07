@@ -111,11 +111,10 @@ export class BuildRunnersController {
     }
 
     try {
-      // Verify job exists, is assigned to this runner, and matches the runner's project
-      await this.buildRunnersService.assertJobOwnedByRunner(
+      // Verify job exists and is assigned to this runner
+      const job = await this.buildRunnersService.assertJobOwnedByRunner(
         jobId,
         req.runner.id,
-        req.runner.projectId,
       );
 
       // Safe, server-generated destination on disk
@@ -123,7 +122,7 @@ export class BuildRunnersController {
         dir: destinationDir,
         fullPath: destinationFile,
         relativeKey,
-      } = getBuildArtifactStoragePath(req.runner.projectId, jobId);
+      } = getBuildArtifactStoragePath(job.projectId, jobId);
 
       await fsp.mkdir(destinationDir, { recursive: true });
 
@@ -149,7 +148,7 @@ export class BuildRunnersController {
         success: true,
         playableBuild: {
           ...playableBuild,
-          storagePath: `/projects/${req.runner.projectId}/builds/${playableBuild.id}/download`,
+          storagePath: `/projects/${job.projectId}/builds/${playableBuild.id}/download`,
           fileSizeBytes: playableBuild.fileSizeBytes?.toString(),
         },
       };

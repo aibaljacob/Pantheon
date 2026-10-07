@@ -18,13 +18,13 @@ export class RegisterRunnerDto {
   @IsEnum(BuildPlatform)
   platform: BuildPlatform;
 
-  @ApiProperty({
-    description: 'Target project ID this runner is dedicated to',
+  @ApiPropertyOptional({
+    description: 'Initial/home project ID to associate runner with',
     example: 'uuid',
   })
   @IsUUID()
-  @IsNotEmpty()
-  projectId: string;
+  @IsOptional()
+  projectId?: string;
 
   @ApiPropertyOptional({
     description: 'Server bootstrap secret required to register a runner',

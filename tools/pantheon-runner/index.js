@@ -67,10 +67,6 @@ const util = require('util');
 const execFile = util.promisify(require('child_process').execFile);
 
 async function checkoutSource(job, buildDir, logFn) {
-  const commitHash = job.commitHash;
-  if (!commitHash || !/^[0-9a-f]{5,40}$/i.test(commitHash)) {
-    throw new Error('Invalid or missing commitHash in job.');
-  }
   const slug = job.project?.slug;
   if (!slug) {
     throw new Error('Project slug missing in job.');
@@ -100,19 +96,20 @@ async function checkoutSource(job, buildDir, logFn) {
     throw new Error(`Git clone failed: ${err.message}`);
   }
 
-  logFn(`[runner] Checking out commit ${commitHash.substring(0, 7)}`);
+  const targetRef = job.commitHash || job.branchName || 'main';
+  logFn(`[runner] Checking out ${targetRef}`);
   try {
-    await execFile('git', ['checkout', commitHash], { cwd: repoDir, shell: false });
+    await execFile('git', ['checkout', targetRef], { cwd: repoDir, shell: false });
   } catch (err) {
-    throw new Error(`Git checkout failed for commit ${commitHash}.`);
+    throw new Error(`Git checkout failed for ${targetRef}: ${err.message}`);
   }
 
   const { stdout } = await execFile('git', ['rev-parse', 'HEAD'], { cwd: repoDir, shell: false });
   const headHash = stdout.trim();
   
-  // We use startsWith because commitHash could be a short hash
-  if (!headHash.startsWith(commitHash)) {
-    throw new Error(`HEAD verification failed. Expected ${commitHash}, got ${headHash}`);
+  // If commitHash was specified, verify it matches
+  if (job.commitHash && !headHash.startsWith(job.commitHash)) {
+    throw new Error(`HEAD verification failed. Expected ${job.commitHash}, got ${headHash}`);
   }
   
   logFn(`[runner] HEAD verified: ${headHash.substring(0, 7)}`);

@@ -33,16 +33,29 @@ export class BuildRunnersService {
       );
     }
 
-    // Verify project exists
-    const project = await this.prisma.project.findUnique({
-      where: { id: dto.projectId },
-      select: { id: true, slug: true },
-    });
+    // Verify project exists or use default
+    let assignedProjectId = dto.projectId;
+    if (!assignedProjectId) {
+      const defaultProject = await this.prisma.project.findFirst({
+        select: { id: true },
+      });
+      if (!defaultProject) {
+        throw new NotFoundException(
+          'No projects exist to associate runner with.',
+        );
+      }
+      assignedProjectId = defaultProject.id;
+    } else {
+      const project = await this.prisma.project.findUnique({
+        where: { id: assignedProjectId },
+        select: { id: true, slug: true },
+      });
 
-    if (!project) {
-      throw new NotFoundException(
-        `Project with ID "${dto.projectId}" not found.`,
-      );
+      if (!project) {
+        throw new NotFoundException(
+          `Project with ID "${assignedProjectId}" not found.`,
+        );
+      }
     }
 
     // Generate a secure random token
@@ -51,7 +64,7 @@ export class BuildRunnersService {
 
     const runner = await this.prisma.buildRunner.create({
       data: {
-        projectId: project.id,
+        projectId: assignedProjectId,
         name: dto.name.trim(),
         platform: dto.platform,
         tokenHash,
@@ -95,7 +108,7 @@ export class BuildRunnersService {
   }
 
   async claimJob(runnerId: string) {
-    // 1. Verify runner exists and get its assigned project and platform
+    // 1. Verify runner exists and get its platform
     const runner = await this.prisma.buildRunner.findUnique({
       where: { id: runnerId },
     });
@@ -104,19 +117,18 @@ export class BuildRunnersService {
     // Update last seen
     await this.heartbeat(runnerId);
 
-    // 2. Atomically find and claim the oldest QUEUED job for this runner's project and platform
+    // 2. Atomically find and claim the oldest QUEUED job matching this runner's platform across any project
     return this.prisma.$transaction(async (tx) => {
       const job = await tx.buildJob.findFirst({
         where: {
           status: BuildStatus.QUEUED,
           targetPlatform: runner.platform,
-          projectId: runner.projectId,
         },
         orderBy: { createdAt: 'asc' },
       });
 
       if (!job) {
-        return { job: null }; // No jobs available for this runner's project and platform
+        return { job: null }; // No queued jobs available for this runner's platform
       }
 
       // Concurrency-safe atomic claim
@@ -161,9 +173,6 @@ export class BuildRunnersService {
     if (job.buildRunnerId !== runnerId) {
       throw new UnauthorizedException('Job belongs to another runner');
     }
-    if (job.projectId !== runner.projectId) {
-      throw new UnauthorizedException('Job belongs to another project');
-    }
 
     const updateData: Prisma.BuildJobUpdateInput = {
       status: dto.status,
@@ -192,11 +201,7 @@ export class BuildRunnersService {
     });
   }
 
-  async assertJobOwnedByRunner(
-    jobId: string,
-    runnerId: string,
-    runnerProjectId: string,
-  ) {
+  async assertJobOwnedByRunner(jobId: string, runnerId: string) {
     const job = await this.prisma.buildJob.findUnique({
       where: { id: jobId },
       include: { project: true },
@@ -205,9 +210,6 @@ export class BuildRunnersService {
     if (!job) throw new NotFoundException('Job not found');
     if (job.buildRunnerId !== runnerId) {
       throw new UnauthorizedException('Job belongs to another runner');
-    }
-    if (job.projectId !== runnerProjectId) {
-      throw new UnauthorizedException('Job belongs to another project');
     }
 
     return job;
@@ -233,9 +235,6 @@ export class BuildRunnersService {
     if (!job) throw new NotFoundException('Job not found');
     if (job.buildRunnerId !== runnerId) {
       throw new UnauthorizedException('Job belongs to another runner');
-    }
-    if (job.projectId !== runner.projectId) {
-      throw new UnauthorizedException('Job belongs to another project');
     }
 
     const version = job.commitHash

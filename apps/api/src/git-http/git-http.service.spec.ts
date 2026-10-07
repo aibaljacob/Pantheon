@@ -83,6 +83,19 @@ describe('GitHttpService Security Suite', () => {
           return Promise.resolve(null);
         }),
       },
+      user: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'author-user-id' }),
+      },
+      task: {
+        findUnique: jest.fn(),
+      },
+      taskCommitLink: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: 'created-link-id' }),
+      },
+      buildJob: {
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
     };
 
     const authServiceMock = {
@@ -138,7 +151,9 @@ describe('GitHttpService Security Suite', () => {
       );
     });
 
-    it('should REJECT Runner A attempting to read another project repository (Project B)', async () => {
+    it('should REJECT Runner A attempting to read another project repository (Project B) without an active build job', async () => {
+      prismaMock.buildJob.findFirst.mockResolvedValueOnce(null);
+
       await expect(
         service.resolveRepoPath(
           'game-project-b',
@@ -148,6 +163,27 @@ describe('GitHttpService Security Suite', () => {
           'read',
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should ALLOW Runner A to read another project repository (Project B) when it has an active claimed build job', async () => {
+      prismaMock.buildJob.findFirst.mockResolvedValueOnce({
+        id: 'job-proj-b-1',
+        buildRunnerId: mockRunnerA.id,
+        projectId: mockProjectBId,
+        status: 'RUNNING',
+      });
+
+      const repoPath = await service.resolveRepoPath(
+        'game-project-b',
+        null,
+        null,
+        mockRunnerA,
+        'read',
+      );
+
+      expect(repoPath).toBe(
+        path.normalize(mockProjectB.repository.repoDiskPath),
+      );
     });
 
     it('should REJECT any runner attempting write/push access', async () => {
@@ -246,6 +282,67 @@ describe('GitHttpService Security Suite', () => {
           'write',
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('Commit-to-Task Ingestion (linkCommitToTasks)', () => {
+    it('should link tasks case-insensitively for lowercase task-12 and uppercase TASK-18', async () => {
+      prismaMock.task.findUnique.mockImplementation((args: any) => {
+        if (args.where?.projectId_taskNumber?.taskNumber === 12) {
+          return Promise.resolve({ id: 'task-12-id', taskNumber: 12 });
+        }
+        if (args.where?.projectId_taskNumber?.taskNumber === 18) {
+          return Promise.resolve({ id: 'task-18-id', taskNumber: 18 });
+        }
+        return Promise.resolve(null);
+      });
+
+      await (service as any).linkCommitToTasks(
+        mockProjectAId,
+        'refs/heads/main',
+        {
+          hash: 'commit-hash-abc',
+          authorName: 'Developer',
+          authorEmail: 'dev@pantheon.studio',
+          timestamp: new Date('2026-01-01T12:00:00Z'),
+          message: 'feat: implement jump [task-12] and hit reactions TASK-18',
+        },
+      );
+
+      expect(prismaMock.taskCommitLink.create).toHaveBeenCalledTimes(2);
+      expect(prismaMock.taskCommitLink.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          taskId: 'task-12-id',
+          commitHash: 'commit-hash-abc',
+          commitMsg: 'feat: implement jump [task-12] and hit reactions TASK-18',
+        }),
+      });
+      expect(prismaMock.taskCommitLink.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          taskId: 'task-18-id',
+          commitHash: 'commit-hash-abc',
+          commitMsg: 'feat: implement jump [task-12] and hit reactions TASK-18',
+        }),
+      });
+    });
+
+    it('should ignore nonexistent tasks (e.g. TASK-999) without creating TaskCommitLink', async () => {
+      prismaMock.task.findUnique.mockResolvedValue(null);
+      prismaMock.taskCommitLink.create.mockClear();
+
+      await (service as any).linkCommitToTasks(
+        mockProjectAId,
+        'refs/heads/main',
+        {
+          hash: 'commit-hash-xyz',
+          authorName: 'Developer',
+          authorEmail: 'dev@pantheon.studio',
+          timestamp: new Date('2026-01-01T12:00:00Z'),
+          message: 'fix: nonexistent task reference [TASK-999]',
+        },
+      );
+
+      expect(prismaMock.taskCommitLink.create).not.toHaveBeenCalled();
     });
   });
 });

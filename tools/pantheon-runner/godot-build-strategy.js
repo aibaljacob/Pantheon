@@ -39,14 +39,45 @@ async function runGodotBuild(jobId, repoDir, buildDir, logFn) {
   if (!presetsContent.includes('name="Windows Desktop"')) {
     throw new Error('Windows export preset is missing. "Windows Desktop" not found in export_presets.cfg.');
   }
-  
-  // To avoid downloading the 1GB Godot export templates in this simulation environment,
-  // we disable PCK embedding. This allows the runner to use the main Godot executable
-  // as a dummy export template without failing on the missing "pck" section signature.
-  presetsContent = presetsContent.replace('binary_format/embed_pck=true', 'binary_format/embed_pck=false');
+
+  // Derive normal Godot engine executable from GODOT_EXECUTABLE (which may point to _console.exe)
+  const mainEngineExe = godotExe.replace(/_console\.exe$/i, '.exe');
+  if (!fs.existsSync(mainEngineExe)) {
+    throw new Error(`The normal Windows Godot executable was not found at: ${mainEngineExe}. It is required as the export template.`);
+  }
+
+  const templatePath = mainEngineExe.replace(/\\/g, '/');
+
+  // Disable PCK embedding so the main Godot executable can load the companion .pck file
+  if (presetsContent.includes('binary_format/embed_pck=')) {
+    presetsContent = presetsContent.replace(/binary_format\/embed_pck=(true|false)/g, 'binary_format/embed_pck=false');
+  } else {
+    presetsContent += '\nbinary_format/embed_pck=false';
+  }
+
+  // Point release and debug custom templates to the normal Godot engine binary
+  if (presetsContent.includes('custom_template/release=')) {
+    presetsContent = presetsContent.replace(/custom_template\/release="[^"]*"/g, `custom_template/release="${templatePath}"`);
+  } else {
+    presetsContent += `\ncustom_template/release="${templatePath}"`;
+  }
+
+  if (presetsContent.includes('custom_template/debug=')) {
+    presetsContent = presetsContent.replace(/custom_template\/debug="[^"]*"/g, `custom_template/debug="${templatePath}"`);
+  } else {
+    presetsContent += `\ncustom_template/debug="${templatePath}"`;
+  }
+
+  // Disable export_console_wrapper to prevent exporting wrapper stub
+  if (presetsContent.includes('debug/export_console_wrapper=')) {
+    presetsContent = presetsContent.replace(/debug\/export_console_wrapper=\d+/g, 'debug/export_console_wrapper=0');
+  } else {
+    presetsContent += '\ndebug/export_console_wrapper=0';
+  }
+
   fs.writeFileSync(exportPresetFile, presetsContent);
   
-  logFn(`[runner] Windows export preset detected (PCK embedding disabled for runner)`);
+  logFn(`[runner] Windows export preset configured (main engine template: ${templatePath}, embed_pck=false, console_wrapper=0)`);
 
   const outputDir = path.join(buildDir, 'build');
   if (!fs.existsSync(outputDir)) {

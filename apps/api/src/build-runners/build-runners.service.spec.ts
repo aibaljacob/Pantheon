@@ -351,32 +351,39 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       expect(result.job!.id).toBe('job-proj-a-1');
       expect(result.job!.projectId).toBe(mockProjectAId);
 
-      // Verify the query strictly enforced runner.projectId
+      // Verify the query matched platform and queued status across projects
       expect(prismaMock.buildJob.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             status: BuildStatus.QUEUED,
             targetPlatform: BuildPlatform.WINDOWS,
-            projectId: mockProjectAId,
           }),
         }),
       );
     });
 
-    it('should NOT allow Runner A to claim a queued job belonging to Project B', async () => {
-      // Runner A queries for Project A, so if only Project B has queued jobs, findFirst returns null
-      prismaMock.buildJob.findFirst.mockResolvedValueOnce(null);
+    it('should allow Runner A to claim a queued Windows job belonging to Project B', async () => {
+      const mockJobB = {
+        id: 'job-proj-b-1',
+        projectId: mockProjectBId,
+        status: BuildStatus.QUEUED,
+        targetPlatform: BuildPlatform.WINDOWS,
+      };
+
+      prismaMock.buildJob.findFirst.mockResolvedValueOnce(mockJobB);
+      prismaMock.buildJob.updateMany.mockResolvedValueOnce({ count: 1 });
+      prismaMock.buildJob.findUnique.mockResolvedValueOnce({
+        ...mockJobB,
+        status: BuildStatus.RUNNING,
+        buildRunnerId: mockRunnerA.id,
+        project: mockProjectB,
+      });
 
       const result = await service.claimJob(mockRunnerA.id);
 
-      expect(result.job).toBeNull();
-      expect(prismaMock.buildJob.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({
-            projectId: mockProjectAId, // Must NOT query without projectId or with Project B
-          }),
-        }),
-      );
+      expect(result.job).toBeDefined();
+      expect(result.job!.id).toBe('job-proj-b-1');
+      expect(result.job!.projectId).toBe(mockProjectBId);
     });
 
     it('should handle atomic concurrency: return null if job was claimed by concurrent runner', async () => {
@@ -419,7 +426,6 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       const validatedJob = await service.assertJobOwnedByRunner(
         mockClaimedJobA.id,
         mockRunnerA.id,
-        mockRunnerA.projectId,
       );
       expect(validatedJob.id).toBe(mockClaimedJobA.id);
 
@@ -440,6 +446,29 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       expect(playableBuild.buildJobId).toBe(mockClaimedJobA.id);
     });
 
+    it('should allow Runner A to upload artifact to a claimed job in Project B (cross-project)', async () => {
+      const mockClaimedJobB = {
+        id: 'job-claimed-by-a-proj-b',
+        projectId: mockProjectBId,
+        buildRunnerId: mockRunnerA.id,
+        status: BuildStatus.RUNNING,
+        commitHash: 'commit9876543',
+        targetPlatform: BuildPlatform.WINDOWS,
+        project: mockProjectB,
+      };
+
+      prismaMock.buildJob.findUnique.mockResolvedValueOnce({
+        ...mockClaimedJobB,
+      });
+
+      const validatedJob = await service.assertJobOwnedByRunner(
+        mockClaimedJobB.id,
+        mockRunnerA.id,
+      );
+      expect(validatedJob.id).toBe(mockClaimedJobB.id);
+      expect(validatedJob.projectId).toBe(mockProjectBId);
+    });
+
     it('should REJECT Runner A uploading artifact to Runner B claimed job', async () => {
       const mockJobB = {
         id: 'job-claimed-by-b',
@@ -455,29 +484,16 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
         service.assertJobOwnedByRunner(
           mockJobB.id,
           mockRunnerA.id, // Runner A attempting upload
-          mockRunnerA.projectId,
         ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should REJECT upload if job project does not match runner project', async () => {
-      const mockMismatchedJob = {
-        id: 'job-mismatch',
-        projectId: mockProjectBId, // Project B
-        buildRunnerId: mockRunnerA.id, // Somehow set to Runner A
-        status: BuildStatus.RUNNING,
-        project: mockProjectB,
-      };
-
-      prismaMock.buildJob.findUnique.mockResolvedValueOnce(mockMismatchedJob);
+    it('should throw NotFoundException if job does not exist', async () => {
+      prismaMock.buildJob.findUnique.mockResolvedValueOnce(null);
 
       await expect(
-        service.assertJobOwnedByRunner(
-          mockMismatchedJob.id,
-          mockRunnerA.id,
-          mockRunnerA.projectId, // Project A
-        ),
-      ).rejects.toThrow(UnauthorizedException);
+        service.assertJobOwnedByRunner('non-existent-job', mockRunnerA.id),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -35,18 +35,28 @@ export class GitHttpService {
       throw new NotFoundException('Repository not found');
     }
 
-    // Runner access: runners are allowed 'read' access ONLY to their assigned project repository.
+    // Runner access: runners are allowed 'read' access ONLY to build repositories.
     // Runners should not be pushing code (write access).
     if (runner) {
       if (accessType === 'write') {
         throw new ForbiddenException('Runners cannot push code');
       }
       if (runner.projectId !== project.id) {
-        throw new ForbiddenException(
-          'Runner is not authorized to access this project repository',
-        );
+        // If not the runner's home project, verify the runner has a claimed or active build job for this project
+        const hasJobForProject = await this.prisma.buildJob.findFirst({
+          where: {
+            buildRunnerId: runner.id,
+            projectId: project.id,
+            status: { in: ['RUNNING', 'QUEUED'] },
+          },
+        });
+        if (!hasJobForProject) {
+          throw new ForbiddenException(
+            'Runner is not authorized to access this project repository',
+          );
+        }
       }
-      // Allowed read access for assigned project
+      // Allowed read access
     } else {
       if (accessType === 'read') {
         if (
@@ -343,8 +353,8 @@ export class GitHttpService {
     },
   ) {
     const branchName = ref.replace('refs/heads/', '');
-    const taskRegex = /\[?TASK-(\d+)\]?/g;
-    let match;
+    const taskRegex = /\[?TASK-(\d+)\]?/gi;
+    let match: RegExpExecArray | null;
     const taskNumbers = new Set<number>();
 
     while ((match = taskRegex.exec(commit.message)) !== null) {
