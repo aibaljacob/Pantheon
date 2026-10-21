@@ -1,4 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiRecommendationService } from '../ai/ai-recommendation.service';
@@ -73,6 +78,10 @@ describe('ProjectsService - Project Discovery & Role-Aware Details', () => {
       project: {
         findMany: jest.fn(),
         findFirst: jest.fn(),
+        delete: jest.fn(),
+      },
+      notification: {
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       },
     };
 
@@ -357,6 +366,93 @@ describe('ProjectsService - Project Discovery & Role-Aware Details', () => {
       expect(result.isMember).toBe(false);
       expect(result.viewerPendingApplication).toBeNull();
       expect(result.viewerPendingInvitation).toBeNull();
+    });
+  });
+
+  describe('deleteUnapprovedProject', () => {
+    const pendingProject = {
+      id: 'proj-pending-1',
+      name: 'Unapproved Game',
+      slug: 'unapproved-game',
+      founderId: 'founder-1',
+      moderationStatus: ProjectModerationStatus.PENDING_REVIEW,
+    };
+
+    const rejectedProject = {
+      id: 'proj-rejected-1',
+      name: 'Rejected Game',
+      slug: 'rejected-game',
+      founderId: 'founder-1',
+      moderationStatus: ProjectModerationStatus.REJECTED,
+    };
+
+    it('1. should allow founder to revoke a pending project and delete notifications', async () => {
+      prismaMock.project.findFirst.mockResolvedValueOnce(pendingProject);
+      prismaMock.project.delete.mockResolvedValueOnce(pendingProject);
+
+      const result = await service.deleteUnapprovedProject(
+        'proj-pending-1',
+        'founder-1',
+      );
+
+      expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
+        where: {
+          OR: [{ id: 'proj-pending-1' }, { slug: 'proj-pending-1' }],
+        },
+        select: expect.objectContaining({
+          id: true,
+          founderId: true,
+          moderationStatus: true,
+        }),
+      });
+      expect(prismaMock.notification.deleteMany).toHaveBeenCalled();
+      expect(prismaMock.project.delete).toHaveBeenCalledWith({
+        where: { id: 'proj-pending-1' },
+      });
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('revoked');
+    });
+
+    it('2. should allow founder to delete a rejected project', async () => {
+      prismaMock.project.findFirst.mockResolvedValueOnce(rejectedProject);
+      prismaMock.project.delete.mockResolvedValueOnce(rejectedProject);
+
+      const result = await service.deleteUnapprovedProject(
+        'rejected-game',
+        'founder-1',
+      );
+
+      expect(prismaMock.project.delete).toHaveBeenCalledWith({
+        where: { id: 'proj-rejected-1' },
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('3. should throw NotFoundException if project does not exist', async () => {
+      prismaMock.project.findFirst.mockResolvedValueOnce(null);
+
+      await expect(
+        service.deleteUnapprovedProject('non-existent', 'founder-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('4. should throw ForbiddenException if user is not the founder', async () => {
+      prismaMock.project.findFirst.mockResolvedValueOnce(pendingProject);
+
+      await expect(
+        service.deleteUnapprovedProject('proj-pending-1', 'other-user'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('5. should throw BadRequestException if project is already published', async () => {
+      prismaMock.project.findFirst.mockResolvedValueOnce({
+        ...pendingProject,
+        moderationStatus: ProjectModerationStatus.PUBLISHED,
+      });
+
+      await expect(
+        service.deleteUnapprovedProject('proj-pending-1', 'founder-1'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

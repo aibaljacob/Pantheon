@@ -1386,4 +1386,69 @@ export class ProjectsService {
 
     return { recommendedRoles: enhancedRecommendedRoles };
   }
+
+  async deleteUnapprovedProject(
+    idOrSlug: string,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const project = await this.prisma.project.findFirst({
+      where: {
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        founderId: true,
+        moderationStatus: true,
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found.');
+    }
+
+    if (project.founderId !== userId) {
+      throw new ForbiddenException(
+        'Only the project founder can revoke this project submission.',
+      );
+    }
+
+    if (project.moderationStatus === ProjectModerationStatus.PUBLISHED) {
+      throw new BadRequestException(
+        'Cannot revoke a project that has already been approved and published by an administrator.',
+      );
+    }
+
+    // Clean up notifications pointing to this project
+    await this.prisma.notification
+      .deleteMany({
+        where: {
+          OR: [
+            { entityId: project.id },
+            { entityType: 'PROJECT', entityId: project.id },
+          ],
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to clean up notifications for revoked project ${project.id}:`,
+          err,
+        );
+      });
+
+    // Delete the project (cascades to members, roles, blueprint, etc.)
+    await this.prisma.project.delete({
+      where: { id: project.id },
+    });
+
+    this.logger.log(
+      `Project "${project.name}" (${project.id}) revoked and deleted by founder ${userId}. Admin review request cancelled.`,
+    );
+
+    return {
+      success: true,
+      message: `Project "${project.name}" and pending review request have been revoked successfully.`,
+    };
+  }
 }

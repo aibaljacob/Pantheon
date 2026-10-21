@@ -11,11 +11,16 @@ import {
   ArrowRight,
   Clock,
   XCircle,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
 import type { DashboardProjectItem } from '../../projects/types';
-import { fetchUserDashboardProjects } from '../../projects/services/projectService';
+import {
+  fetchUserDashboardProjects,
+  deleteUnapprovedProject,
+} from '../../projects/services/projectService';
+import { useWorkspaceStore } from '../../projects/store/workspaceStore';
 import { CreateProjectModal } from '../../profile/components/CreateProjectModal';
 import { useAuthStore } from '../../auth/store/authStore';
 
@@ -64,6 +69,35 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
   const [isLoading, setIsLoading] = useState<boolean>(Boolean(accessToken));
   const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+  const [revokingProjectId, setRevokingProjectId] = useState<string | null>(null);
+
+  const handleRevokeProject = async (project: DashboardProjectItem) => {
+    if (!accessToken) return;
+    const isPending = project.moderationStatus === 'PENDING_REVIEW';
+    const confirmPrompt = isPending
+      ? `Are you sure you want to revoke "${project.name}"? This will delete the project and cancel the pending review request sent to administrators.`
+      : `Are you sure you want to delete "${project.name}"?`;
+
+    if (!window.confirm(confirmPrompt)) {
+      return;
+    }
+
+    setRevokingProjectId(project.id);
+    try {
+      await deleteUnapprovedProject(accessToken, project.id);
+      useWorkspaceStore.getState().clearProject(project.id);
+      setProjects((prev) => {
+        const next = prev.filter((p) => p.id !== project.id);
+        onProjectsLoaded?.(next.length);
+        return next;
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to revoke project.';
+      alert(message);
+    } finally {
+      setRevokingProjectId(null);
+    }
+  };
 
   const loadProjects = useCallback(async () => {
     if (!accessToken) {
@@ -252,18 +286,54 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
                     </p>
                   </div>
 
-                  {/* Moderation Status Banner (For Founder Visibility) */}
+                  {/* Moderation Status Banner (For Founder Visibility & Revocation) */}
                   {project.moderationStatus === 'PENDING_REVIEW' && (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-2.5 flex items-center gap-2 text-amber-300 text-[11px] font-mono">
-                      <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400 animate-pulse" />
-                      <span>Pending Administrator Review</span>
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-2.5 flex items-center justify-between gap-2 text-amber-300 text-[11px] font-mono">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-amber-400 animate-pulse" />
+                        <span className="truncate">Pending Admin Review</span>
+                      </div>
+                      {project.isFounder && (
+                        <button
+                          type="button"
+                          disabled={revokingProjectId === project.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void handleRevokeProject(project);
+                          }}
+                          className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-amber-500/40 bg-amber-950/40 px-2 py-0.5 text-[10px] font-semibold text-amber-200 hover:border-red-500/60 hover:bg-red-950/60 hover:text-red-300 transition-colors disabled:opacity-50 cursor-pointer"
+                          title="Revoke pending review request and delete project"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>{revokingProjectId === project.id ? 'Revoking...' : 'Revoke Request'}</span>
+                        </button>
+                      )}
                     </div>
                   )}
 
                   {project.moderationStatus === 'REJECTED' && (
-                    <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-2.5 flex items-center gap-2 text-red-300 text-[11px] font-mono">
-                      <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
-                      <span>Rejected by Administrator</span>
+                    <div className="rounded-xl border border-red-500/30 bg-red-950/20 p-2.5 flex items-center justify-between gap-2 text-red-300 text-[11px] font-mono">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
+                        <span className="truncate">Rejected by Admin</span>
+                      </div>
+                      {project.isFounder && (
+                        <button
+                          type="button"
+                          disabled={revokingProjectId === project.id}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void handleRevokeProject(project);
+                          }}
+                          className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-950/40 px-2 py-0.5 text-[10px] font-semibold text-red-300 hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                          title="Delete rejected project"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          <span>{revokingProjectId === project.id ? 'Deleting...' : 'Delete Project'}</span>
+                        </button>
+                      )}
                     </div>
                   )}
 

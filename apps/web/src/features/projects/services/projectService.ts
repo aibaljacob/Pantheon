@@ -480,3 +480,28 @@ export async function leaveProject(
 
   return response.json();
 }
+
+export async function deleteUnapprovedProject(
+  accessToken: string,
+  projectId: string,
+): Promise<{ success: boolean; message: string }> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects/${encodeURIComponent(projectId)}`,
+    {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || 'Failed to revoke unapproved project submission.',
+    );
+  }
+
+  return response.json();
+}

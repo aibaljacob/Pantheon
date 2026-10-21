@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FolderKanban,
   Crown,
@@ -44,6 +44,7 @@ import {
   fetchProjectDetails,
   fetchProjectRoles,
   deleteProjectRole,
+  deleteUnapprovedProject,
   fetchAiRoleRecommendations,
   rescanAiRoleRecommendations,
 } from '../features/projects/services/projectService';
@@ -161,8 +162,11 @@ type ProjectTabType =
 export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const currentUser = useAuthStore((state) => state.currentUser);
   const accessToken = useAuthStore((state) => state.accessToken);
+
+  const [isRevokingProject, setIsRevokingProject] = useState<boolean>(false);
 
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [roles, setRoles] = useState<ProjectRoleItem[]>([]);
@@ -272,6 +276,32 @@ export const ProjectDetailPage: React.FC = () => {
       });
     } finally {
       setIsProcessingAction(false);
+    }
+  };
+
+  const handleRevokeProject = async () => {
+    if (!project || !accessToken) return;
+    const isPending = project.moderationStatus === 'PENDING_REVIEW';
+    const confirmPrompt = isPending
+      ? `Are you sure you want to revoke "${project.name}"? This will delete the project and cancel the pending review request sent to administrators.`
+      : `Are you sure you want to delete "${project.name}"?`;
+
+    if (!window.confirm(confirmPrompt)) {
+      return;
+    }
+
+    setIsRevokingProject(true);
+    try {
+      await deleteUnapprovedProject(accessToken, project.id);
+      useWorkspaceStore.getState().clearProject(project.id);
+      navigate('/projects', { replace: true });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to revoke project.';
+      setActionFeedback({
+        type: 'error',
+        message,
+      });
+      setIsRevokingProject(false);
     }
   };
 
@@ -508,19 +538,127 @@ export const ProjectDetailPage: React.FC = () => {
               </span>
             )}
 
-            {/* Founder Action Button */}
+            {/* Founder Action Buttons */}
             {isFounder && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsEditModalOpen(true)}
-                icon={<Edit3 className="h-3.5 w-3.5" />}
-              >
-                Edit Project
-              </Button>
+              <div className="flex items-center gap-2">
+                {project.moderationStatus !== 'PUBLISHED' && (
+                  <button
+                    type="button"
+                    disabled={isRevokingProject}
+                    onClick={handleRevokeProject}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-red-500/40 bg-red-950/30 px-3 py-1.5 text-xs font-mono font-medium text-red-300 hover:bg-red-900/40 hover:border-red-500/70 transition-colors disabled:opacity-50 cursor-pointer"
+                    title={
+                      project.moderationStatus === 'PENDING_REVIEW'
+                        ? 'Revoke review request and delete project'
+                        : 'Delete rejected project'
+                    }
+                  >
+                    {isRevokingProject ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                    )}
+                    <span>
+                      {project.moderationStatus === 'PENDING_REVIEW'
+                        ? isRevokingProject
+                          ? 'Revoking...'
+                          : 'Revoke Request'
+                        : isRevokingProject
+                          ? 'Deleting...'
+                          : 'Delete Project'}
+                    </span>
+                  </button>
+                )}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsEditModalOpen(true)}
+                  icon={<Edit3 className="h-3.5 w-3.5" />}
+                >
+                  Edit Project
+                </Button>
+              </div>
             )}
           </div>
         </div>
+
+        {/* Pending Administrator Review Banner with Revoke Action */}
+        {isFounder && project.moderationStatus === 'PENDING_REVIEW' && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-amber-500/40 bg-amber-950/40 text-amber-400">
+                <Clock className="h-4 w-4 animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-headline text-sm font-semibold text-amber-200">
+                    Pending Administrator Review
+                  </h4>
+                  <span className="rounded-full border border-amber-500/40 bg-amber-950/50 px-2 py-0.5 text-[10px] font-mono text-amber-300">
+                    Under Review
+                  </span>
+                </div>
+                <p className="text-xs text-[#cac6bc] leading-relaxed max-w-2xl">
+                  This project has been submitted for review and is waiting for administrator approval before being published to the public directory. You can revoke this submission at any time to cancel the review request.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2 sm:self-center">
+              <button
+                type="button"
+                disabled={isRevokingProject}
+                onClick={handleRevokeProject}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-1.5 text-xs font-mono font-semibold text-red-200 hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isRevokingProject ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                )}
+                <span>{isRevokingProject ? 'Revoking...' : 'Revoke Request & Delete'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Rejected Project Banner with Delete Action */}
+        {isFounder && project.moderationStatus === 'REJECTED' && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-950/20 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/40 bg-red-950/40 text-red-400">
+                <XCircle className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-headline text-sm font-semibold text-red-200">
+                    Project Submission Rejected
+                  </h4>
+                  <span className="rounded-full border border-red-500/40 bg-red-950/50 px-2 py-0.5 text-[10px] font-mono text-red-300">
+                    Not Approved
+                  </span>
+                </div>
+                <p className="text-xs text-[#cac6bc] leading-relaxed max-w-2xl">
+                  This project submission was reviewed and rejected by the administration team and is not listed in the public directory. You may delete this project and submit a revised version.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 flex items-center gap-2 sm:self-center">
+              <button
+                type="button"
+                disabled={isRevokingProject}
+                onClick={handleRevokeProject}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-1.5 text-xs font-mono font-semibold text-red-200 hover:bg-red-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isRevokingProject ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                )}
+                <span>{isRevokingProject ? 'Deleting...' : 'Delete Project'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Administrator Inspection Notice */}
         {isAdminInspection && (

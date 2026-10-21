@@ -278,4 +278,13 @@ export class ProjectsController {
       user.id,
     );
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  deleteUnapprovedProject(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ success: boolean; message: string }> {
+    return this.projectsService.deleteUnapprovedProject(id, user.id);
+  }
 }
