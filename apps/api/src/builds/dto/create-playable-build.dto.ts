@@ -4,9 +4,12 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BuildPlatform } from '@prisma/client';
+import { getArtifactMaxSizeBytes } from '../../build-runners/build-artifact-storage.config';
 
 export class CreatePlayableBuildDto {
   @ApiProperty({
@@ -52,7 +55,14 @@ export class CreatePlayableBuildDto {
 
   @ApiPropertyOptional({ description: 'File size in bytes' })
   @IsOptional()
-  @IsNumber()
+  @IsNumber(
+    { allowNaN: false, allowInfinity: false },
+    { message: 'File size must be a finite number.' },
+  )
+  @Min(0, { message: 'File size must be greater than or equal to 0 bytes.' })
+  @Max(getArtifactMaxSizeBytes(), {
+    message: 'File size exceeds maximum allowed limit.',
+  })
   fileSizeBytes?: number;
 
   @ApiPropertyOptional({ description: 'SHA-256 checksum of the build archive' })

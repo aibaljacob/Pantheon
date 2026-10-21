@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -17,6 +18,9 @@ import { CreatePlayableBuildDto } from './dto/create-playable-build.dto';
 import { BuildQueryDto } from './dto/build-query.dto';
 import { BuildJobResponseDto } from './dto/build-response.dto';
 import { PlayableBuildResponseDto } from './dto/playable-build-response.dto';
+import { getArtifactMaxSizeBytes } from '../build-runners/build-artifact-storage.config';
+import { BuildRunnersService } from '../build-runners/build-runners.service';
+import { BuildsGateway } from '../events/builds.gateway';
 
 const VALID_TRANSITIONS: Record<BuildStatus, BuildStatus[]> = {
   QUEUED: [BuildStatus.RUNNING, BuildStatus.CANCELLED],
@@ -98,6 +102,8 @@ export class BuildsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly authService: ProjectAuthorizationService,
+    private readonly buildRunnersService: BuildRunnersService,
+    private readonly buildsGateway: BuildsGateway,
   ) {}
 
   private calculateDuration(
@@ -222,6 +228,16 @@ export class BuildsService {
       );
     }
 
+    // Verify a live, compatible runner is online and active
+    const runnerStatus = await this.buildRunnersService.getRunnerStatus(
+      dto.targetPlatform,
+    );
+    if (!runnerStatus.online) {
+      throw new BadRequestException(
+        `No active ${dto.targetPlatform} build runner is currently available. Live runners must be online and reporting heartbeats.`,
+      );
+    }
+
     // Validate milestone if provided
     if (dto.milestoneId) {
       const milestone = await this.prisma.milestone.findUnique({
@@ -269,7 +285,9 @@ export class BuildsService {
       },
     });
 
-    return this.mapBuildJob(created);
+    const mapped = this.mapBuildJob(created);
+    this.buildsGateway.emitBuildCreated(projectId, mapped);
+    return mapped;
   }
 
   async getBuilds(
@@ -453,7 +471,9 @@ export class BuildsService {
       },
     });
 
-    return this.mapBuildJob(updated);
+    const mapped = this.mapBuildJob(updated);
+    this.buildsGateway.emitBuildUpdated(projectId, mapped);
+    return mapped;
   }
 
   async cancelBuild(
@@ -531,7 +551,9 @@ export class BuildsService {
       },
     });
 
-    return this.mapBuildJob(updated);
+    const mapped = this.mapBuildJob(updated);
+    this.buildsGateway.emitBuildUpdated(projectId, mapped);
+    return mapped;
   }
 
   async getBuildLogs(
@@ -685,45 +707,95 @@ export class BuildsService {
       }
     }
 
-    const created = await this.prisma.playableBuild.create({
-      data: {
-        projectId,
-        version: dto.version.trim(),
-        title: dto.title.trim(),
-        platform: dto.platform,
-        buildJobId: dto.buildJobId || null,
-        milestoneId: dto.milestoneId || null,
-        storagePath: dto.storagePath?.trim() || null,
-        fileSizeBytes:
-          dto.fileSizeBytes != null ? BigInt(dto.fileSizeBytes) : null,
-        fileChecksum: dto.fileChecksum?.trim() || null,
-        releaseNotes: dto.releaseNotes?.trim() || null,
-        uploadedById: userId,
-      },
-      include: {
-        milestone: {
-          select: {
-            id: true,
-            title: true,
-          },
+    if (dto.fileSizeBytes !== undefined && dto.fileSizeBytes !== null) {
+      if (
+        typeof dto.fileSizeBytes !== 'number' ||
+        !Number.isFinite(dto.fileSizeBytes) ||
+        dto.fileSizeBytes < 0
+      ) {
+        throw new BadRequestException(
+          'Release size must be a non-negative finite number.',
+        );
+      }
+
+      const maxBytes = getArtifactMaxSizeBytes();
+      if (dto.fileSizeBytes > maxBytes) {
+        throw new BadRequestException(
+          `Release size exceeds maximum allowed limit of ${maxBytes} bytes (${Math.floor(maxBytes / (1024 * 1024))}MB).`,
+        );
+      }
+    }
+
+    const trimmedVersion = dto.version.trim();
+
+    const existingRelease = await this.prisma.playableBuild.findUnique({
+      where: {
+        projectId_version_platform: {
+          projectId,
+          version: trimmedVersion,
+          platform: dto.platform,
         },
-        uploadedBy: {
-          select: {
-            id: true,
-            username: true,
-            profile: {
-              select: {
-                displayName: true,
-                firstName: true,
-                avatarUrl: true,
+      },
+      select: { id: true },
+    });
+
+    if (existingRelease) {
+      throw new ConflictException(
+        `A release with version "${trimmedVersion}" for platform "${dto.platform}" already exists in this project.`,
+      );
+    }
+
+    try {
+      const created = await this.prisma.playableBuild.create({
+        data: {
+          projectId,
+          version: trimmedVersion,
+          title: dto.title.trim(),
+          platform: dto.platform,
+          buildJobId: dto.buildJobId || null,
+          milestoneId: dto.milestoneId || null,
+          storagePath: dto.storagePath?.trim() || null,
+          fileSizeBytes:
+            dto.fileSizeBytes != null ? BigInt(dto.fileSizeBytes) : null,
+          fileChecksum: dto.fileChecksum?.trim() || null,
+          releaseNotes: dto.releaseNotes?.trim() || null,
+          uploadedById: userId,
+        },
+        include: {
+          milestone: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          uploadedBy: {
+            select: {
+              id: true,
+              username: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  firstName: true,
+                  avatarUrl: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    return this.mapPlayableBuild(created);
+      return this.mapPlayableBuild(created);
+    } catch (err: unknown) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `A release with version "${trimmedVersion}" for platform "${dto.platform}" already exists in this project.`,
+        );
+      }
+      throw err;
+    }
   }
 
   async getBuildArtifactStream(

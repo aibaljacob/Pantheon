@@ -38,6 +38,7 @@ describe('ProjectAuthorizationService', () => {
     slug: mockSlug,
     founderId: mockFounderId,
     moderationStatus: ProjectModerationStatus.PUBLISHED,
+    members: [],
   };
 
   const unpublishedProject = {
@@ -45,6 +46,7 @@ describe('ProjectAuthorizationService', () => {
     slug: mockSlug,
     founderId: mockFounderId,
     moderationStatus: ProjectModerationStatus.PENDING_REVIEW,
+    members: [],
   };
 
   beforeEach(async () => {
@@ -76,11 +78,11 @@ describe('ProjectAuthorizationService', () => {
   describe('1. Missing Project', () => {
     it('should throw NotFoundException when project does not exist', async () => {
       prismaMock.project.findFirst.mockResolvedValue(null);
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
 
       await expect(
         service.assertCanView('non-existent-id', mockActiveMemberId),
       ).rejects.toThrow(new NotFoundException('Project not found.'));
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
   });
 
@@ -90,15 +92,23 @@ describe('ProjectAuthorizationService', () => {
     });
 
     it('should allow the Founder to view published project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [],
+      });
 
       const ctx = await service.assertCanView(mockProjectId, mockFounderId);
       expect(ctx.isFounder).toBe(true);
+      expect(ctx.isMember).toBe(false);
       expect(ctx.project.id).toBe(mockProjectId);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should allow an Active Member to view published project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       const ctx = await service.assertCanView(
         mockProjectId,
@@ -106,10 +116,14 @@ describe('ProjectAuthorizationService', () => {
       );
       expect(ctx.isMember).toBe(true);
       expect(ctx.isFounder).toBe(false);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should allow an Administrator to view published project even if not member', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [],
+      });
 
       const ctx = await service.assertCanView(
         mockProjectId,
@@ -117,10 +131,14 @@ describe('ProjectAuthorizationService', () => {
         Role.ADMINISTRATOR,
       );
       expect(ctx.isAdmin).toBe(true);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should deny an unrelated non-member from viewing published project tasks', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [],
+      });
 
       await expect(
         service.assertCanView(mockProjectId, mockUnrelatedUserId),
@@ -129,30 +147,42 @@ describe('ProjectAuthorizationService', () => {
           'You do not have access to view this project tasks and milestones.',
         ),
       );
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should deny a removed member from viewing published project', async () => {
-      // Removed member won't match status: ACTIVE, so prisma returns null
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [],
+      });
 
       await expect(
         service.assertCanView(mockProjectId, mockRemovedMemberId),
       ).rejects.toThrow(ForbiddenException);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should deny a left member from viewing published project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [],
+      });
 
       await expect(
         service.assertCanView(mockProjectId, mockLeftMemberId),
       ).rejects.toThrow(ForbiddenException);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should deny an anonymous / unauthenticated guest (no userId)', async () => {
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [],
+      });
+
       await expect(
         service.assertCanView(mockProjectId, undefined),
       ).rejects.toThrow(ForbiddenException);
-      // Member query should not even be invoked when userId is undefined
       expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
   });
@@ -163,24 +193,35 @@ describe('ProjectAuthorizationService', () => {
     });
 
     it('should allow the Founder to view unpublished project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...unpublishedProject,
+        members: [],
+      });
 
       const ctx = await service.assertCanView(mockProjectId, mockFounderId);
       expect(ctx.isFounder).toBe(true);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should allow an Active Member to view unpublished project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...unpublishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       const ctx = await service.assertCanView(
         mockProjectId,
         mockActiveMemberId,
       );
       expect(ctx.isMember).toBe(true);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should allow an Administrator to view unpublished project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...unpublishedProject,
+        members: [],
+      });
 
       const ctx = await service.assertCanView(
         mockProjectId,
@@ -188,22 +229,31 @@ describe('ProjectAuthorizationService', () => {
         Role.ADMINISTRATOR,
       );
       expect(ctx.isAdmin).toBe(true);
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should hide unpublished project from non-members with NotFoundException', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...unpublishedProject,
+        members: [],
+      });
 
       await expect(
         service.assertCanView(mockProjectId, mockUnrelatedUserId),
       ).rejects.toThrow(new NotFoundException('Project not found.'));
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
 
     it('should hide unpublished project from removed members with NotFoundException', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue(null);
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...unpublishedProject,
+        members: [],
+      });
 
       await expect(
         service.assertCanView(mockProjectId, mockRemovedMemberId),
       ).rejects.toThrow(new NotFoundException('Project not found.'));
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
   });
 
@@ -227,7 +277,10 @@ describe('ProjectAuthorizationService', () => {
     });
 
     it('should deny Active Member from managing project', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       await expect(
         service.assertCanManage(mockProjectId, mockActiveMemberId),
@@ -254,7 +307,10 @@ describe('ProjectAuthorizationService', () => {
     });
 
     it('should allow Active Member to update task status (isStatusOnlyUpdate = true)', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       const ctx = await service.assertCanUpdateTask(
         mockProjectId,
@@ -267,7 +323,10 @@ describe('ProjectAuthorizationService', () => {
     });
 
     it('should allow Active Member to update task details if assigned to them', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       const ctx = await service.assertCanUpdateTask(
         mockProjectId,
@@ -280,7 +339,10 @@ describe('ProjectAuthorizationService', () => {
     });
 
     it('should deny Active Member from updating details of someone else task', async () => {
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       await expect(
         service.assertCanUpdateTask(
@@ -356,8 +418,10 @@ describe('ProjectAuthorizationService', () => {
 
   describe('7. Slug Resolution', () => {
     it('should correctly query and resolve project access using slug', async () => {
-      prismaMock.project.findFirst.mockResolvedValue(publishedProject);
-      prismaMock.projectMember.findFirst.mockResolvedValue({ id: 'pm-1' });
+      prismaMock.project.findFirst.mockResolvedValue({
+        ...publishedProject,
+        members: [{ id: 'pm-1' }],
+      });
 
       const ctx = await service.assertCanView(mockSlug, mockActiveMemberId);
       expect(ctx.isMember).toBe(true);
@@ -368,6 +432,7 @@ describe('ProjectAuthorizationService', () => {
           },
         }),
       );
+      expect(prismaMock.projectMember.findFirst).not.toHaveBeenCalled();
     });
   });
 });

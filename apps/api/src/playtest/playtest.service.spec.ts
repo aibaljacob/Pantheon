@@ -3,23 +3,11 @@ import { PlaytestService } from './playtest.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProjectAuthorizationService } from '../tasks/project-authorization.service';
 import { TasksService } from '../tasks/tasks.service';
-import {
-  BadRequestException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
-import {
-  FeedbackSeverity,
-  FeedbackStatus,
-  TaskPriority,
-  TaskStatus,
-} from '@prisma/client';
+import { NotFoundException } from '@nestjs/common';
+import { FeedbackStatus, TaskPriority, TaskStatus } from '@prisma/client';
 
 describe('PlaytestService', () => {
   let service: PlaytestService;
-  let prisma: PrismaService;
-  let authzService: ProjectAuthorizationService;
-  let tasksService: TasksService;
 
   const mockPrisma = {
     playableBuild: { findFirst: jest.fn() },
@@ -61,11 +49,6 @@ describe('PlaytestService', () => {
     }).compile();
 
     service = module.get<PlaytestService>(PlaytestService);
-    prisma = module.get<PrismaService>(PrismaService);
-    authzService = module.get<ProjectAuthorizationService>(
-      ProjectAuthorizationService,
-    );
-    tasksService = module.get<TasksService>(TasksService);
 
     jest.clearAllMocks();
   });
@@ -189,6 +172,140 @@ describe('PlaytestService', () => {
 
       expect(res).toEqual({ id: 'task-1' });
       expect(mockTasksService.createTask).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('BUG-PLAYTEST-01: BigInt Serialization & Retrieval', () => {
+    const mockSessionWithBigIntBuild = {
+      id: 'pt-100',
+      projectId: 'proj-1',
+      playableBuildId: 'build-100',
+      title: 'Alpha Combat Session',
+      instructions: 'Check jump physics',
+      isActive: true,
+      startDate: null,
+      endDate: null,
+      createdById: 'user-1',
+      createdAt: new Date('2026-10-06T10:00:00Z'),
+      updatedAt: new Date('2026-10-06T10:00:00Z'),
+      playableBuild: {
+        id: 'build-100',
+        projectId: 'proj-1',
+        version: 'v0.1.0',
+        title: 'Combat Slice',
+        platform: 'WINDOWS',
+        fileSizeBytes: 250000000n, // JavaScript BigInt
+        buildJob: {
+          id: 'job-1',
+          commitHash: 'commit-abc1234',
+        },
+      },
+      _count: { feedback: 0 },
+    };
+
+    it('creates a playtest and serializes BigInt fileSizeBytes safely to string', async () => {
+      mockAuthzService.assertCanManage.mockResolvedValue({ isFounder: true });
+      mockPrisma.playableBuild.findFirst.mockResolvedValue({
+        id: 'build-100',
+        projectId: 'proj-1',
+      });
+      mockPrisma.playtestSession.create.mockResolvedValue(
+        mockSessionWithBigIntBuild,
+      );
+
+      const res = await service.createPlaytest(
+        'proj-1',
+        'build-100',
+        { title: 'Alpha Combat Session' },
+        'user-1',
+      );
+
+      expect(res).toBeDefined();
+      expect(res.playableBuild?.fileSizeBytes).toBe('250000000');
+      expect(typeof res.playableBuild?.fileSizeBytes).toBe('string');
+      // Crucial: Must be JSON serializable without throwing "Do not know how to serialize a BigInt"
+      expect(() => JSON.stringify(res)).not.toThrow();
+    });
+
+    it('preserves exact BigInt value exceeding Number.MAX_SAFE_INTEGER without precision loss', async () => {
+      const largeBigInt = 9007199254740993n;
+      mockAuthzService.assertCanManage.mockResolvedValue({ isFounder: true });
+      mockPrisma.playableBuild.findFirst.mockResolvedValue({
+        id: 'build-100',
+        projectId: 'proj-1',
+      });
+      mockPrisma.playtestSession.create.mockResolvedValue({
+        ...mockSessionWithBigIntBuild,
+        playableBuild: {
+          ...mockSessionWithBigIntBuild.playableBuild,
+          fileSizeBytes: largeBigInt,
+        },
+      });
+
+      const res = await service.createPlaytest(
+        'proj-1',
+        'build-100',
+        { title: 'Large Build Test' },
+        'user-1',
+      );
+
+      expect(res.playableBuild?.fileSizeBytes).toBe('9007199254740993');
+      expect(() => JSON.stringify(res)).not.toThrow();
+    });
+
+    it('fetches playtest by ID and returns serializable response with string fileSizeBytes', async () => {
+      mockAuthzService.assertCanView.mockResolvedValue({ isMember: true });
+      mockPrisma.playtestSession.findFirst.mockResolvedValue(
+        mockSessionWithBigIntBuild,
+      );
+
+      const res = await service.getPlaytest('proj-1', 'pt-100', 'user-1');
+      expect(res).toBeDefined();
+      expect(res.playableBuild?.fileSizeBytes).toBe('250000000');
+      expect(() => JSON.stringify(res)).not.toThrow();
+    });
+
+    it('throws NotFoundException when fetching nonexistent playtest', async () => {
+      mockAuthzService.assertCanView.mockResolvedValue({ isMember: true });
+      mockPrisma.playtestSession.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.getPlaytest('proj-1', 'pt-999', 'user-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('fetches all playtests and returns serializable list with string fileSizeBytes', async () => {
+      mockAuthzService.assertCanView.mockResolvedValue({ isMember: true });
+      mockPrisma.playtestSession.findMany.mockResolvedValue([
+        mockSessionWithBigIntBuild,
+      ]);
+
+      const res = await service.getPlaytests('proj-1', 'user-1');
+      expect(res).toHaveLength(1);
+      expect(res[0].playableBuild?.fileSizeBytes).toBe('250000000');
+      expect(() => JSON.stringify(res)).not.toThrow();
+    });
+
+    it('updates playtest and returns serializable response with string fileSizeBytes', async () => {
+      mockAuthzService.assertCanManage.mockResolvedValue({ isFounder: true });
+      mockPrisma.playtestSession.findFirst.mockResolvedValue({
+        id: 'pt-100',
+        projectId: 'proj-1',
+      });
+      mockPrisma.playtestSession.update.mockResolvedValue({
+        ...mockSessionWithBigIntBuild,
+        title: 'Updated Title',
+      });
+
+      const res = await service.updatePlaytest(
+        'proj-1',
+        'pt-100',
+        { title: 'Updated Title' },
+        'user-1',
+      );
+      expect(res.title).toBe('Updated Title');
+      expect(res.playableBuild?.fileSizeBytes).toBe('250000000');
+      expect(() => JSON.stringify(res)).not.toThrow();
     });
   });
 });

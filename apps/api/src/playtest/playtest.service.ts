@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,8 +11,10 @@ import {
   UpdatePlaytestSessionDto,
   CreatePlaytestFeedbackDto,
   UpdatePlaytestFeedbackDto,
+  PlaytestSessionResponseDto,
 } from './dto/playtest.dto';
 import { FeedbackStatus, TaskPriority, TaskStatus } from '@prisma/client';
+import { serializePlaytestSession } from './playtest.serializer';
 
 @Injectable()
 export class PlaytestService {
@@ -29,7 +30,7 @@ export class PlaytestService {
     dto: CreatePlaytestSessionDto,
     userId: string,
     userRole?: string,
-  ) {
+  ): Promise<PlaytestSessionResponseDto> {
     await this.authzService.assertCanManage(projectId, userId, userRole);
 
     const build = await this.prisma.playableBuild.findFirst({
@@ -39,7 +40,7 @@ export class PlaytestService {
       throw new NotFoundException('PlayableBuild not found in this project.');
     }
 
-    return this.prisma.playtestSession.create({
+    const session = await this.prisma.playtestSession.create({
       data: {
         projectId,
         playableBuildId: build.id,
@@ -49,27 +50,41 @@ export class PlaytestService {
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         createdById: userId,
       },
+      include: {
+        playableBuild: {
+          include: { buildJob: true },
+        },
+        _count: { select: { feedback: true } },
+      },
     });
+
+    return serializePlaytestSession(
+      session,
+    ) as unknown as PlaytestSessionResponseDto;
   }
 
-  async getPlaytests(projectId: string, userId?: string, userRole?: string) {
+  async getPlaytests(
+    projectId: string,
+    userId?: string,
+    userRole?: string,
+  ): Promise<PlaytestSessionResponseDto[]> {
     await this.authzService.assertCanView(projectId, userId, userRole);
 
-    return this.prisma.playtestSession.findMany({
+    const sessions = await this.prisma.playtestSession.findMany({
       where: { projectId },
       include: {
         playableBuild: {
-          select: {
-            version: true,
-            platform: true,
-            title: true,
-            buildJob: { select: { commitHash: true } },
-          },
+          include: { buildJob: true },
         },
         _count: { select: { feedback: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return sessions.map(
+      (s) =>
+        serializePlaytestSession(s) as unknown as PlaytestSessionResponseDto,
+    );
   }
 
   async getPlaytest(
@@ -77,7 +92,7 @@ export class PlaytestService {
     playtestId: string,
     userId?: string,
     userRole?: string,
-  ) {
+  ): Promise<PlaytestSessionResponseDto> {
     await this.authzService.assertCanView(projectId, userId, userRole);
 
     const session = await this.prisma.playtestSession.findFirst({
@@ -91,7 +106,9 @@ export class PlaytestService {
     });
 
     if (!session) throw new NotFoundException('Playtest session not found.');
-    return session;
+    return serializePlaytestSession(
+      session,
+    ) as unknown as PlaytestSessionResponseDto;
   }
 
   async updatePlaytest(
@@ -100,7 +117,7 @@ export class PlaytestService {
     dto: UpdatePlaytestSessionDto,
     userId: string,
     userRole?: string,
-  ) {
+  ): Promise<PlaytestSessionResponseDto> {
     await this.authzService.assertCanManage(projectId, userId, userRole);
 
     const session = await this.prisma.playtestSession.findFirst({
@@ -108,7 +125,7 @@ export class PlaytestService {
     });
     if (!session) throw new NotFoundException('Playtest session not found.');
 
-    return this.prisma.playtestSession.update({
+    const updated = await this.prisma.playtestSession.update({
       where: { id: playtestId },
       data: {
         title: dto.title,
@@ -127,7 +144,17 @@ export class PlaytestService {
             : undefined,
         isActive: dto.isActive,
       },
+      include: {
+        playableBuild: {
+          include: { buildJob: true },
+        },
+        _count: { select: { feedback: true } },
+      },
     });
+
+    return serializePlaytestSession(
+      updated,
+    ) as unknown as PlaytestSessionResponseDto;
   }
 
   async deletePlaytest(
@@ -161,11 +188,7 @@ export class PlaytestService {
     userRole?: string,
   ) {
     // Only members or active participants can submit feedback (must be able to view)
-    const context = await this.authzService.assertCanView(
-      projectId,
-      userId,
-      userRole,
-    );
+    await this.authzService.assertCanView(projectId, userId, userRole);
     // Extra validation: ensure the user is an active member or admin. For public projects, we allow logged-in users?
     // Based on requirements: "unrelated user cannot submit private-project feedback". `assertCanView` handles private project access.
     // For now, if they can view the playtest, they can submit feedback if logged in.

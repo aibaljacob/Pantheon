@@ -26,6 +26,7 @@ import {
   LogIn,
   Mail,
   Eye,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
@@ -175,28 +176,35 @@ export const ProjectDetailPage: React.FC = () => {
   } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState<boolean>(false);
 
-  // Authoritative viewer relationship resolution
-  const viewerRelationship: ViewerRelationship =
-    project?.viewerRelationship ||
-    (project?.isFounder || currentUser?.role === 'Administrator'
-      ? 'FOUNDER'
-      : project?.isMember
-        ? 'ACTIVE_MEMBER'
-        : currentUser
-          ? 'NON_MEMBER'
-          : 'VISITOR');
+  // Admin Inspection Mode Detection
+  const isAdminInspection = Boolean(
+    currentUser?.role === 'Administrator' &&
+      (searchParams.get('inspect') === 'admin' || !project?.isFounder),
+  );
 
-  const isFounder = viewerRelationship === 'FOUNDER';
+  // Authoritative viewer relationship resolution
+  const viewerRelationship: ViewerRelationship = isAdminInspection
+    ? 'VISITOR'
+    : project?.viewerRelationship ||
+      (project?.isFounder
+        ? 'FOUNDER'
+        : project?.isMember
+          ? 'ACTIVE_MEMBER'
+          : currentUser
+            ? 'NON_MEMBER'
+            : 'VISITOR');
+
+  const isFounder = Boolean(project?.isFounder && !isAdminInspection);
   const isMember = viewerRelationship === 'ACTIVE_MEMBER' || isFounder;
   const isApplicant = viewerRelationship === 'APPLICANT';
   const isInvitee = viewerRelationship === 'INVITEE';
-  const isVisitor = viewerRelationship === 'VISITOR';
-  const canAccessWorkspace = isFounder || isMember;
+  const isVisitor = viewerRelationship === 'VISITOR' && !isAdminInspection;
+  const canAccessWorkspace = isFounder || isMember || isAdminInspection;
 
   const allowedTabs: ProjectTabType[] = canAccessWorkspace
-    ? isFounder
-      ? ['overview', 'blueprint', 'team', 'tasks', 'builds', 'repo', 'playtests', 'applications']
-      : ['overview', 'blueprint', 'team', 'tasks', 'builds', 'repo', 'playtests']
+    ? isFounder || isAdminInspection
+      ? ['overview', 'blueprint', 'team', 'tasks', 'builds', 'repo', 'applications']
+      : ['overview', 'blueprint', 'team', 'tasks', 'builds', 'repo']
     : ['overview', 'blueprint', 'team'];
 
   const requestedTab = searchParams.get('tab') as ProjectTabType | null;
@@ -315,7 +323,7 @@ export const ProjectDetailPage: React.FC = () => {
           useWorkspaceStore.getState().setRoles(projectData.id, rolesData);
           setError(null);
 
-          if ((projectData.isFounder || currentUser?.role === 'Administrator') && accessToken) {
+          if (projectData.isFounder && !isAdminInspection && accessToken) {
             void scanAiRecommendations(projectData.id, accessToken);
           }
         }
@@ -463,7 +471,13 @@ export const ProjectDetailPage: React.FC = () => {
 
           <div className="flex items-center gap-3">
             {/* Viewer Relationship Badge */}
-            {isFounder && (
+            {isAdminInspection && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-950/30 px-3 py-1 text-xs font-mono font-semibold text-amber-300">
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+                Admin Inspection (Read-Only)
+              </span>
+            )}
+            {!isAdminInspection && isFounder && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-950/30 px-3 py-1 text-xs font-mono font-semibold text-amber-300">
                 <Crown className="h-3.5 w-3.5 text-amber-400" />
                 Studio Founder
@@ -487,7 +501,7 @@ export const ProjectDetailPage: React.FC = () => {
                 Invited to Team
               </span>
             )}
-            {isVisitor && (
+            {isVisitor && !isAdminInspection && (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-[#363433] bg-[#201f1e] px-3 py-1 text-xs font-mono text-[#8c887e]">
                 <Eye className="h-3.5 w-3.5" />
                 Public Visitor
@@ -507,6 +521,24 @@ export const ProjectDetailPage: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Administrator Inspection Notice */}
+        {isAdminInspection && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-950/20 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-amber-200 animate-fadeIn">
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Administrator Inspection Mode:</strong> You are viewing this live project in read-only audit mode. Founder editing controls, role mutations, and workflow actions are disabled.
+              </span>
+            </div>
+            <Link
+              to="/dashboard"
+              className="text-xs font-mono text-amber-300 hover:text-white underline shrink-0"
+            >
+              Back to Admin Panel
+            </Link>
+          </div>
+        )}
 
         {/* Action Feedback Banner */}
         {actionFeedback && (
@@ -1025,6 +1057,7 @@ export const ProjectDetailPage: React.FC = () => {
                                 {!isFounder &&
                                   !isMember &&
                                   !isVisitor &&
+                                  !isAdminInspection &&
                                   !(isApplicant && project.viewerPendingApplication?.projectRoleId === role.id) &&
                                   role.status === 'OPEN' && (
                                     <Button
@@ -1342,8 +1375,12 @@ export const ProjectDetailPage: React.FC = () => {
 
         {/* Tab: Game Blueprint */}
         {activeProjectTab === 'blueprint' && (
-          <BlueprintTab project={project} />
+          <BlueprintTab
+            project={project}
+            onNavigateToTab={(tab) => setActiveProjectTab(tab as any)}
+          />
         )}
+
 
         {/* Tab: Team Roster & Founder Management */}
         {activeProjectTab === 'team' && (

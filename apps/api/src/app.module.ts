@@ -15,6 +15,7 @@ import { GitHttpModule } from './git-http/git-http.module';
 import { PlaytestModule } from './playtest/playtest.module';
 import { SearchModule } from './search/search.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     AdminModule,
     PrismaModule,
     TasksModule,
+    EventsModule,
     BuildsModule,
     BuildRunnersModule,
     PersonalAccessTokensModule,

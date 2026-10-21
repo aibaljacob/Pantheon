@@ -14,11 +14,13 @@ import {
   getBuildArtifactStoragePath,
   buildArtifactUploadOptions,
 } from './build-artifact-storage.config';
+import { BuildsGateway } from '../events/builds.gateway';
 
 describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
   let service: BuildRunnersService;
   let guard: BuildRunnerAuthGuard;
   let prismaMock: any;
+  let buildsGatewayMock: any;
 
   const mockBootstrapSecret = 'test-runner-bootstrap-secret-secure-123';
   const mockProjectAId = 'proj-uuid-aaaa-1111';
@@ -101,6 +103,7 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
             ...args.data,
           });
         }),
+        findFirst: jest.fn(),
       },
       buildJob: {
         findFirst: jest.fn(),
@@ -123,6 +126,12 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       }),
     };
 
+    buildsGatewayMock = {
+      emitBuildCreated: jest.fn(),
+      emitBuildUpdated: jest.fn(),
+      emitRunnerStatus: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BuildRunnersService,
@@ -130,6 +139,10 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
         {
           provide: PrismaService,
           useValue: prismaMock,
+        },
+        {
+          provide: BuildsGateway,
+          useValue: buildsGatewayMock,
         },
       ],
     }).compile();
@@ -609,6 +622,132 @@ describe('BuildRunnersService & BuildRunnerAuthGuard Security Suite', () => {
       expect(buildArtifactUploadOptions.limits).toBeDefined();
       expect(buildArtifactUploadOptions.limits?.fileSize).toBeGreaterThan(0);
       expect(buildArtifactUploadOptions.storage).toBeDefined();
+    });
+  });
+
+  // ==========================================
+  // 7. RUNNER LIVENESS, STATUS & SOCKET EVENTS
+  // ==========================================
+  describe('7. Runner Liveness, Status & Socket Events', () => {
+    it('should return active runner when runner is online and heartbeat is recent', async () => {
+      const recentDate = new Date();
+      prismaMock.buildRunner.findFirst.mockResolvedValueOnce({
+        ...mockRunnerA,
+        isOnline: true,
+        lastSeenAt: recentDate,
+      });
+
+      const runner = await service.getActiveRunnerForPlatform(
+        BuildPlatform.WINDOWS,
+      );
+
+      expect(runner).toBeDefined();
+      expect(runner?.id).toBe(mockRunnerA.id);
+      expect(prismaMock.buildRunner.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            platform: BuildPlatform.WINDOWS,
+            isOnline: true,
+          }),
+        }),
+      );
+    });
+
+    it('should return null when runner is offline or expired', async () => {
+      prismaMock.buildRunner.findFirst.mockResolvedValueOnce(null);
+
+      const runner = await service.getActiveRunnerForPlatform(
+        BuildPlatform.WINDOWS,
+      );
+      expect(runner).toBeNull();
+    });
+
+    it('should return OFFLINE status when no active runner exists', async () => {
+      prismaMock.buildRunner.findFirst.mockResolvedValueOnce(null);
+
+      const status = await service.getRunnerStatus(BuildPlatform.WINDOWS);
+
+      expect(status.online).toBe(false);
+      expect(status.status).toBe('OFFLINE');
+      expect(status.runner).toBeNull();
+      expect(status.currentJob).toBeNull();
+    });
+
+    it('should return ONLINE status when live runner exists and no job is running', async () => {
+      prismaMock.buildRunner.findFirst.mockResolvedValueOnce({
+        ...mockRunnerA,
+        isOnline: true,
+        lastSeenAt: new Date(),
+      });
+      prismaMock.buildJob.findFirst.mockResolvedValueOnce(null);
+
+      const status = await service.getRunnerStatus(BuildPlatform.WINDOWS);
+
+      expect(status.online).toBe(true);
+      expect(status.status).toBe('ONLINE');
+      expect(status.runner?.id).toBe(mockRunnerA.id);
+      expect(status.currentJob).toBeNull();
+    });
+
+    it('should return BUILDING status when live runner exists and a job is running', async () => {
+      prismaMock.buildRunner.findFirst.mockResolvedValueOnce({
+        ...mockRunnerA,
+        isOnline: true,
+        lastSeenAt: new Date(),
+      });
+      prismaMock.buildJob.findFirst.mockResolvedValueOnce({
+        id: 'job-running-1',
+        projectId: mockProjectAId,
+        startedAt: new Date(),
+      });
+
+      const status = await service.getRunnerStatus(BuildPlatform.WINDOWS);
+
+      expect(status.online).toBe(true);
+      expect(status.status).toBe('BUILDING');
+      expect(status.currentJob?.id).toBe('job-running-1');
+    });
+
+    it('should mark runner offline and emit runner.status_changed', async () => {
+      prismaMock.buildRunner.findUnique.mockResolvedValueOnce(mockRunnerA);
+      prismaMock.buildRunner.update.mockResolvedValueOnce({
+        ...mockRunnerA,
+        isOnline: false,
+      });
+
+      const res = await service.markRunnerOffline(mockRunnerA.id);
+
+      expect(res.success).toBe(true);
+      expect(prismaMock.buildRunner.update).toHaveBeenCalledWith({
+        where: { id: mockRunnerA.id },
+        data: { isOnline: false },
+      });
+      expect(buildsGatewayMock.emitRunnerStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'OFFLINE',
+          online: false,
+          runnerId: mockRunnerA.id,
+        }),
+      );
+    });
+
+    it('should emit runner.status_changed on heartbeat', async () => {
+      prismaMock.buildRunner.update.mockResolvedValueOnce({
+        ...mockRunnerA,
+        isOnline: true,
+        lastSeenAt: new Date(),
+      });
+      prismaMock.buildJob.findFirst.mockResolvedValueOnce(null);
+
+      await service.heartbeat(mockRunnerA.id);
+
+      expect(buildsGatewayMock.emitRunnerStatus).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'ONLINE',
+          online: true,
+          runnerId: mockRunnerA.id,
+        }),
+      );
     });
   });
 });

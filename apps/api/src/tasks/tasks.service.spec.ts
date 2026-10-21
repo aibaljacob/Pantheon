@@ -1009,4 +1009,372 @@ describe('Tasks & Milestones Module', () => {
       ).rejects.toThrow(ForbiddenException);
     });
   });
+
+  // ==========================================
+  // TASK DEPENDENCY STATUS ENFORCEMENT (BUG-TASK-04)
+  // ==========================================
+  describe('Task Dependency Status Enforcement (BUG-TASK-04)', () => {
+    const mockTaskPrereqA = {
+      id: 'task-A',
+      projectId: mockProjectId,
+      taskNumber: 1,
+      title: 'Setup Database',
+      type: TaskType.CODE,
+      status: TaskStatus.TODO,
+      priority: TaskPriority.HIGH,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const mockTaskPrereqB = {
+      id: 'task-B',
+      projectId: mockProjectId,
+      taskNumber: 2,
+      title: 'Build API',
+      type: TaskType.CODE,
+      status: TaskStatus.TODO,
+      priority: TaskPriority.HIGH,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const mockTaskDependent = {
+      id: 'task-C',
+      projectId: mockProjectId,
+      taskNumber: 3,
+      title: 'Frontend Integration',
+      type: TaskType.FEATURE,
+      status: TaskStatus.TODO,
+      priority: TaskPriority.MEDIUM,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    it('37. Task with no prerequisites can move TODO -> IN_PROGRESS', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [],
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.IN_PROGRESS,
+        dependencies: [],
+      });
+
+      const updated = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-C',
+        TaskStatus.IN_PROGRESS,
+        mockFounderId,
+      );
+
+      expect(updated.status).toBe(TaskStatus.IN_PROGRESS);
+    });
+
+    it('38. Task with incomplete prerequisite cannot move TODO -> IN_PROGRESS', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.TODO,
+            },
+          },
+        ],
+      });
+
+      await expect(
+        tasksService.updateTaskStatus(
+          mockProjectId,
+          'task-C',
+          TaskStatus.IN_PROGRESS,
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Task is blocked by incomplete prerequisite tasks: TASK-1.',
+        ),
+      );
+    });
+
+    it('39. Task with incomplete prerequisite cannot move TODO -> DONE', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.IN_PROGRESS,
+            },
+          },
+        ],
+      });
+
+      await expect(
+        tasksService.updateTaskStatus(
+          mockProjectId,
+          'task-C',
+          TaskStatus.DONE,
+          mockFounderId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('40. Task with incomplete prerequisite cannot move IN_PROGRESS -> DONE', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.IN_PROGRESS,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.IN_REVIEW,
+            },
+          },
+        ],
+      });
+
+      await expect(
+        tasksService.updateTaskStatus(
+          mockProjectId,
+          'task-C',
+          TaskStatus.DONE,
+          mockFounderId,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('41. Task with all prerequisites DONE can move to IN_PROGRESS', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.DONE,
+            },
+          },
+        ],
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.IN_PROGRESS,
+        dependencies: [
+          {
+            dependsOnTask: {
+              id: 'task-A',
+              taskNumber: 1,
+              title: 'Setup Database',
+              status: TaskStatus.DONE,
+            },
+          },
+        ],
+      });
+
+      const updated = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-C',
+        TaskStatus.IN_PROGRESS,
+        mockFounderId,
+      );
+
+      expect(updated.status).toBe(TaskStatus.IN_PROGRESS);
+    });
+
+    it('42. Task with all prerequisites DONE can move to DONE', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.IN_PROGRESS,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.DONE,
+            },
+          },
+        ],
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.DONE,
+        dependencies: [
+          {
+            dependsOnTask: {
+              id: 'task-A',
+              taskNumber: 1,
+              title: 'Setup Database',
+              status: TaskStatus.DONE,
+            },
+          },
+        ],
+      });
+
+      const updated = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-C',
+        TaskStatus.DONE,
+        mockFounderId,
+      );
+
+      expect(updated.status).toBe(TaskStatus.DONE);
+    });
+
+    it('43. Multiple prerequisites where one is incomplete -> reject', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.DONE,
+            },
+          },
+          {
+            id: 'dep-2',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-B',
+            dependsOnTask: {
+              ...mockTaskPrereqB,
+              status: TaskStatus.TODO,
+            },
+          },
+        ],
+      });
+
+      await expect(
+        tasksService.updateTaskStatus(
+          mockProjectId,
+          'task-C',
+          TaskStatus.IN_PROGRESS,
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        /Task is blocked by incomplete prerequisite tasks: TASK-2/,
+      );
+    });
+
+    it('44. Multiple prerequisites where all are DONE -> allow', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.DONE,
+            },
+          },
+          {
+            id: 'dep-2',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-B',
+            dependsOnTask: {
+              ...mockTaskPrereqB,
+              status: TaskStatus.DONE,
+            },
+          },
+        ],
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.IN_PROGRESS,
+        dependencies: [],
+      });
+
+      const updated = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-C',
+        TaskStatus.IN_PROGRESS,
+        mockFounderId,
+      );
+
+      expect(updated.status).toBe(TaskStatus.IN_PROGRESS);
+    });
+
+    it('45. Moving a task backward remains consistent with existing status rules', async () => {
+      // IN_PROGRESS -> TODO is moving backward; allowed even if prerequisite is incomplete
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.IN_PROGRESS,
+        dependencies: [
+          {
+            id: 'dep-1',
+            taskId: 'task-C',
+            dependsOnTaskId: 'task-A',
+            dependsOnTask: {
+              ...mockTaskPrereqA,
+              status: TaskStatus.TODO,
+            },
+          },
+        ],
+      });
+      prismaMock.task.update.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [],
+      });
+
+      const updated = await tasksService.updateTaskStatus(
+        mockProjectId,
+        'task-C',
+        TaskStatus.TODO,
+        mockFounderId,
+      );
+
+      expect(updated.status).toBe(TaskStatus.TODO);
+    });
+
+    it('46. Invalid or deleted prerequisite cannot silently bypass enforcement', async () => {
+      prismaMock.task.findFirst.mockResolvedValueOnce({
+        ...mockTaskDependent,
+        status: TaskStatus.TODO,
+        dependencies: [
+          {
+            id: 'dep-ghost',
+            taskId: 'task-C',
+            dependsOnTaskId: 'deleted-task-id',
+            dependsOnTask: null,
+          },
+        ],
+      });
+
+      await expect(
+        tasksService.updateTaskStatus(
+          mockProjectId,
+          'task-C',
+          TaskStatus.IN_PROGRESS,
+          mockFounderId,
+        ),
+      ).rejects.toThrow(
+        /Task is blocked by incomplete prerequisite tasks: deleted-task-id/,
+      );
+    });
+  });
 });

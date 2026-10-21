@@ -18,56 +18,57 @@ const STEPS: Step[] = [
     id: 'step-1',
     number: '01',
     title: 'Create Your Profile',
-    subtitle: 'VERIFY CREDENTIALS & ENGINE STACK',
+    subtitle: 'SPECIALIZATION & ENGINE STACK',
     icon: <UserCheck className="w-6 h-6 text-[#e6e2df]" />,
-    description: 'Set up your developer or studio persona. Connect your GitHub, Unreal Marketplace, or ArtStation portfolios to establish verified skill scores.',
+    description: 'Set up your developer profile. Tag your primary game engine, specialties (programming, 3D art, narrative, sound), and showcase your portfolio projects to studio leads.',
     details: [
-      'Engine & Language Tagging (C++, C#, Rust, Blueprints)',
-      'Verified Work History & Credits',
-      'AI Talent Indexing for Studio Recruiters',
+      'Engine & Role Taxonomy (Godot, Unreal, Unity, C++, C#)',
+      'Showcase Portfolio Projects & Live Demos',
+      'AI Talent Indexing & Availability Status',
     ],
-    codeSnippet: `// Profile Manifest Init
-const devProfile = await Pantheon.initProfile({
-  engine: "Unreal 5.5",
-  specialization: "Graphics Programmer & Shader Dev",
-  verifiedPortfolios: ["GitHub", "ArtStation"],
+    codeSnippet: `// Developer Profile Manifest
+const profile = await Pantheon.initProfile({
+  primaryEngine: "Godot 4",
+  specialization: "Gameplay Programmer & Systems Design",
+  skills: ["GDScript", "C#", "Multiplayer Netcode"],
 });`,
   },
   {
     id: 'step-2',
     number: '02',
-    title: 'Build or Join Projects',
-    subtitle: 'ORCHESTRATE TEAMS & REPOSITORIES',
+    title: 'Form Studios & Direct Blueprints',
+    subtitle: 'RECRUIT TEAMS & MAP GAME VISION',
     icon: <Rocket className="w-6 h-6 text-[#e6e2df]" />,
-    description: 'Launch a new game repository or join an existing production suite. Configure sprint milestones, frame budgets, and asset repositories in seconds.',
+    description: 'Launch your game studio production. Define open roles for recruiting, match candidate talent, map game blueprints, and vote on art direction proposals.',
     details: [
-      'Git LFS & Perforce Sync Options',
-      'Automated Milestone Generation',
-      'Role-Based Permission Matrix',
+      'AI Graph Team Matching & Open Roles',
+      'Interactive Game Blueprints & Narrative Studio',
+      'Art Proposals with Historical Voting Rounds',
     ],
-    codeSnippet: `// Project Suite Pipeline
-const gameProject = await Pantheon.createProject({
-  name: "Project Ethereal",
-  targetFPS: 60,
-  assetStorage: "Git LFS + Cloud Vault",
+    codeSnippet: `// Game Studio Production & Blueprint
+const project = await Pantheon.createProject({
+  name: "Ethereal Odyssey",
+  genre: "Action RPG",
+  engine: "Godot 4",
+  openRoles: ["3D Environment Artist", "Audio Lead"],
 });`,
   },
   {
     id: 'step-3',
     number: '03',
-    title: 'Collaborate Efficiently',
-    subtitle: 'SHIP FASTER WITH REAL-TIME TELEMETRY',
+    title: 'Execute Sprints & Playtest Builds',
+    subtitle: 'DELIVER PLAYABLE BUILDS & COLLECT FEEDBACK',
     icon: <Zap className="w-6 h-6 text-[#e6e2df]" />,
-    description: 'Review 3D assets in-browser, track live engine performance metrics, and push verified builds to internal playtesters with zero manual overhead.',
+    description: 'Track tasks across sprint kanbans, push code to integrated Git repositories, execute automated build runners, and host in-browser playtests.',
     details: [
-      'In-Browser 3D Shader Renders',
-      'Automated Telemetry & Crash Reporting',
-      'One-Click Alpha/Beta Builds',
+      'Kanban Task Boards with Role Assignments',
+      'Integrated Git Commits & Automated Build Runners',
+      'In-Browser WebGL Playtesting & Survey Feedback',
     ],
-    codeSnippet: `// Live Build Verification
+    codeSnippet: `// Automated Build Runner & Playtest Channel
 Pantheon.onBuildPushed(async (build) => {
-  await build.verifyShaders();
-  await build.notifyPlaytesters({ channel: "#alpha-testing" });
+  await build.runExportRunner({ platform: "WebGL" });
+  await build.openPlaytestSession({ title: "Alpha V0.3 Pass" });
 });`,
   },
 ];

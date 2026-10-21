@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Key, Plus, Trash2, Copy, Check, AlertTriangle, Loader2 } from 'lucide-react';
+import { Key, Plus, Trash2, Copy, Check, Loader2, Terminal, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Card } from '../../../components/ui/Card';
@@ -134,8 +134,8 @@ export const PersonalAccessTokensSection: React.FC = () => {
             <Key className="h-5 w-5 text-amber-400" />
             <div>
               <h2 className="font-headline text-2xl font-bold text-pantheon-ivory">Personal Access Tokens</h2>
-              <p className="text-xs text-pantheon-muted mt-0.5">
-                Authenticate Git Smart HTTP operations (clone, push, pull) using tokens instead of passwords.
+              <p className="text-xs text-pantheon-muted mt-0.5 max-w-2xl">
+                Personal Access Tokens (PAT) authenticate native Git operations (<code className="text-amber-300">git clone</code>, <code className="text-amber-300">git push</code>, <code className="text-amber-300">git pull</code>) over HTTP/HTTPS from your local terminal without exposing your account password.
               </p>
             </div>
           </div>
@@ -160,30 +160,56 @@ export const PersonalAccessTokensSection: React.FC = () => {
 
         {/* Newly Created Token Alert (Shown only once) */}
         {newlyCreatedToken && (
-          <div className="rounded-2xl border border-amber-500/40 bg-amber-950/30 p-5 space-y-3 font-mono">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
-              <AlertTriangle className="h-4 w-4 text-amber-400" />
-              <span>Personal Access Token Generated</span>
+          <div className="rounded-2xl border border-amber-500/50 bg-amber-950/30 p-5 space-y-4 font-mono shadow-xl animate-fadeIn">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <span>Personal Access Token Generated Successfully</span>
+              </div>
+              <span className="rounded-full border border-red-500/40 bg-red-950/40 px-2.5 py-0.5 text-[10px] font-bold text-red-300">
+                Shown Only Once
+              </span>
             </div>
-            <p className="text-xs text-pantheon-muted">
-              Copy your personal access token now. For security reasons, it will never be displayed again!
+
+            <p className="text-xs text-amber-200/90 leading-relaxed">
+              <strong>Important:</strong> Copy your token now. For security reasons, Pantheon will never show this raw token again after you dismiss this banner.
             </p>
-            <div className="flex items-center gap-2 rounded-xl border border-pantheon-border bg-pantheon-bg p-2.5">
+
+            <div className={`flex items-center gap-2 rounded-xl border p-2.5 transition-all ${
+              isCopied ? 'border-emerald-500/60 bg-emerald-950/30' : 'border-pantheon-border bg-pantheon-bg'
+            }`}>
               <input
                 type="text"
                 readOnly
                 value={newlyCreatedToken}
-                className="w-full bg-transparent text-xs text-amber-300 font-mono focus:outline-none"
+                aria-label="Generated Personal Access Token"
+                className="w-full bg-transparent text-xs text-amber-300 font-mono focus:outline-none select-all"
               />
               <Button
-                variant="secondary"
+                variant={isCopied ? 'primary' : 'secondary'}
                 size="sm"
                 icon={isCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                 onClick={handleCopyToken}
               >
-                {isCopied ? 'Copied' : 'Copy'}
+                {isCopied ? 'Copied!' : 'Copy Token'}
               </Button>
             </div>
+
+            {/* Terminal Instructions */}
+            <div className="rounded-xl border border-pantheon-border bg-pantheon-bg p-3.5 space-y-2 text-xs">
+              <div className="flex items-center gap-2 text-pantheon-ivory font-semibold text-[11px]">
+                <Terminal className="h-3.5 w-3.5 text-amber-400" />
+                <span>Terminal Authentication Instructions</span>
+              </div>
+              <p className="text-[11px] text-pantheon-dim">
+                When Git prompts for credentials in your terminal:
+              </p>
+              <div className="rounded-lg bg-pantheon-low p-2.5 text-[11px] font-mono space-y-1 text-pantheon-muted border border-pantheon-border-dark">
+                <div>Username: <strong className="text-pantheon-ivory">&lt;your-pantheon-username&gt;</strong></div>
+                <div>Password: <strong className="text-amber-300">&lt;paste-copied-token&gt;</strong></div>
+              </div>
+            </div>
+
             <div className="pt-1 flex justify-end">
               <Button
                 variant="primary"
@@ -299,6 +325,17 @@ export const PersonalAccessTokensSection: React.FC = () => {
             ))}
           </div>
         )}
+
+        {/* Git Smart HTTP Helper Tip */}
+        <div className="rounded-2xl border border-pantheon-border-dark bg-pantheon-bg p-4 flex items-start gap-3 text-xs text-pantheon-dim font-mono">
+          <Terminal className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <span className="font-semibold text-pantheon-ivory block text-[11px]">Git Smart HTTP CLI Guide</span>
+            <p className="text-[11px] leading-relaxed text-pantheon-muted">
+              When executing <code className="text-amber-300">git clone</code>, <code className="text-amber-300">git push</code>, or <code className="text-amber-300">git fetch</code> against your project repositories, supply your Pantheon username when prompted for a username and your Personal Access Token when prompted for a password.
+            </p>
+          </div>
+        </div>
       </div>
     </Card>
   );

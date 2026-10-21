@@ -2,9 +2,11 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   Req,
   UploadedFile,
@@ -19,11 +21,13 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request as ExpressRequest } from 'express';
+import { BuildPlatform } from '@prisma/client';
 import { BuildRunnersService } from './build-runners.service';
 import { RegisterRunnerDto } from './dto/register-runner.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { BuildRunnerAuthGuard } from './build-runner-auth.guard';
 import type { RunnerRequest } from './build-runner-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import {
   buildArtifactUploadOptions,
   getBuildArtifactStoragePath,
@@ -34,6 +38,17 @@ import * as fsp from 'fs/promises';
 @Controller('build-runners')
 export class BuildRunnersController {
   constructor(private readonly buildRunnersService: BuildRunnersService) {}
+
+  @ApiOperation({
+    summary: 'Get current runner availability and status for a platform',
+  })
+  @ApiResponse({ status: 200, description: 'Runner status info' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('status')
+  getRunnerStatus(@Query('platform') platform?: BuildPlatform) {
+    const targetPlatform = platform || BuildPlatform.WINDOWS;
+    return this.buildRunnersService.getRunnerStatus(targetPlatform);
+  }
 
   @ApiOperation({ summary: 'Register a new project-associated build runner' })
   @ApiResponse({
@@ -53,6 +68,16 @@ export class BuildRunnersController {
   @Post('heartbeat')
   heartbeat(@Req() req: RunnerRequest) {
     return this.buildRunnersService.heartbeat(req.runner.id);
+  }
+
+  @ApiOperation({
+    summary: 'Runner graceful shutdown notification to mark as offline',
+  })
+  @ApiResponse({ status: 200, description: 'Runner marked offline' })
+  @UseGuards(BuildRunnerAuthGuard)
+  @Post('offline')
+  markOffline(@Req() req: RunnerRequest) {
+    return this.buildRunnersService.markRunnerOffline(req.runner.id);
   }
 
   @ApiOperation({

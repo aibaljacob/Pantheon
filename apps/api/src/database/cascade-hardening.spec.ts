@@ -11,6 +11,7 @@ import { ProjectAuthorizationService } from '../tasks/project-authorization.serv
 import { ProjectMembersService } from '../projects/project-members.service';
 import { PlaytestService } from '../playtest/playtest.service';
 import { TasksService } from '../tasks/tasks.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 interface MockUser {
   id: string;
@@ -193,6 +194,10 @@ describe('Phase 0.2A: Database Cascade Hardening Tests', () => {
         PlaytestService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: TasksService, useValue: tasksServiceMock },
+        {
+          provide: NotificationsService,
+          useValue: { createNotification: jest.fn().mockResolvedValue({}) },
+        },
       ],
     }).compile();
 

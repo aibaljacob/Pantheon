@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Flag,
   User,
@@ -12,10 +12,12 @@ import {
   Link2,
 } from 'lucide-react';
 import type { TaskItem, TaskPriority, TaskStatus, TaskType } from '../../types';
+import { formatApiAssetUrl } from '../../../profile/services/profileService';
 
 interface TaskCardProps {
   task: TaskItem;
   onClick: (task: TaskItem) => void;
+  viewMode?: 'grid' | 'list';
 }
 
 const TYPE_CONFIG: Record<
@@ -114,7 +116,43 @@ const STATUS_CONFIG: Record<
   },
 };
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
+const AssigneeAvatar: React.FC<{ avatarUrl?: string | null; displayName: string }> = ({
+  avatarUrl,
+  displayName,
+}) => {
+  const [imageError, setImageError] = useState(false);
+  const formattedUrl = avatarUrl ? formatApiAssetUrl(avatarUrl) : null;
+  const initial = displayName ? displayName.trim().charAt(0).toUpperCase() : '?';
+
+  useEffect(() => {
+    setImageError(false);
+  }, [formattedUrl]);
+
+  if (formattedUrl && !imageError) {
+    return (
+      <img
+        src={formattedUrl}
+        alt={displayName}
+        referrerPolicy="no-referrer"
+        onError={() => setImageError(true)}
+        className="h-6 w-6 rounded-full object-cover border border-[#48473f] shrink-0"
+        title={displayName}
+      />
+    );
+  }
+
+  return (
+    <div
+      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#201f1e] border border-[#48473f] text-[10px] font-mono font-bold text-[#e6e2df]"
+      title={displayName}
+      aria-hidden="true"
+    >
+      {initial}
+    </div>
+  );
+};
+
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, viewMode = 'grid' }) => {
   const statusInfo = STATUS_CONFIG[task.status] || {
     label: task.status,
     icon: <HelpCircle className="h-3 w-3" />,
@@ -133,14 +171,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
     new Date(task.dueDate) < new Date() &&
     task.status !== 'DONE';
 
-  return (
-    <div
-      onClick={() => onClick(task)}
-      className="group flex flex-col md:flex-row md:items-center justify-between gap-3 rounded-2xl border border-[#2b2a29] bg-[#1c1b1a] p-4 transition-all duration-200 hover:border-[#48473f] hover:bg-[#201f1e] cursor-pointer"
-    >
-      <div className="flex items-start md:items-center gap-3 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 shrink-0">
-          <span className="shrink-0 rounded-lg border border-[#363433] bg-[#141312] px-2 py-1 font-mono text-[11px] font-bold tracking-wider text-amber-300">
+  if (viewMode === 'list') {
+    return (
+      <div
+        onClick={() => onClick(task)}
+        className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-[#2b2a29] bg-[#1c1b1a] px-4 py-3 transition-all duration-200 hover:border-[#48473f] hover:bg-[#201f1e] cursor-pointer"
+      >
+        {/* Left section: ID, Type, Title, Milestone */}
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <span className="shrink-0 rounded-lg border border-[#363433] bg-[#141312] px-2 py-0.5 font-mono text-[11px] font-bold tracking-wider text-amber-300">
             {task.taskCode}
           </span>
           <span
@@ -148,18 +187,102 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
           >
             {typeInfo.label}
           </span>
-        </div>
-
-        <div className="min-w-0 space-y-1">
-          <h4 className="text-sm font-semibold text-[#ffffff] group-hover:text-amber-100 transition-colors truncate">
+          <h4 className="text-sm font-semibold text-[#ffffff] group-hover:text-amber-100 transition-colors truncate flex-1 min-w-0">
             {task.title}
           </h4>
+          {task.milestone && (
+            <span className="hidden md:flex items-center gap-1 rounded-md border border-[#363433] bg-[#141312] px-2 py-0.5 text-[10px] font-mono text-[#cac6bc] shrink-0 truncate max-w-[140px]">
+              <Flag className="h-2.5 w-2.5 text-amber-400/80 shrink-0" />
+              <span className="truncate">{task.milestone.title}</span>
+            </span>
+          )}
+        </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[#8c887e]">
+        {/* Right section: Status, Priority, Assignee, Updated */}
+        <div className="flex items-center gap-3 shrink-0 justify-between sm:justify-end">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-mono font-medium ${statusInfo.badgeClass}`}
+          >
+            {statusInfo.icon}
+            {statusInfo.label}
+          </span>
+          <span
+            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider ${priorityInfo.badgeClass}`}
+          >
+            {priorityInfo.label}
+          </span>
+
+          <div className="flex items-center gap-1.5 min-w-[110px] justify-end">
+            {task.assignee ? (
+              <>
+                <AssigneeAvatar avatarUrl={task.assignee.avatarUrl} displayName={task.assignee.displayName} />
+                <span className="text-xs font-mono text-[#cac6bc] truncate max-w-[80px]" title={task.assignee.displayName}>
+                  {task.assignee.displayName}
+                </span>
+              </>
+            ) : (
+              <span className="flex items-center gap-1 text-[11px] font-mono text-[#8c887e]">
+                <User className="h-3 w-3" />
+                Unassigned
+              </span>
+            )}
+          </div>
+
+          <span className="hidden lg:inline text-[10px] font-mono text-[#8c887e] shrink-0">
+            {new Date(task.updatedAt).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Default: Grid View Card
+  return (
+    <div
+      onClick={() => onClick(task)}
+      className="group flex flex-col justify-between rounded-2xl border border-[#2b2a29] bg-[#1c1b1a] p-4 transition-all duration-200 hover:border-[#48473f] hover:bg-[#201f1e] cursor-pointer min-h-[168px]"
+    >
+      <div>
+        {/* Top Header Row: Task Code, Type Badge | Status, Priority */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0 rounded-lg border border-[#363433] bg-[#141312] px-2 py-0.5 font-mono text-[11px] font-bold tracking-wider text-amber-300">
+              {task.taskCode}
+            </span>
+            <span
+              className={`shrink-0 rounded-md border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider font-semibold ${typeInfo.badgeClass}`}
+            >
+              {typeInfo.label}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-mono font-medium ${statusInfo.badgeClass}`}
+            >
+              {statusInfo.icon}
+              {statusInfo.label}
+            </span>
+            <span
+              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-mono uppercase tracking-wider ${priorityInfo.badgeClass}`}
+            >
+              {priorityInfo.label}
+            </span>
+          </div>
+        </div>
+
+        {/* Task Title */}
+        <h4 className="mt-3 text-sm font-semibold text-[#ffffff] group-hover:text-amber-100 transition-colors line-clamp-2 leading-snug">
+          {task.title}
+        </h4>
+
+        {/* Context Badges (Milestone, Due Date, Dependencies, Blocked) */}
+        {(task.milestone || task.dueDate || (task.dependencies && task.dependencies.length > 0) || (task.status === 'BLOCKED' && task.blockedReason)) && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
             {task.milestone && (
-              <span className="flex items-center gap-1 rounded-md border border-[#363433] bg-[#141312] px-2 py-0.5 text-[10px] font-mono text-[#cac6bc]">
-                <Flag className="h-2.5 w-2.5 text-amber-400/80" />
-                {task.milestone.title}
+              <span className="flex items-center gap-1 rounded-md border border-[#363433] bg-[#141312] px-2 py-0.5 text-[10px] font-mono text-[#cac6bc] truncate max-w-[170px]">
+                <Flag className="h-2.5 w-2.5 text-amber-400/80 shrink-0" />
+                <span className="truncate">{task.milestone.title}</span>
               </span>
             )}
 
@@ -171,8 +294,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
                     : 'border-[#363433] bg-[#141312] text-[#cac6bc]'
                 }`}
               >
-                <Calendar className="h-2.5 w-2.5 text-amber-400/80" />
-                Due {new Date(task.dueDate).toLocaleDateString()}
+                <Calendar className="h-2.5 w-2.5 text-amber-400/80 shrink-0" />
+                {isOverdue ? 'Overdue' : 'Due'} {new Date(task.dueDate).toLocaleDateString()}
               </span>
             )}
 
@@ -181,75 +304,47 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick }) => {
                 className="flex items-center gap-1 rounded-md border border-[#363433] bg-[#141312] px-2 py-0.5 text-[10px] font-mono text-[#cac6bc]"
                 title={`Depends on ${task.dependencies.map((d) => d.taskCode).join(', ')}`}
               >
-                <Link2 className="h-2.5 w-2.5 text-amber-400/80" />
-                {task.dependencies.length}{' '}
-                {task.dependencies.length === 1 ? 'prereq' : 'prereqs'}
+                <Link2 className="h-2.5 w-2.5 text-amber-400/80 shrink-0" />
+                {task.dependencies.length} {task.dependencies.length === 1 ? 'prereq' : 'prereqs'}
               </span>
             )}
 
             {task.status === 'BLOCKED' && task.blockedReason && (
               <span
-                className="flex items-center gap-1 rounded-md border border-red-900/40 bg-red-950/20 px-2 py-0.5 text-[10px] font-mono text-red-300 truncate max-w-[220px]"
+                className="flex items-center gap-1 rounded-md border border-red-900/40 bg-red-950/20 px-2 py-0.5 text-[10px] font-mono text-red-300 truncate max-w-[200px]"
                 title={task.blockedReason}
               >
                 <AlertOctagon className="h-2.5 w-2.5 text-red-400 shrink-0" />
                 <span className="truncate">{task.blockedReason}</span>
               </span>
             )}
-
-            <span className="text-[10px] font-mono text-[#8c887e]">
-              Updated {new Date(task.updatedAt).toLocaleDateString()}
-            </span>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[#2b2a29]">
-        {/* Status Badge */}
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-mono font-medium ${statusInfo.badgeClass}`}
-        >
-          {statusInfo.icon}
-          {statusInfo.label}
-        </span>
-
-        {/* Priority Badge */}
-        <span
-          className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider ${priorityInfo.badgeClass}`}
-        >
-          {priorityInfo.label}
-        </span>
-
-        {/* Assignee Avatar / Name */}
-        <div className="flex items-center gap-1.5 min-w-[100px] justify-end">
+      {/* Footer Row: Assignee & Updated Date */}
+      <div className="mt-4 pt-3 border-t border-[#2b2a29] flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
           {task.assignee ? (
             <>
-              {task.assignee.avatarUrl ? (
-                <img
-                  src={task.assignee.avatarUrl}
-                  alt={task.assignee.displayName}
-                  className="h-6 w-6 rounded-full object-cover border border-[#48473f]"
-                  title={task.assignee.displayName}
-                />
-              ) : (
-                <div
-                  className="flex h-6 w-6 items-center justify-center rounded-full bg-[#201f1e] border border-[#48473f] text-[10px] font-bold text-[#e6e2df]"
-                  title={task.assignee.displayName}
-                >
-                  {task.assignee.displayName.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="text-xs font-mono text-[#cac6bc] truncate max-w-[80px]">
+              <AssigneeAvatar avatarUrl={task.assignee.avatarUrl} displayName={task.assignee.displayName} />
+              <span className="text-xs font-mono text-[#cac6bc] truncate max-w-[130px]" title={task.assignee.displayName}>
                 {task.assignee.displayName}
               </span>
             </>
           ) : (
-            <span className="flex items-center gap-1 text-[11px] font-mono text-[#8c887e]">
-              <User className="h-3 w-3" />
+            <span className="flex items-center gap-1.5 text-[11px] font-mono text-[#8c887e]">
+              <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#141312] border border-[#363433] text-[#8c887e]">
+                <User className="h-3 w-3" />
+              </div>
               Unassigned
             </span>
           )}
         </div>
+
+        <span className="text-[10px] font-mono text-[#8c887e] shrink-0">
+          Updated {new Date(task.updatedAt).toLocaleDateString()}
+        </span>
       </div>
     </div>
   );

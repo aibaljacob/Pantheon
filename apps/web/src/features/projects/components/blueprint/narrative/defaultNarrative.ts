@@ -1,0 +1,278 @@
+import type { NarrativeData } from '../../../types';
+
+export function createDefaultNarrative(projectName: string, genre?: string | null): NarrativeData {
+  const genreDescriptor = genre ? `${genre} narrative` : 'Dark fantasy saga';
+  return {
+    storyBible: {
+      summary: `A ${genreDescriptor} set in the ruined realm of ${projectName}, where ancient vows bound humanity to elemental embers before the great cataclysm. As the last sacred braziers flicker out, surviving factions clash over the remaining embers of creation.`,
+      themes: [
+        'The Burdens of Inherited Vows',
+        'Corruption of Sacred Institutions',
+        'Sacrifice in the Shadow of Inevitable Ruin',
+        'Truth as an Instrument of Heresy',
+      ],
+      worldLore: `Long before the ash blighted the valleys, the High Citadel reigned under the Sacred Covenant. Deep beneath the cathedral foundations lies the Abyssal Kiln—an ancient engine that preserves life at the cost of continuous mortal souls. When the second son of the Prime Warden destroyed the Great Bell, the veil ruptured, drowning the kingdom in petrifying ash mist.`,
+      settingRules: `1. The Rule of the Ember: Divine miracles require consecrated silver vessels and blood tithes.\n2. Ash-Rot Curse: Protracted exposure to the gray mist crystallizes living tissue into petrified stone.\n3. The Echo Law: Memories of the dead can be recovered through silver mirrors before ash consumption.`,
+      factions: [
+        {
+          id: 'fac-1',
+          name: 'The Ashen Concord',
+          description: 'Devout paladins and inquisitors dedicated to rekindling the prime flame through orthodox blood sacrifice.',
+          alignment: 'Lawful Neutral',
+          leader: 'Lord Commander Vaelin',
+          ideals: 'Duty above survival; preserving the ancient covenant at any mortal cost.',
+        },
+        {
+          id: 'fac-2',
+          name: 'The Eclipse Vanguard',
+          description: 'A faction of outcast knights, scholars, and deserters fighting to extinguish the flame to break humanity’s servitude.',
+          alignment: 'Chaotic Neutral',
+          leader: 'Lyra the Heretic',
+          ideals: 'Freedom through final collapse; breaking the endless sacrificial cycle.',
+        },
+        {
+          id: 'fac-3',
+          name: 'The Hollowed Coven',
+          description: 'Alchemists and sorcerers harvesting crystallized ash from fallen demigods to achieve artificial immortality.',
+          alignment: 'Neutral Evil',
+          leader: 'Arch-Seer Morvath',
+          ideals: 'Ascension through consumption of divine relic cores.',
+        },
+      ],
+      timeline: [
+        {
+          id: 'era-1',
+          era: 'The Golden Vigil',
+          title: 'The Great Binding Treaty',
+          description: 'Seven warring kingdoms swear blood fealty to the Prime Warden, consecrating the central cathedral.',
+          impact: 'Established the High Citadel and the Holy Inquisition.',
+        },
+        {
+          id: 'era-2',
+          era: 'The Shattered Bell',
+          title: 'The Heresy of the Eclipse',
+          description: 'The sacred bell-tower is detonated during the winter solstice, releasing the petrifying ash veil across the realm.',
+          impact: 'Extinguished five of the six sacred braziers; fractured humanity into warring factions.',
+        },
+        {
+          id: 'era-3',
+          era: 'The Present Dying Age',
+          title: 'The Awakening at the Chasm',
+          description: 'The protagonist awakens at the boundary of the Sunken Gate as the final brazier begins to waver.',
+          impact: 'Initiates the player’s journey to decide the fate of the embers.',
+        },
+      ],
+    },
+    characters: [
+      {
+        id: 'char-1',
+        name: 'Lord Commander Vaelin',
+        archetype: 'The Tragic Zealot',
+        role: 'FACTION_LEADER',
+        backstory: 'Former hero of the Bell Tower siege, now carrying petrified ash in his left arm. He guards the dying flame with unyielding brutality.',
+        motivation: 'Uphold the oath made to his dying sovereign, even if it burns the realm to ash.',
+        goal: 'Secure the last consecrated flame crucible before the eclipse begins.',
+        conflict: 'His holy duty demands the immediate execution of his estranged daughter, Lyra.',
+        arc: 'From blind adherence to doctrine to a gut-wrenching reckoning with the cost of fanaticism.',
+        relationships: [
+          {
+            targetCharacterId: 'char-2',
+            targetCharacterName: 'Lyra the Heretic',
+            relationshipType: 'Estranged Daughter & Arch-Nemesis',
+            details: 'Loves her deeply, but is bound by sacred oath to execute her on sight.',
+          },
+        ],
+      },
+      {
+        id: 'char-2',
+        name: 'Lyra the Heretic',
+        archetype: 'The Rebellious Visionary',
+        role: 'PROTAGONIST',
+        backstory: 'Former Concord archivist who discovered the hidden truth in the catacombs: the flame feeds on the souls of children.',
+        motivation: 'Dismantle the sacrificial apparatus and liberate survivors from divine servitude.',
+        goal: 'Infiltrate the sanctum sanctorum and shatter the sacred kiln with alchemical brimstone.',
+        conflict: 'To destroy the flame, she must face and possibly execute her own father.',
+        arc: 'From bitter outcast seeking revenge to compassionate leader bearing the burden of tomorrow.',
+        relationships: [
+          {
+            targetCharacterId: 'char-1',
+            targetCharacterName: 'Lord Commander Vaelin',
+            relationshipType: 'Father & Adversary',
+            details: 'Seeks to make him see the truth before the final blade is drawn.',
+          },
+        ],
+      },
+      {
+        id: 'char-3',
+        name: 'The Cinder Herald',
+        archetype: 'The Enigmatic Broker',
+        role: 'SUPPORTING',
+        backstory: 'A wandering blind scholar who carries a reliquary chest of silver mirrors that reflect the memories of the deceased.',
+        motivation: 'Preserve the truth of the world before all memories turn to gray ash.',
+        goal: 'Guide worthy souls through the labyrinth of the sunken cathedral.',
+        conflict: 'Hated by both the Concord and the Vanguard for refusing to declare allegiance.',
+        arc: 'Reveals himself to be the original author of the oath that doomed the kingdom.',
+        relationships: [],
+      },
+    ],
+    scenes: [
+      {
+        id: 'scene-1',
+        sceneNumber: 1,
+        title: 'Confrontation at the Sunken Gate',
+        slugline: {
+          intExt: 'EXT',
+          location: 'SUNKEN GATE - CATHEDRAL PERIPHERY',
+          timeOfDay: 'DUSK',
+        },
+        summary: 'Vaelin intercepts Lyra as she prepares to breach the outer sanctum with her vanguard sappers.',
+        actionDirections: 'Volumetric ash falls like gray snow over the shattered stone ramparts. In the courtyard below, dead knights lie encased in brittle obsidian crystal. LORD COMMANDER VAELIN stands alone atop the frozen archway, greatsword planted into mortar. Wind tears violently at his tattered white tabard.',
+        dialogueLines: [
+          {
+            id: 'line-1',
+            characterName: 'LORD COMMANDER VAELIN',
+            parenthetical: 'voice heavy with exhaustion, gaze fixed on the gray horizon',
+            dialogue: 'Three bells toll for the lost, Lyra. You count among them today.',
+          },
+          {
+            id: 'line-2',
+            characterName: 'LYRA',
+            parenthetical: 'stepping from the shadow of the collapsed buttress, hand resting on her hilt',
+            dialogue: 'The bells were cast from lies, Father. The flame you starve for is an engine of slaughter.',
+          },
+          {
+            id: 'line-3',
+            characterName: 'LORD COMMANDER VAELIN',
+            parenthetical: 'drawing the greatsword; sparks shower across the cold stone',
+            dialogue: 'Then let it consume us both. For the Oath.',
+          },
+        ],
+        notes: 'Cinematic establishing encounter introducing the personal stakes between protagonist and antagonist.',
+        isDraft: false,
+      },
+      {
+        id: 'scene-2',
+        sceneNumber: 2,
+        title: 'The Catacomb Murmurs',
+        slugline: {
+          intExt: 'INT',
+          location: 'CATACOMBS OF THE SCRIPTORS - CRYPT VAULT',
+          timeOfDay: 'NIGHT',
+        },
+        summary: 'Lyra retreats into the catacombs and meets the Cinder Herald, who offers forbidden revelations.',
+        actionDirections: 'Faint amber candlelight flickers across endless rows of stone ossuary shelves. THE CINDER HERALD sits cross-legged beside a basin of dark mercury, polishing a circular silver mirror with blackened fingertips.',
+        dialogueLines: [
+          {
+            id: 'line-4',
+            characterName: 'THE CINDER HERALD',
+            parenthetical: 'without turning his head, voice dry like scraping parchment',
+            dialogue: 'Your boots carry the dust of the Sunken Gate. You spared him, didn’t you?',
+          },
+          {
+            id: 'line-5',
+            characterName: 'LYRA',
+            parenthetical: 'sheathing her dagger, chest heaving',
+            dialogue: 'He is blinded by the covenant. Show me what the mirrors saw.',
+          },
+        ],
+        notes: 'Exposition beat bridging the action of Scene 1 into the moral dilemma of Act II.',
+        isDraft: false,
+      },
+    ],
+    quests: [
+      {
+        id: 'q-node-1',
+        title: 'The Awakening at the Chasm',
+        act: 'ACT I: THE DYING COALS',
+        type: 'START',
+        description: 'The protagonist regains consciousness on the edge of the Sunken Chasm as ash falls from the shattered bell-tower.',
+        choices: [
+          {
+            id: 'c-1',
+            text: 'Investigate the sounds of battle at the Sunken Gate',
+            consequence: 'Aligns player immediately with Lyra’s vanguard forces; triggers early combat with Concord sentries.',
+            targetNodeId: 'q-node-2',
+          },
+          {
+            id: 'c-2',
+            text: 'Seek shelter in the catacombs of the Cinder Herald',
+            consequence: 'Unlocks forbidden lore regarding the origin of the flame; avoids early bloodshed.',
+            targetNodeId: 'q-node-3',
+          },
+        ],
+        objectives: [
+          'Recover the fractured silver dagger from the stone altar',
+          'Survive the ash-rot squall across the viaduct',
+        ],
+        isDraft: false,
+      },
+      {
+        id: 'q-node-2',
+        title: 'The Gate Breach',
+        act: 'ACT I: THE DYING COALS',
+        type: 'CHOICE',
+        description: 'Vaelin’s forces have barricaded the iron doors. Lyra requests explosive alchemical brimstone to breach the portcullis.',
+        choices: [
+          {
+            id: 'c-3',
+            text: 'Detonate the gate charges and force entry',
+            consequence: 'Breaches sanctum quickly, but collapses ancient reliquary containing civilian refugees.',
+            targetNodeId: 'q-node-4',
+          },
+          {
+            id: 'c-4',
+            text: 'Scale the ruined aqueduct to open the gate from within',
+            consequence: 'Stealth approach preserves refugee shelter; grants rare Concord tactical armor.',
+            targetNodeId: 'q-node-5',
+          },
+        ],
+        objectives: [
+          'Secure the perimeter around the battering ram',
+          'Defeat Concord Justiciar Brant',
+        ],
+        isDraft: false,
+      },
+      {
+        id: 'q-node-3',
+        title: 'The Catacomb Revelations',
+        act: 'ACT I: THE DYING COALS',
+        type: 'OBJECTIVE',
+        description: 'The Cinder Herald reveals ancient mirrors containing memories of the Sovereign’s final sacrifice.',
+        choices: [
+          {
+            id: 'c-5',
+            text: 'Confront Lord Commander Vaelin with the truth',
+            consequence: 'Opens diplomatic resolution path for Act II.',
+            targetNodeId: 'q-node-5',
+          },
+        ],
+        objectives: [
+          'Decipher the inscriptions on the 3 silver mirrors',
+          'Synthesize the antitoxin draught before ash poisoning takes hold',
+        ],
+        isDraft: false,
+      },
+      {
+        id: 'q-node-4',
+        title: 'Ashen Ruin Ending: The Ash Ascendant',
+        act: 'ACT III: THE ECLIPSE',
+        type: 'ENDING',
+        description: 'The flame is extinguished, leaving humanity in terrifying freedom beneath an indifferent universe.',
+        choices: [],
+        objectives: ['Survive the long winter of the realm'],
+        isDraft: false,
+      },
+      {
+        id: 'q-node-5',
+        title: 'Concord Ending: The Perpetual Crucible',
+        act: 'ACT III: THE ECLIPSE',
+        type: 'ENDING',
+        description: 'The protagonist ascends the throne, taking the sovereign’s place as the living fuel for the embers.',
+        choices: [],
+        objectives: ['Offer mortal blood to rekindle the sun'],
+        isDraft: false,
+      },
+    ],
+    updatedAt: new Date().toISOString(),
+  };
+}

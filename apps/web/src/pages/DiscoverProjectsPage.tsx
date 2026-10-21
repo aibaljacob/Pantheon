@@ -1,6 +1,6 @@
 import React from 'react';
+import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/store/authStore';
-import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { DiscoverProjectsView } from '../features/projects/components/DiscoverProjectsView';
@@ -9,13 +9,7 @@ export const DiscoverProjectsPage: React.FC = () => {
   const currentUser = useAuthStore((state) => state.currentUser);
 
   if (currentUser) {
-    return (
-      <DashboardLayout user={currentUser}>
-        <div className="max-w-7xl mx-auto pb-12">
-          <DiscoverProjectsView />
-        </div>
-      </DashboardLayout>
-    );
+    return <Navigate to="/projects" replace />;
   }
 
   return (

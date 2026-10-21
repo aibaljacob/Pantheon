@@ -9,13 +9,17 @@ import { RegisterRunnerDto } from './dto/register-runner.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcryptjs';
-import { BuildStatus, BuildRunner, Prisma } from '@prisma/client';
+import { BuildStatus, BuildRunner, Prisma, BuildPlatform } from '@prisma/client';
+import { BuildsGateway } from '../events/builds.gateway';
 
 @Injectable()
 export class BuildRunnersService {
   private readonly logger = new Logger(BuildRunnersService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private buildsGateway: BuildsGateway,
+  ) {}
 
   async registerRunner(dto: RegisterRunnerDto, headerSecret?: string) {
     const configuredSecret = process.env.BUILD_RUNNER_BOOTSTRAP_SECRET;
@@ -96,14 +100,119 @@ export class BuildRunnersService {
     return isMatch ? runner : null;
   }
 
+  getLivenessTimeoutMs(): number {
+    const val = process.env.BUILD_RUNNER_LIVENESS_TIMEOUT_MS;
+    return val ? parseInt(val, 10) : 60000;
+  }
+
+  async getActiveRunnerForPlatform(
+    platform: BuildPlatform,
+  ): Promise<BuildRunner | null> {
+    const cutoff = new Date(Date.now() - this.getLivenessTimeoutMs());
+    return this.prisma.buildRunner.findFirst({
+      where: {
+        platform,
+        isOnline: true,
+        lastSeenAt: {
+          gte: cutoff,
+        },
+      },
+      orderBy: {
+        lastSeenAt: 'desc',
+      },
+    });
+  }
+
+  async getRunnerStatus(platform: BuildPlatform) {
+    const activeRunner = await this.getActiveRunnerForPlatform(platform);
+    if (!activeRunner) {
+      return {
+        platform,
+        online: false,
+        status: 'OFFLINE' as const,
+        runner: null,
+        currentJob: null,
+      };
+    }
+
+    const currentJob = await this.prisma.buildJob.findFirst({
+      where: {
+        targetPlatform: platform,
+        status: BuildStatus.RUNNING,
+      },
+      select: {
+        id: true,
+        projectId: true,
+        startedAt: true,
+      },
+      orderBy: {
+        startedAt: 'desc',
+      },
+    });
+
+    return {
+      platform,
+      online: true,
+      status: (currentJob ? 'BUILDING' : 'ONLINE') as 'ONLINE' | 'BUILDING',
+      runner: {
+        id: activeRunner.id,
+        name: activeRunner.name,
+        platform: activeRunner.platform,
+        lastSeenAt: activeRunner.lastSeenAt,
+      },
+      currentJob,
+    };
+  }
+
+  async markRunnerOffline(runnerId: string) {
+    const runner = await this.prisma.buildRunner.findUnique({
+      where: { id: runnerId },
+    });
+    if (!runner) throw new NotFoundException('Runner not found');
+
+    const updated = await this.prisma.buildRunner.update({
+      where: { id: runnerId },
+      data: {
+        isOnline: false,
+      },
+    });
+
+    this.buildsGateway.emitRunnerStatus({
+      platform: updated.platform,
+      status: 'OFFLINE',
+      online: false,
+      runnerId: updated.id,
+      runnerName: updated.name,
+    });
+
+    return { success: true };
+  }
+
   async heartbeat(runnerId: string) {
-    await this.prisma.buildRunner.update({
+    const runner = await this.prisma.buildRunner.update({
       where: { id: runnerId },
       data: {
         isOnline: true,
         lastSeenAt: new Date(),
       },
     });
+
+    const runningJob = await this.prisma.buildJob.findFirst({
+      where: {
+        buildRunnerId: runnerId,
+        status: BuildStatus.RUNNING,
+      },
+      select: { id: true },
+    });
+
+    this.buildsGateway.emitRunnerStatus({
+      platform: runner.platform,
+      status: runningJob ? 'BUILDING' : 'ONLINE',
+      online: true,
+      runnerId: runner.id,
+      runnerName: runner.name,
+    });
+
     return { success: true };
   }
 
@@ -115,10 +224,16 @@ export class BuildRunnersService {
     if (!runner) throw new NotFoundException('Runner not found');
 
     // Update last seen
-    await this.heartbeat(runnerId);
+    await this.prisma.buildRunner.update({
+      where: { id: runnerId },
+      data: {
+        isOnline: true,
+        lastSeenAt: new Date(),
+      },
+    });
 
     // 2. Atomically find and claim the oldest QUEUED job matching this runner's platform across any project
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const job = await tx.buildJob.findFirst({
         where: {
           status: BuildStatus.QUEUED,
@@ -152,11 +267,44 @@ export class BuildRunnersService {
         where: { id: job.id },
         include: {
           project: true,
+          triggeredBy: {
+            select: {
+              id: true,
+              username: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  firstName: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          },
+          milestone: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+          buildRunner: true,
         },
       });
 
       return { job: claimedJob };
     });
+
+    if (result.job) {
+      this.buildsGateway.emitBuildUpdated(result.job.projectId, result.job);
+      this.buildsGateway.emitRunnerStatus({
+        platform: runner.platform,
+        status: 'BUILDING',
+        online: true,
+        runnerId: runner.id,
+        runnerName: runner.name,
+      });
+    }
+
+    return result;
   }
 
   async updateJobStatus(runnerId: string, jobId: string, dto: UpdateJobDto) {
@@ -195,10 +343,50 @@ export class BuildRunnersService {
       }
     }
 
-    return this.prisma.buildJob.update({
+    const updatedJob = await this.prisma.buildJob.update({
       where: { id: jobId },
       data: updateData,
+      include: {
+        triggeredBy: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                firstName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        milestone: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+        buildRunner: true,
+      },
     });
+
+    this.buildsGateway.emitBuildUpdated(job.projectId, updatedJob);
+
+    if (
+      dto.status === BuildStatus.SUCCESS ||
+      dto.status === BuildStatus.FAILED ||
+      dto.status === BuildStatus.CANCELLED
+    ) {
+      this.buildsGateway.emitRunnerStatus({
+        platform: runner.platform,
+        status: 'ONLINE',
+        online: true,
+        runnerId: runner.id,
+        runnerName: runner.name,
+      });
+    }
+
+    return updatedJob;
   }
 
   async assertJobOwnedByRunner(jobId: string, runnerId: string) {

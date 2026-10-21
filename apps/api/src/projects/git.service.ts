@@ -24,6 +24,12 @@ export interface GitTreeItem {
   size?: number; // Size in bytes for blobs
 }
 
+export interface GitFileChange {
+  path: string;
+  status: 'ADDED' | 'MODIFIED' | 'DELETED' | 'RENAMED';
+  oldPath?: string;
+}
+
 @Injectable()
 export class GitService {
   private readonly logger = new Logger(GitService.name);
@@ -200,6 +206,130 @@ export class GitService {
       }
       this.logger.error(`Failed to list commits for ${branch}: ${err.message}`);
       throw new InternalServerErrorException('Failed to list commits');
+    }
+  }
+
+  /**
+   * Retrieves single commit info using `git log -1`.
+   */
+  async getCommitInfo(
+    repoPath: string,
+    commitHash: string,
+  ): Promise<GitCommitInfo> {
+    try {
+      const output = await this.execGit([
+        '--git-dir',
+        repoPath,
+        'log',
+        '-1',
+        '--format=%H|%s|%an|%ae|%aI',
+        commitHash,
+      ]);
+      const line = output.trim();
+      if (!line) {
+        throw new NotFoundException(
+          `Commit ${commitHash} not found in repository`,
+        );
+      }
+      const [hash, message, authorName, authorEmail, date] = line.split('|');
+      return { hash, message, authorName, authorEmail, date };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (
+        err instanceof NotFoundException ||
+        errorMessage.includes('unknown revision') ||
+        errorMessage.includes('ambiguous argument') ||
+        errorMessage.includes('bad revision') ||
+        errorMessage.includes('fatal: bad object') ||
+        errorMessage.includes('Not a valid object name')
+      ) {
+        throw new NotFoundException(
+          `Commit ${commitHash} not found in repository`,
+        );
+      }
+      this.logger.error(
+        `Failed to get commit info for ${commitHash}: ${errorMessage}`,
+      );
+      throw new InternalServerErrorException('Failed to get commit info');
+    }
+  }
+
+  /**
+   * Retrieves files changed in a commit using `git diff-tree`.
+   */
+  async getCommitChangedFiles(
+    repoPath: string,
+    commitHash: string,
+  ): Promise<GitFileChange[]> {
+    try {
+      const output = await this.execGit([
+        '--git-dir',
+        repoPath,
+        'diff-tree',
+        '-r',
+        '--root',
+        '--no-commit-id',
+        '--name-status',
+        '-M',
+        '-m',
+        '--first-parent',
+        commitHash,
+      ]);
+
+      const lines = output.trim().split('\n').filter(Boolean);
+      const changes: GitFileChange[] = [];
+
+      for (const line of lines) {
+        const parts = line.split('\t');
+        if (parts.length < 2) continue;
+
+        const rawStatus = parts[0].trim();
+        const statusChar = rawStatus.charAt(0).toUpperCase();
+
+        if (statusChar === 'R' && parts.length >= 3) {
+          changes.push({
+            status: 'RENAMED',
+            oldPath: parts[1].trim(),
+            path: parts[2].trim(),
+          });
+        } else if (statusChar === 'A') {
+          changes.push({
+            status: 'ADDED',
+            path: parts[1].trim(),
+          });
+        } else if (statusChar === 'D') {
+          changes.push({
+            status: 'DELETED',
+            path: parts[1].trim(),
+          });
+        } else {
+          changes.push({
+            status: 'MODIFIED',
+            path: parts[1].trim(),
+          });
+        }
+      }
+
+      return changes;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      if (
+        err instanceof NotFoundException ||
+        errorMessage.includes('Not a valid object name') ||
+        errorMessage.includes('fatal: bad object') ||
+        errorMessage.includes('unknown revision') ||
+        errorMessage.includes('bad revision')
+      ) {
+        throw new NotFoundException(
+          `Commit ${commitHash} not found in repository`,
+        );
+      }
+      this.logger.error(
+        `Failed to get changed files for ${commitHash}: ${errorMessage}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to get commit changed files',
+      );
     }
   }
 

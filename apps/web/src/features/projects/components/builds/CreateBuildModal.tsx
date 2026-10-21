@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { X, AlertCircle, Cpu, Monitor, Laptop, Terminal, Globe } from 'lucide-react';
+import { X, AlertCircle, Cpu, Monitor, Laptop, Terminal, Globe, Settings, Loader2 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import type { BuildPlatform, CreateBuildInput, MilestoneItem } from '../../types';
+import type { RunnerStatusInfo } from '../../services/buildService';
+import { useLocalRunnerAgent } from '../../hooks/useLocalRunnerAgent';
+import { LocalAgentSettingsModal } from './LocalAgentSettingsModal';
 
 interface CreateBuildModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onTrigger: (input: CreateBuildInput) => Promise<any>;
+  onTrigger: (input: CreateBuildInput) => Promise<unknown>;
   milestones: MilestoneItem[];
+  runnerStatus?: RunnerStatusInfo | null;
 }
 
 const PLATFORMS: Array<{ id: BuildPlatform; label: string; icon: React.ReactNode }> = [
@@ -22,6 +26,7 @@ export const CreateBuildModal: React.FC<CreateBuildModalProps> = ({
   onClose,
   onTrigger,
   milestones,
+  runnerStatus,
 }) => {
   const [targetPlatform, setTargetPlatform] = useState<BuildPlatform>('WINDOWS');
   const [branchName, setBranchName] = useState('main');
@@ -29,22 +34,51 @@ export const CreateBuildModal: React.FC<CreateBuildModalProps> = ({
   const [milestoneId, setMilestoneId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const {
+    isStarting,
+    statusMessage,
+    error: agentError,
+    ensureRunnerOnline,
+    reset: resetAgent,
+  } = useLocalRunnerAgent();
 
   if (!isOpen) return null;
 
+  const isRunnerLive = targetPlatform === 'WINDOWS' && Boolean(runnerStatus?.online);
+  const displayedError = error || agentError;
+
+  const handleClose = () => {
+    resetAgent();
+    onClose();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || isStarting) return;
     setIsSubmitting(true);
     setError(null);
 
     try {
+      if (targetPlatform === 'WINDOWS' && !runnerStatus?.online) {
+        const isOnline = await ensureRunnerOnline({
+          platform: 'WINDOWS',
+          currentRunnerStatus: runnerStatus,
+        });
+        if (!isOnline) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       await onTrigger({
         targetPlatform,
         branchName: branchName.trim() || undefined,
         commitHash: commitHash.trim() || undefined,
         milestoneId: milestoneId || undefined,
       });
-      onClose();
+      handleClose();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to trigger build.';
       setError(msg);
@@ -69,19 +103,29 @@ export const CreateBuildModal: React.FC<CreateBuildModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg border border-[#363433] text-[#8c887e] hover:text-[#ffffff] hover:border-[#48473f] transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              title="Local Runner Agent Settings"
+              className="p-1.5 rounded-lg border border-[#363433] text-[#8c887e] hover:text-[#ffffff] hover:border-[#48473f] transition-colors"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="p-1.5 rounded-lg border border-[#363433] text-[#8c887e] hover:text-[#ffffff] hover:border-[#48473f] transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
-        {error && (
+        {displayedError && (
           <div className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-950/30 p-3 text-xs font-mono text-red-300">
             <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
-            <span>{error}</span>
+            <span>{displayedError}</span>
           </div>
         )}
 
@@ -114,6 +158,29 @@ export const CreateBuildModal: React.FC<CreateBuildModalProps> = ({
               })}
             </div>
           </div>
+
+          {/* Live Runner Status Hint */}
+          {!isRunnerLive && (
+            <div className="flex items-center justify-between rounded-xl border border-amber-900/40 bg-amber-950/20 p-3 text-xs font-mono text-amber-300">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                <span>
+                  {targetPlatform === 'WINDOWS'
+                    ? 'Windows runner is offline. Will automatically start via Local Agent.'
+                    : `No ${targetPlatform} runner is currently available.`}
+                </span>
+              </div>
+              {targetPlatform === 'WINDOWS' && (
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="underline text-amber-400 hover:text-amber-200 ml-2 shrink-0"
+                >
+                  Configure
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Branch Name */}
           <div className="space-y-1.5">
@@ -166,20 +233,36 @@ export const CreateBuildModal: React.FC<CreateBuildModalProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#201f1e]">
-            <Button variant="secondary" size="sm" type="button" onClick={onClose}>
+            <Button variant="secondary" size="sm" type="button" onClick={handleClose}>
               Cancel
             </Button>
             <Button
               variant="primary"
               size="sm"
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isStarting || (targetPlatform !== 'WINDOWS' && !isRunnerLive)}
             >
-              {isSubmitting ? 'Queueing...' : 'Trigger Build'}
+              {isStarting ? (
+                <span className="flex items-center gap-1.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {statusMessage || 'Starting build runner...'}
+                </span>
+              ) : isSubmitting ? (
+                'Queueing...'
+              ) : targetPlatform !== 'WINDOWS' && !isRunnerLive ? (
+                'Runner Offline'
+              ) : (
+                'Trigger Build'
+              )}
             </Button>
           </div>
         </form>
       </div>
+
+      <LocalAgentSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   );
 };

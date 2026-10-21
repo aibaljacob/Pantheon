@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -26,6 +27,7 @@ async function bootstrap() {
   app.use('/uploads/banners', express.static(join(uploadsDir, 'banners')));
   app.use('/uploads/portfolio', express.static(join(uploadsDir, 'portfolio')));
   app.use('/uploads/resumes', express.static(join(uploadsDir, 'resumes')));
+  app.use('/uploads/art-design', express.static(join(uploadsDir, 'art-design')));
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Pantheon API')

@@ -16,15 +16,22 @@ const sizeClassMap: Record<NonNullable<UserAvatarProps['size']>, string> = {
 };
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 'md', className = '' }) => {
+  const [imageError, setImageError] = React.useState(false);
   const fallbackInitials = `${user.firstName?.charAt(0) || ''}${user.lastName?.charAt(0) || ''}`.toUpperCase() || 'U';
   const rawAvatar = user.avatar || user.avatarUrl;
   const avatarSrc = rawAvatar ? formatApiAssetUrl(rawAvatar) : null;
 
-  if (avatarSrc) {
+  React.useEffect(() => {
+    setImageError(false);
+  }, [avatarSrc]);
+
+  if (avatarSrc && !imageError) {
     return (
       <img
         src={avatarSrc}
         alt={`${user.fullName} avatar`}
+        referrerPolicy="no-referrer"
+        onError={() => setImageError(true)}
         className={`rounded-full object-cover ${sizeClassMap[size]} ${className}`}
       />
     );

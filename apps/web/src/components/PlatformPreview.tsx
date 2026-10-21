@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
 import { Badge } from './ui/Badge';
 import {
-  Activity,
-  Box,
   CheckCircle2,
   Cpu,
-  Folder,
-  GitBranch,
+  FolderKanban,
   Search,
   Shield,
   Terminal,
+  Compass,
+  Gamepad2,
+  Clock,
 } from 'lucide-react';
 
 export const PlatformPreview: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'assets' | 'analytics'>('pipeline');
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'blueprint' | 'playtests'>('pipeline');
 
   return (
-    <section className="py-24 bg-[#141312] relative overflow-hidden">
+    <section id="workspace" className="py-24 bg-[#141312] relative overflow-hidden">
       {/* Volumetric Section Backdrop Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1100px] h-[600px] section-volumetric-glow rounded-full blur-3xl pointer-events-none opacity-90" />
 
@@ -33,7 +33,7 @@ export const PlatformPreview: React.FC = () => {
           </h2>
 
           <p className="font-sans text-base sm:text-lg text-[#cac6bc] leading-relaxed">
-            Experience the control center where technical directors, artists, and producers orchestrate game releases.
+            Experience the unified workspace where technical directors, artists, and producers coordinate game development from concept to playtest.
           </p>
         </div>
 
@@ -56,10 +56,10 @@ export const PlatformPreview: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Shield className="w-4 h-4 text-[#e6e2df]" />
                 <span className="font-mono text-xs text-[#e6e2df] font-bold tracking-wider">
-                  PROJECT // ETHEREAL_ODYSSEY_UE5
+                  PROJECT // ETHEREAL_ODYSSEY
                 </span>
                 <Badge variant="bronze" className="text-[9px] py-0 px-1.5 font-mono border-t-[#e6e2df]/20">
-                  v2.4.0-rc1
+                  v1.2.0-alpha
                 </Badge>
               </div>
             </div>
@@ -67,19 +67,19 @@ export const PlatformPreview: React.FC = () => {
             {/* Search Input Mock */}
             <div className="hidden md:flex items-center gap-2 bg-[#201f1e] border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] px-3 py-1.5 rounded-lg text-xs font-mono text-[#cac6bc]">
               <Search className="w-3.5 h-3.5 text-[#8c887e]" />
-              <span>Search assets, shaders, developers... (Cmd+K)</span>
+              <span>Search tasks, blueprints, team members... (Cmd+K)</span>
             </div>
 
             {/* Right: Live Telemetry & Status */}
             <div className="flex items-center gap-4 text-xs font-mono text-[#cac6bc]">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[#e6e2df]">LIVE SYNC</span>
+                <span className="text-[#e6e2df]">GIT SYNCED</span>
               </div>
               <span className="text-[#8c887e]">|</span>
-              <div className="flex items-center gap-1 text-[#8c887e]">
-                <Cpu className="w-3.5 h-3.5" />
-                <span>60.2 FPS</span>
+              <div className="flex items-center gap-1.5 text-amber-300">
+                <Cpu className="w-3.5 h-3.5 text-amber-400" />
+                <span>RUNNER IDLE</span>
               </div>
             </div>
           </div>
@@ -88,6 +88,7 @@ export const PlatformPreview: React.FC = () => {
           <div className="bg-[#1c1b1a] px-6 py-3 border-b border-[#2b2a29] flex items-center justify-between overflow-x-auto relative z-10">
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setActiveTab('pipeline')}
                 className={`px-4 py-1.5 rounded-lg font-mono text-xs font-semibold transition-all flex items-center gap-2 ${
                   activeTab === 'pipeline'
@@ -95,35 +96,37 @@ export const PlatformPreview: React.FC = () => {
                     : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#201f1e]'
                 }`}
               >
-                <GitBranch className="w-3.5 h-3.5" />
-                Production Pipeline
+                <FolderKanban className="w-3.5 h-3.5" />
+                Production Sprints
               </button>
               <button
-                onClick={() => setActiveTab('assets')}
+                type="button"
+                onClick={() => setActiveTab('blueprint')}
                 className={`px-4 py-1.5 rounded-lg font-mono text-xs font-semibold transition-all flex items-center gap-2 ${
-                  activeTab === 'assets'
+                  activeTab === 'blueprint'
                     ? 'bg-[#2b2a29] text-[#ffffff] border-t border-l border-[#e6e2df]/40 border-r border-b border-[#363433] shadow-md'
                     : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#201f1e]'
                 }`}
               >
-                <Folder className="w-3.5 h-3.5" />
-                3D Asset Vault
+                <Compass className="w-3.5 h-3.5" />
+                Game Blueprint
               </button>
               <button
-                onClick={() => setActiveTab('analytics')}
+                type="button"
+                onClick={() => setActiveTab('playtests')}
                 className={`px-4 py-1.5 rounded-lg font-mono text-xs font-semibold transition-all flex items-center gap-2 ${
-                  activeTab === 'analytics'
+                  activeTab === 'playtests'
                     ? 'bg-[#2b2a29] text-[#ffffff] border-t border-l border-[#e6e2df]/40 border-r border-b border-[#363433] shadow-md'
                     : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#201f1e]'
                 }`}
               >
-                <Activity className="w-3.5 h-3.5" />
-                Engine Telemetry
+                <Gamepad2 className="w-3.5 h-3.5" />
+                Playtests & Feedback
               </button>
             </div>
 
             <div className="hidden sm:flex items-center gap-3">
-              <span className="font-mono text-xs text-[#8c887e]">ACTIVE SPRINT: #14 (GOLD MASTER)</span>
+              <span className="font-mono text-xs text-[#8c887e]">ACTIVE SPRINT: #4 (ALPHA SLICE)</span>
               <div className="w-24 h-2 bg-[#2b2a29] rounded-full overflow-hidden border border-[#363433]">
                 <div className="w-[85%] h-full bg-[#e6e2df] rounded-full shadow-[0_0_8px_rgba(230,226,223,0.4)]" />
               </div>
@@ -140,20 +143,20 @@ export const PlatformPreview: React.FC = () => {
                 {/* Column 1: Sprints & Milestones */}
                 <div className="lg:col-span-8 space-y-4">
                   <div className="flex items-center justify-between font-mono text-xs text-[#8c887e]">
-                    <span>MILESTONE // SPRINT 14 DELIVERABLES</span>
-                    <span>3 DEVS ACTIVE</span>
+                    <span>TASKS // ACTIVE SPRINT DELIVERABLES</span>
+                    <span>4 ACTIVE CONTRIBUTORS</span>
                   </div>
 
                   <div className="space-y-3">
                     <div className="bg-[#1c1b1a] p-4 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] flex flex-wrap items-center justify-between gap-4 hover:border-[#48473f] transition-colors shadow-sm">
                       <div className="flex items-center gap-3">
-                        <CheckCircle2 className="w-5 h-5 text-[#e6e2df]" />
+                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                         <div>
                           <div className="font-sans font-semibold text-sm text-[#ffffff]">
-                            Character Rigging & IK Solver Pass
+                            Character Movement & Dodge Controller Pass
                           </div>
                           <div className="font-mono text-xs text-[#8c887e]">
-                            Assigned to: Elena Rostova (Tech Art Lead)
+                            Assigned to: Lead Gameplay Programmer
                           </div>
                         </div>
                       </div>
@@ -162,28 +165,28 @@ export const PlatformPreview: React.FC = () => {
 
                     <div className="bg-[#1c1b1a] p-4 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] flex flex-wrap items-center justify-between gap-4 hover:border-[#48473f] transition-colors shadow-sm">
                       <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 rounded-full border-2 border-[#e6e2df] border-t-transparent animate-spin" />
+                        <div className="w-5 h-5 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
                         <div>
                           <div className="font-sans font-semibold text-sm text-[#ffffff]">
-                            Volumetric Fog & Ray-Traced Reflections
+                            Narrative Dialogue Branching State Tree
                           </div>
                           <div className="font-mono text-xs text-[#8c887e]">
-                            Assigned to: Marcus Vance (Graphics Dev)
+                            Assigned to: Narrative Designer
                           </div>
                         </div>
                       </div>
-                      <Badge variant="outline" className="text-[10px]">IN PROGRESS (92%)</Badge>
+                      <Badge variant="outline" className="text-[10px] text-amber-300 border-amber-500/40">IN PROGRESS</Badge>
                     </div>
 
                     <div className="bg-[#1c1b1a] p-4 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] flex flex-wrap items-center justify-between gap-4 hover:border-[#48473f] transition-colors shadow-sm">
                       <div className="flex items-center gap-3">
-                        <Box className="w-5 h-5 text-[#8c887e]" />
+                        <Clock className="w-5 h-5 text-[#8c887e]" />
                         <div>
                           <div className="font-sans font-semibold text-sm text-[#cac6bc]">
-                            Spatial Audio Occlusion Matrices
+                            Enemy Patrol & Detection Behavior Trees
                           </div>
                           <div className="font-mono text-xs text-[#8c887e]">
-                            Assigned to: Audio Engineering Team
+                            Assigned to: AI Systems Lead
                           </div>
                         </div>
                       </div>
@@ -195,21 +198,21 @@ export const PlatformPreview: React.FC = () => {
                 {/* Column 2: Build Stream & Live Node Activity */}
                 <div className="lg:col-span-4 bg-[#1c1b1a] p-5 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] space-y-4 shadow-sm">
                   <div className="font-mono text-xs text-[#8c887e] flex items-center justify-between">
-                    <span>BUILD TELEMETRY</span>
+                    <span>BUILD & REPO TELEMETRY</span>
                     <Terminal className="w-3.5 h-3.5" />
                   </div>
 
                   <div className="space-y-3 text-xs font-mono">
                     <div className="p-3 rounded-lg bg-[#141312] border border-[#2b2a29] space-y-1">
-                      <div className="text-[#e6e2df] font-semibold">Unreal Engine 5.5.3</div>
-                      <div className="text-[#8c887e]">Cooked 14,892 Assets</div>
-                      <div className="text-emerald-400">Build #8412 Passed in 2.1m</div>
+                      <div className="text-[#e6e2df] font-semibold">Godot Export Runner</div>
+                      <div className="text-[#8c887e]">Target: WebGL / HTML5</div>
+                      <div className="text-emerald-400">Build #412 Succeeded in 1.4m</div>
                     </div>
 
                     <div className="p-3 rounded-lg bg-[#141312] border border-[#2b2a29] space-y-1">
-                      <div className="text-[#e6e2df] font-semibold">Git LFS Vault</div>
-                      <div className="text-[#8c887e]">Synced 4.2 GB 3D Meshes</div>
-                      <div className="text-[#cac6bc]">No Merge Conflicts</div>
+                      <div className="text-[#e6e2df] font-semibold">Git Repository</div>
+                      <div className="text-[#8c887e]">Branch: main @ 7c2a10e</div>
+                      <div className="text-[#cac6bc]">Clean Tree • 0 Conflicts</div>
                     </div>
                   </div>
                 </div>
@@ -217,23 +220,24 @@ export const PlatformPreview: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'assets' && (
+            {activeTab === 'blueprint' && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { name: 'Boss_CyberDragon_LOD0.fbx', type: '3D MESH', size: '142 MB', ver: 'v1.4' },
-                  { name: 'Master_Volumetric_Shader.uasset', type: 'SHADER GRAPH', size: '18 MB', ver: 'v3.1' },
-                  { name: 'Level01_Ambient_Stem_96k.wav', type: 'AUDIO STEM', size: '84 MB', ver: 'v1.0' },
-                  { name: 'Environment_Concept_V2.exr', type: 'CONCEPT ART', size: '256 MB', ver: 'v2.0' },
-                ].map((asset, aIdx) => (
+                  { name: 'Cyberpunk Neon Palette', type: 'ART PROPOSAL', status: 'Approved (8 votes)', badge: 'APPROVED' },
+                  { name: 'Chapter 1: The Outpost Fall', type: 'NARRATIVE ARC', status: '4 Quests Linked', badge: 'ACTIVE' },
+                  { name: 'Noir Gold & Bronze Palette', type: 'CURATED PALETTE', status: 'Primary Vision Colors', badge: 'IN USE' },
+                  { name: 'Combat & Exploration Loop', type: 'GAMEPLAY LOOP', status: 'Core Loop Diagram', badge: 'VALIDATED' },
+                ].map((item, aIdx) => (
                   <div key={aIdx} className="bg-[#1c1b1a] p-4 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] hover:border-[#48473f] transition-all space-y-3 shadow-sm">
-                    <div className="h-24 bg-[#141312] rounded-lg border border-[#2b2a29] flex items-center justify-center text-[#8c887e]">
-                      <Box className="w-8 h-8 text-[#e6e2df]" />
+                    <div className="h-24 bg-[#141312] rounded-lg border border-[#2b2a29] flex flex-col items-center justify-center gap-1.5 text-[#8c887e]">
+                      <Compass className="w-6 h-6 text-amber-400" />
+                      <span className="text-[10px] font-mono text-[#cac6bc]">{item.badge}</span>
                     </div>
                     <div>
-                      <div className="font-mono text-xs font-bold text-[#e6e2df] truncate">{asset.name}</div>
+                      <div className="font-mono text-xs font-bold text-[#e6e2df] truncate">{item.name}</div>
                       <div className="flex items-center justify-between font-mono text-[10px] text-[#8c887e] mt-1">
-                        <span>{asset.type}</span>
-                        <span>{asset.size}</span>
+                        <span>{item.type}</span>
+                        <span className="text-amber-300/80">{item.status}</span>
                       </div>
                     </div>
                   </div>
@@ -241,24 +245,24 @@ export const PlatformPreview: React.FC = () => {
               </div>
             )}
 
-            {activeTab === 'analytics' && (
+            {activeTab === 'playtests' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-[#1c1b1a] p-6 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] space-y-2 shadow-sm">
-                  <div className="font-mono text-xs text-[#8c887e]">FRAME BUDGET TARGET</div>
-                  <div className="font-headline font-extrabold text-3xl text-[#ffffff]">16.6ms</div>
-                  <div className="font-mono text-xs text-emerald-400">Currently averaging 14.2ms</div>
+                  <div className="font-mono text-xs text-[#8c887e]">ACTIVE PLAYTEST SESSIONS</div>
+                  <div className="font-headline font-extrabold text-3xl text-[#ffffff]">3 Sessions</div>
+                  <div className="font-mono text-xs text-emerald-400">18 Player Feedback Reports</div>
                 </div>
 
                 <div className="bg-[#1c1b1a] p-6 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] space-y-2 shadow-sm">
-                  <div className="font-mono text-xs text-[#8c887e]">VRAM ALLOCATION</div>
-                  <div className="font-headline font-extrabold text-3xl text-[#ffffff]">6.4 / 8.0 GB</div>
-                  <div className="font-mono text-xs text-[#cac6bc]">Texture streaming optimized</div>
+                  <div className="font-mono text-xs text-[#8c887e]">AVERAGE RATING</div>
+                  <div className="font-headline font-extrabold text-3xl text-[#ffffff]">4.8 / 5.0</div>
+                  <div className="font-mono text-xs text-amber-300">Playable WebGL Build v0.4</div>
                 </div>
 
                 <div className="bg-[#1c1b1a] p-6 rounded-xl border-t border-l border-[#48473f]/40 border-r border-b border-[#2b2a29] space-y-2 shadow-sm">
-                  <div className="font-mono text-xs text-[#8c887e]">BUILD SUCCESS RATE</div>
-                  <div className="font-headline font-extrabold text-3xl text-[#ffffff]">99.4%</div>
-                  <div className="font-mono text-xs text-emerald-400">+1.2% this sprint</div>
+                  <div className="font-mono text-xs text-[#8c887e]">BUILD RUNNER SUCCESS</div>
+                  <div className="font-headline font-extrabold text-3xl text-[#ffffff]">100%</div>
+                  <div className="font-mono text-xs text-emerald-400">CI/CD Deployments Verified</div>
                 </div>
               </div>
             )}

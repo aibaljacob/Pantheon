@@ -42,6 +42,10 @@ model User {
   createdPlaytests        PlaytestSession[]        @relation("CreatedPlaytests")
   reportedFeedback        PlaytestFeedback[]       @relation("ReportedFeedback")
   notifications           Notification[]           @relation("UserNotifications")
+  authoredArtProposals    ArtProposal[]            @relation("AuthoredArtProposals")
+  artProposalVotes        ArtProposalVote[]        @relation("UserArtVotes")
+  artProposalComments     ArtProposalComment[]     @relation("UserArtComments")
+  authoredDesignAssets    DesignAsset[]            @relation("AuthoredDesignAssets")
 }
 
 model UserProfile {
@@ -404,6 +408,8 @@ model Project {
   playtestSessions           PlaytestSession[]
   buildRunners               BuildRunner[]
   blueprint                  GameBlueprint?
+  artProposals               ArtProposal[]
+  designAssets               DesignAsset[]
 
   @@index([founderId])
   @@index([moderationStatus])
@@ -425,6 +431,9 @@ model GameBlueprint {
   pillars           Json?
   keyFeatures       Json?
   targetSpecs       Json?
+  visualDirection   Json?
+  gameplayLoop      Json?
+  narrative         Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -781,6 +790,8 @@ model Task {
   convertedFeedback PlaytestFeedback?
   dependencies      TaskDependency[]  @relation("TaskDependencies")
   dependents        TaskDependency[]  @relation("TaskDependents")
+  sourceArtProposals ArtProposal[]     @relation("ProposalTask")
+  sourceDesignAssets DesignAsset[]     @relation("AssetTask")
 
   @@unique([projectId, taskNumber])
   @@index([projectId])
@@ -915,6 +926,7 @@ model PlayableBuild {
   uploadedBy       User?             @relation("UploadedPlayableBuilds", fields: [uploadedById], references: [id], onDelete: SetNull)
   playtestSessions PlaytestSession[]
 
+  @@unique([projectId, version, platform])
   @@index([projectId])
   @@index([milestoneId])
   @@index([buildJobId])
@@ -1034,4 +1046,140 @@ model Notification {
   @@index([userId])
   @@index([userId, isRead])
   @@index([userId, createdAt])
+}
+
+enum ArtProposalCategory {
+  CHARACTERS_COSTUMES
+  ENVIRONMENTS_ARCHITECTURE
+  PROPS_WEAPONS
+  UI_ICONS
+  LIGHTING_COLOR
+}
+
+enum ArtProposalStatus {
+  DRAFT
+  IN_VOTING
+  REVISION_REQUESTED
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum DesignAssetCategory {
+  CHARACTERS_COSTUMES
+  ENVIRONMENTS_ARCHITECTURE
+  PROPS_WEAPONS
+  UI_ICONS
+  LIGHTING_COLOR
+}
+
+enum DesignAssetStatus {
+  PROPOSED
+  APPROVED
+  ARCHIVED
+}
+
+enum ArtVoteType {
+  APPROVE
+  DISAPPROVE
+  NEUTRAL
+}
+
+model ArtProposal {
+  id              String              @id @default(uuid())
+  projectId       String
+  authorId        String
+  title           String
+  category        ArtProposalCategory @default(ENVIRONMENTS_ARCHITECTURE)
+  status          ArtProposalStatus   @default(IN_VOTING)
+  rationale       String              @db.Text
+  designNotes     String?             @db.Text
+  paletteColors   Json?
+  referenceImages Json?
+  currentRound    Int                 @default(1)
+  founderDecision String?
+  decisionNotes   String?             @db.Text
+  decidedAt       DateTime?
+  createdTaskId   String?
+  revisions       Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User                 @relation("AuthoredArtProposals", fields: [authorId], references: [id], onDelete: Cascade)
+  createdTask Task?                @relation("ProposalTask", fields: [createdTaskId], references: [id], onDelete: SetNull)
+  votes       ArtProposalVote[]
+  comments    ArtProposalComment[]
+  assets      DesignAsset[]
+
+  @@index([projectId])
+  @@index([authorId])
+  @@index([status])
+  @@index([category])
+  @@index([createdTaskId])
+}
+
+model ArtProposalVote {
+  id         String      @id @default(uuid())
+  proposalId String
+  userId     String
+  round      Int         @default(1)
+  voteType   ArtVoteType @default(APPROVE)
+  feedback   String?     @db.Text
+  createdAt  DateTime    @default(now())
+
+  proposal ArtProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  user     User        @relation("UserArtVotes", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([proposalId, userId, round])
+  @@index([proposalId])
+  @@index([userId])
+}
+
+model ArtProposalComment {
+  id         String   @id @default(uuid())
+  proposalId String
+  authorId   String
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  proposal ArtProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  author   User        @relation("UserArtComments", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([proposalId])
+  @@index([authorId])
+}
+
+model DesignAsset {
+  id             String              @id @default(uuid())
+  projectId      String
+  authorId       String
+  title          String
+  category       DesignAssetCategory @default(ENVIRONMENTS_ARCHITECTURE)
+  status         DesignAssetStatus   @default(PROPOSED)
+  description    String?             @db.Text
+  fileUrl        String
+  thumbnailUrl   String?
+  tags           String[]            @default([])
+  sourceDetails  String?
+  creatorDetails String?
+  licenseDetails String?
+  paletteColors  Json?
+  proposalId     String?
+  createdTaskId  String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author      User         @relation("AuthoredDesignAssets", fields: [authorId], references: [id], onDelete: Cascade)
+  proposal    ArtProposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+  createdTask Task?        @relation("AssetTask", fields: [createdTaskId], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([authorId])
+  @@index([category])
+  @@index([status])
+  @@index([proposalId])
+  @@index([createdTaskId])
 }

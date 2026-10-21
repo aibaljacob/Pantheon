@@ -311,7 +311,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fadeIn">
-      <div className="relative w-full max-w-2xl rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-6 shadow-2xl max-h-[90vh] overflow-y-auto text-[#e6e2df]">
+      <div className="relative w-full max-w-2xl rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-6 shadow-2xl max-h-[85vh] overflow-y-auto text-[#e6e2df]">
         {/* Header */}
         <div className="flex items-start justify-between gap-4 border-b border-[#2b2a29] pb-4">
           <div className="flex items-center gap-3">
@@ -751,6 +751,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             <img
                               src={commit.author.avatarUrl}
                               alt={commit.authorName}
+                              referrerPolicy="no-referrer"
                               className="h-5 w-5 rounded-full object-cover"
                             />
                           ) : (

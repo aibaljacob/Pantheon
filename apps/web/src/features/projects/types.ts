@@ -458,6 +458,7 @@ export interface CreatePlayableBuildInput {
 export interface PlaytestSession {
   id: string;
   title: string;
+  instructions?: string | null;
   isActive: boolean;
   startDate: string | null;
   endDate: string | null;
@@ -466,6 +467,7 @@ export interface PlaytestSession {
     version: string;
     platform: string;
     title: string;
+    fileSizeBytes?: string | null;
     buildJob?: { commitHash?: string };
   } | null;
   _count: {
@@ -485,6 +487,247 @@ export interface GameFeature {
   category?: 'GAMEPLAY' | 'TECHNICAL' | 'ART' | 'AUDIO' | string;
 }
 
+export interface ColorSwatch {
+  hex: string;
+  name: string;
+  role: 'DOMINANT' | 'SECONDARY' | 'ACCENT' | 'HIGHLIGHT' | 'SHADOW';
+}
+
+export interface VisualDirection {
+  artStyle: string;
+  atmosphere: string;
+  lighting: string;
+  cameraPerspective: string;
+  palette: ColorSwatch[];
+  visualKeyElements: string[];
+  conceptArtPrompt: string;
+  conceptArtUrl?: string | null;
+  imageGenerationSupported: boolean;
+  generatedAt: string;
+}
+
+export interface GameplayLoopStep {
+  stepNumber: number;
+  phase: string;
+  title: string;
+  description: string;
+  pacing?: string;
+}
+
+export interface GameplayLoopData {
+  summary: string;
+  steps: GameplayLoopStep[];
+  generatedAt?: string;
+}
+
+export interface ProductionPlanTaskDraft {
+  tempId: string;
+  title: string;
+  description: string;
+  type: 'FEATURE' | 'SYSTEM' | 'BUG' | 'REFACTOR' | 'DOCS';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  discipline: string;
+  dependsOnTempIds?: string[];
+}
+
+export interface ProductionPlanFeatureDraft {
+  tempId: string;
+  name: string;
+  description: string;
+  discipline: string;
+  requiredSkills: string[];
+  tasks: ProductionPlanTaskDraft[];
+}
+
+export interface ProductionPlanSystemDraft {
+  tempId: string;
+  name: string;
+  description: string;
+  discipline: string;
+  features: ProductionPlanFeatureDraft[];
+}
+
+export interface ProductionPlanDraft {
+  summary: string;
+  targetMilestoneTitle: string;
+  estimatedWeeks: number;
+  systems: ProductionPlanSystemDraft[];
+  generatedAt: string;
+}
+
+export interface ApproveProductionPlanInput {
+  milestoneTitle: string;
+  milestoneDescription?: string;
+  tasks: Array<{
+    tempId: string;
+    title: string;
+    description?: string;
+    type?: string;
+    priority?: string;
+    discipline?: string;
+    dependsOnTempIds?: string[];
+  }>;
+}
+
+export interface ApproveProductionPlanResult {
+  milestoneId: string;
+  milestoneTitle: string;
+  taskCount: number;
+  tasks: Array<{
+    id: string;
+    taskNumber: number;
+    taskCode: string;
+    title: string;
+  }>;
+}
+
+export interface SkillCoverageMember {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  matchedSkills: string[];
+}
+
+export interface SkillCoverageOpenRole {
+  id: string;
+  title: string;
+  openPositions: number;
+  skills: string[];
+}
+
+export interface SkillCoverageCandidate {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  headline: string | null;
+  matchScore: number;
+}
+
+export interface SkillCoverageDiscipline {
+  discipline: string;
+  status: 'COVERED' | 'RECRUITING' | 'GAP';
+  requiredSkills: string[];
+  coveredByMembers: SkillCoverageMember[];
+  openRoles: SkillCoverageOpenRole[];
+  recommendedCandidatesCount: number;
+  sampleCandidate?: SkillCoverageCandidate | null;
+}
+
+export interface SkillCoverageData {
+  totalRequiredSkills: number;
+  coveredCount: number;
+  recruitingCount: number;
+  gapCount: number;
+  coveragePercentage: number;
+  disciplines: SkillCoverageDiscipline[];
+}
+
+export interface StoryFaction {
+  id: string;
+  name: string;
+  description: string;
+  alignment?: string;
+  leader?: string;
+  ideals?: string;
+}
+
+export interface StoryTimelineEra {
+  id: string;
+  era: string;
+  title: string;
+  description: string;
+  impact?: string;
+}
+
+export interface StoryBible {
+  summary: string;
+  themes: string[];
+  worldLore: string;
+  settingRules: string;
+  factions: StoryFaction[];
+  timeline: StoryTimelineEra[];
+}
+
+export interface CharacterRelationship {
+  targetCharacterId: string;
+  targetCharacterName: string;
+  relationshipType: string;
+  details: string;
+}
+
+export interface CharacterCodexEntry {
+  id: string;
+  name: string;
+  archetype: string;
+  role: 'PROTAGONIST' | 'ANTAGONIST' | 'SUPPORTING' | 'FACTION_LEADER' | 'NPC';
+  backstory: string;
+  motivation: string;
+  goal: string;
+  conflict: string;
+  arc: string;
+  relationships: CharacterRelationship[];
+}
+
+export interface ScreenplayDialogueLine {
+  id: string;
+  characterName: string;
+  parenthetical?: string;
+  dialogue: string;
+}
+
+export interface ScreenplaySlugline {
+  intExt: 'INT' | 'EXT' | 'INT/EXT';
+  location: string;
+  timeOfDay: 'DAY' | 'NIGHT' | 'DUSK' | 'DAWN' | 'CONTINUOUS';
+}
+
+export interface ScreenplayScene {
+  id: string;
+  sceneNumber: number;
+  title: string;
+  slugline: ScreenplaySlugline;
+  summary: string;
+  actionDirections: string;
+  dialogueLines: ScreenplayDialogueLine[];
+  notes?: string;
+  isDraft?: boolean;
+}
+
+export interface QuestChoice {
+  id: string;
+  text: string;
+  consequence: string;
+  targetNodeId?: string;
+}
+
+export interface QuestNode {
+  id: string;
+  title: string;
+  act: string;
+  type: 'START' | 'CHOICE' | 'OBJECTIVE' | 'CONSEQUENCE' | 'ENDING';
+  description: string;
+  choices: QuestChoice[];
+  objectives: string[];
+  isDraft?: boolean;
+}
+
+export interface NarrativeData {
+  storyBible: StoryBible;
+  characters: CharacterCodexEntry[];
+  scenes: ScreenplayScene[];
+  quests: QuestNode[];
+  updatedAt?: string;
+}
+
+export interface NarrativeAiProposal {
+  section: 'STORY_BIBLE' | 'CHARACTERS' | 'SCENE' | 'QUEST';
+  draft: any;
+  continuityNotes: string[];
+  generatedAt: string;
+}
+
 export interface GameBlueprint {
   id: string;
   projectId: string;
@@ -501,6 +744,9 @@ export interface GameBlueprint {
   pillars?: GamePillar[] | null;
   keyFeatures?: GameFeature[] | null;
   targetSpecs?: Record<string, unknown> | null;
+  visualDirection?: VisualDirection | null;
+  gameplayLoop?: GameplayLoopData | null;
+  narrative?: NarrativeData | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -519,5 +765,163 @@ export interface UpsertGameBlueprintInput {
   pillars?: GamePillar[];
   keyFeatures?: GameFeature[];
   targetSpecs?: Record<string, unknown>;
+  visualDirection?: VisualDirection;
+  gameplayLoop?: GameplayLoopData;
+  narrative?: NarrativeData;
 }
 
+export type ArtProposalCategory =
+  | 'CHARACTERS_COSTUMES'
+  | 'ENVIRONMENTS_ARCHITECTURE'
+  | 'PROPS_WEAPONS'
+  | 'UI_ICONS'
+  | 'LIGHTING_COLOR';
+
+export type ArtProposalStatus =
+  | 'DRAFT'
+  | 'IN_VOTING'
+  | 'REVISION_REQUESTED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'ARCHIVED';
+
+export type ArtVoteType = 'APPROVE' | 'DISAPPROVE' | 'NEUTRAL';
+
+export type DesignAssetCategory =
+  | 'CHARACTERS_COSTUMES'
+  | 'ENVIRONMENTS_ARCHITECTURE'
+  | 'PROPS_WEAPONS'
+  | 'UI_ICONS'
+  | 'LIGHTING_COLOR';
+
+export type DesignAssetStatus = 'PROPOSED' | 'APPROVED' | 'ARCHIVED';
+
+export interface ArtProposalVoteSummary {
+  approveCount: number;
+  disapproveCount: number;
+  neutralCount: number;
+  totalVotes: number;
+  eligibleVoters: number;
+  participationRate: number;
+}
+
+export interface ArtProposalVoteDetail {
+  id: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  round: number;
+  voteType: ArtVoteType;
+  feedback?: string | null;
+  createdAt: string;
+}
+
+export interface ArtProposalCommentItem {
+  id: string;
+  authorId: string;
+  author: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+  content: string;
+  createdAt: string;
+}
+
+export interface ArtProposalRevision {
+  round: number;
+  revisionNotes: string;
+  revisedBy: string;
+  revisedAt: string;
+  votesSummary: {
+    approve: number;
+    disapprove: number;
+    neutral: number;
+    total: number;
+  };
+}
+
+export interface ArtProposalItem {
+  id: string;
+  projectId: string;
+  authorId: string;
+  author: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+  title: string;
+  category: ArtProposalCategory;
+  status: ArtProposalStatus;
+  rationale: string;
+  designNotes?: string | null;
+  paletteColors?: ColorSwatch[];
+  referenceImages?: Array<{ url: string; name?: string; size?: string }>;
+  currentRound: number;
+  founderDecision?: string | null;
+  decisionNotes?: string | null;
+  decidedAt?: string | null;
+  createdTaskId?: string | null;
+  createdTask?: {
+    id: string;
+    taskCode: string;
+    taskNumber: number;
+    title: string;
+    status: string;
+  } | null;
+  revisions?: ArtProposalRevision[];
+  commentsCount?: number;
+  voteSummary: ArtProposalVoteSummary;
+  currentRoundVotes?: ArtProposalVoteDetail[];
+  comments?: ArtProposalCommentItem[];
+  userVote?: {
+    voteType: ArtVoteType;
+    feedback?: string | null;
+    createdAt: string;
+  } | null;
+  isFounder?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DesignAssetItem {
+  id: string;
+  projectId: string;
+  authorId: string;
+  author: {
+    id: string;
+    username: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+  title: string;
+  category: DesignAssetCategory;
+  status: DesignAssetStatus;
+  description?: string | null;
+  fileUrl: string;
+  thumbnailUrl: string;
+  tags: string[];
+  sourceDetails?: string | null;
+  creatorDetails?: string | null;
+  licenseDetails?: string | null;
+  paletteColors?: ColorSwatch[];
+  proposalId?: string | null;
+  proposal?: {
+    id: string;
+    title: string;
+    status: string;
+  } | null;
+  createdTaskId?: string | null;
+  createdTask?: {
+    id: string;
+    taskCode: string;
+    taskNumber: number;
+    title: string;
+    status: string;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
+}

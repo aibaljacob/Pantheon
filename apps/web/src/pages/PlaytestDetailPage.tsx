@@ -19,10 +19,11 @@ interface PlaytestSession {
     version: string;
     platform: string;
     title: string;
+    fileSizeBytes?: string | null;
     buildJob: {
       commitHash: string | null;
     } | null;
-  };
+  } | null;
 }
 
 interface Feedback {

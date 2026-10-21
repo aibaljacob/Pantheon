@@ -4,7 +4,7 @@ import { useAuthStore } from '../features/auth/store/authStore';
 import { DashboardLayout } from '../features/dashboard/components/DashboardLayout';
 import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 // Subcomponents
 import { ProfileHeader } from '../features/profile/components/ProfileHeader';
@@ -202,21 +202,37 @@ export const ProfilePage: React.FC = () => {
     };
   }, []);
 
+  const [profileFeedback, setProfileFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  const showProfileFeedback = (type: 'success' | 'error', message: string) => {
+    setProfileFeedback({ type, message });
+    setTimeout(() => {
+      setProfileFeedback((prev) => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
+
   // Section Update Handlers (Local state updating — NO /profile/me refetches)
   const handleAvatarUpdated = (newAvatarUrl: string | undefined) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { user: { ...prev.user, avatarUrl: newAvatarUrl } }) : prev));
+    showProfileFeedback('success', 'Profile avatar updated successfully.');
   };
 
   const handleBannerUpdated = (newBannerUrl: string | undefined) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { user: { ...prev.user, bannerUrl: newBannerUrl } }) : prev));
+    showProfileFeedback('success', 'Profile banner updated successfully.');
   };
 
   const handleBasicProfileUpdated = (updatedUser: ProfileUser) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { user: { ...prev.user, ...updatedUser } }) : prev));
+    showProfileFeedback('success', 'Profile information updated successfully.');
   };
 
   const handleIdentityUpdated = (updatedIdentity: ProfessionalIdentity) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { professional: updatedIdentity }) : prev));
+    showProfileFeedback('success', 'Professional identity updated successfully.');
   };
 
   // Experience Handlers
@@ -267,6 +283,7 @@ export const ProfilePage: React.FC = () => {
         : [...prev.education, savedEdu];
       return updateProfileDataState(prev, { education: nextEducation });
     });
+    showProfileFeedback('success', 'Education record saved.');
   };
   const handleEducationDeleted = async (id: string, skipApi = false) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { education: prev.education.filter((e) => e.id !== id) }) : prev));
@@ -297,6 +314,7 @@ export const ProfilePage: React.FC = () => {
         : [savedItem, ...prev.portfolio];
       return updateProfileDataState(prev, { portfolio: nextPortfolio });
     });
+    showProfileFeedback('success', 'Portfolio project saved.');
   };
   const handlePortfolioDeleted = async (id: string, skipApi = false) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { portfolio: prev.portfolio.filter((p) => p.id !== id) }) : prev));
@@ -312,6 +330,7 @@ export const ProfilePage: React.FC = () => {
   // Resume Handlers
   const handleResumeSaved = (savedResume: Resume | null) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { resume: savedResume }) : prev));
+    showProfileFeedback('success', 'Resume document updated.');
   };
   const handleToggleResumeVisibility = async () => {
     if (profileData?.resume && accessToken) {
@@ -353,6 +372,7 @@ export const ProfilePage: React.FC = () => {
         : [...prev.links, savedLink];
       return updateProfileDataState(prev, { links: nextLinks });
     });
+    showProfileFeedback('success', 'External link saved.');
   };
   const handleLinkDeleted = async (id: string, skipApi = false) => {
     setProfileData((prev) => (prev ? updateProfileDataState(prev, { links: prev.links.filter((l) => l.id !== id) }) : prev));
@@ -588,6 +608,34 @@ export const ProfilePage: React.FC = () => {
         onSaved={handleLinkSaved}
         onDeleted={(id) => handleLinkDeleted(id, true)}
       />
+
+      {/* Profile Save Feedback Toast Notification */}
+      {profileFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2.5 rounded-2xl border px-5 py-3 text-xs font-mono shadow-2xl backdrop-blur-md transition-all animate-fadeIn ${
+            profileFeedback.type === 'success'
+              ? 'border-emerald-500/40 bg-[#1c1b1a]/95 text-emerald-300 shadow-emerald-950/40'
+              : 'border-red-500/40 bg-[#1c1b1a]/95 text-red-300 shadow-red-950/40'
+          }`}
+        >
+          {profileFeedback.type === 'success' ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+          )}
+          <span>{profileFeedback.message}</span>
+          <button
+            type="button"
+            onClick={() => setProfileFeedback(null)}
+            className="ml-2 text-xs opacity-60 hover:opacity-100"
+            aria-label="Dismiss notification"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 

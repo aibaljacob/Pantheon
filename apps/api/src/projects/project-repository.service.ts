@@ -19,11 +19,27 @@ import {
   CreatePullRequestDto,
   CreateReleaseDto,
 } from './project-repository.dto';
+import {
+  getGitCloneUrls,
+  getGitHttpBaseUrl,
+  type RepoCloneUrls,
+} from './git-clone-url.util';
+
+export type { RepoCloneUrls };
+export { getGitCloneUrls, getGitHttpBaseUrl };
 
 export interface RepoAuthor {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+}
+
+export interface RepoLinkedTaskItem {
+  id: string;
+  taskNumber: number;
+  taskCode: string;
+  title: string;
+  status: string;
 }
 
 export interface RepoCommitItem {
@@ -33,6 +49,24 @@ export interface RepoCommitItem {
   date: string;
   branch: string;
   changedFiles: string[];
+  linkedTasks: RepoLinkedTaskItem[];
+}
+
+export interface RepoCommitFileChange {
+  path: string;
+  status: 'ADDED' | 'MODIFIED' | 'DELETED' | 'RENAMED';
+  oldPath?: string;
+}
+
+export interface RepoCommitDetail {
+  hash: string;
+  message: string;
+  author: RepoAuthor;
+  date: string;
+  branch?: string;
+  changedFiles: string[];
+  fileChanges: RepoCommitFileChange[];
+  linkedTasks: RepoLinkedTaskItem[];
 }
 
 export interface RepoFileItem {
@@ -122,7 +156,8 @@ export class ProjectRepositoryService {
         ? 'Godot Engine 4.x'
         : 'Unreal Engine 5.x';
 
-    const readmeContent = `# ${projectName}\n\n${description || 'A collaborative game production project on Pantheon.'}\n\n## Game Overview\n- **Engine**: ${engineLabel}\n- **VCS & Architecture**: Git Monorepo Architecture\n- **Production Studio**: Pantheon Studio\n\n## Getting Started\n1. Clone the repository:\n\`\`\`bash\ngit clone https://git.pantheon.studio/projects/${projectSlug}.git\n\`\`\`\n2. Checkout the default branch:\n\`\`\`bash\ngit checkout main\n\`\`\`\n3. Open the project in ${engineLabel} to verify engine compatibility.\n`;
+    const cloneUrl = this.getGitCloneUrls(projectSlug).https;
+    const readmeContent = `# ${projectName}\n\n${description || 'A collaborative game production project on Pantheon.'}\n\n## Game Overview\n- **Engine**: ${engineLabel}\n- **VCS & Architecture**: Git Monorepo Architecture\n- **Production Studio**: Pantheon Studio\n\n## Getting Started\n1. Clone the repository:\n\`\`\`bash\ngit clone ${cloneUrl}\n\`\`\`\n2. Checkout the default branch:\n\`\`\`bash\ngit checkout main\n\`\`\`\n3. Open the project in ${engineLabel} to verify engine compatibility.\n`;
 
     let gitignoreContent = `# Pantheon Default VCS Ignore Rules\nBinaries/\nBuild/\nSaved/\nIntermediate/\n.idea/\n.vs/\n*.log\n`;
     if (isUnity) {
@@ -361,6 +396,53 @@ export class ProjectRepositoryService {
       }
     }
 
+    const commitHashes = gitCommits.map((c) => c.hash);
+    const searchHashes = Array.from(
+      new Set([...commitHashes, ...commitHashes.map((h) => h.toLowerCase())]),
+    );
+
+    const taskCommitLinks =
+      searchHashes.length > 0
+        ? await this.prisma.taskCommitLink.findMany({
+            where: {
+              commitHash: { in: searchHashes },
+              task: { projectId: project.id },
+            },
+            include: {
+              task: {
+                select: {
+                  id: true,
+                  taskNumber: true,
+                  title: true,
+                  status: true,
+                },
+              },
+            },
+            orderBy: {
+              task: {
+                taskNumber: 'asc',
+              },
+            },
+          })
+        : [];
+
+    const linksByCommitHash = new Map<string, RepoLinkedTaskItem[]>();
+    for (const link of taskCommitLinks) {
+      if (!link.task) continue;
+      const key = link.commitHash.toLowerCase();
+      const list = linksByCommitHash.get(key) || [];
+      if (!list.some((item) => item.id === link.task.id)) {
+        list.push({
+          id: link.task.id,
+          taskNumber: link.task.taskNumber,
+          taskCode: `TASK-${link.task.taskNumber}`,
+          title: link.task.title,
+          status: link.task.status,
+        });
+      }
+      linksByCommitHash.set(key, list);
+    }
+
     const commits: RepoCommitItem[] = gitCommits.map((c) => ({
       hash: c.hash,
       message: c.message,
@@ -371,6 +453,7 @@ export class ProjectRepositoryService {
       date: new Date(c.date).toISOString(),
       branch: activeBranchName,
       changedFiles: [], // Omitted for brevity in listing
+      linkedTasks: linksByCommitHash.get(c.hash.toLowerCase()) || [],
     }));
 
     const branches: RepoBranchItem[] = gitBranches.map((b) => ({
@@ -421,11 +504,12 @@ export class ProjectRepositoryService {
         totalSize,
         contributorsCount: Math.max(1, project.members.length + 1),
       },
-      cloneUrls: {
-        https: `https://git.pantheon.studio/projects/${project.slug}.git`,
-        ssh: `git@git.pantheon.studio:projects/${project.slug}.git`,
-      },
+      cloneUrls: this.getGitCloneUrls(project.slug),
     };
+  }
+
+  getGitCloneUrls(slug: string): RepoCloneUrls {
+    return getGitCloneUrls(slug);
   }
 
   async getFileContent(
@@ -468,6 +552,82 @@ export class ProjectRepositoryService {
     } catch {
       throw new NotFoundException(`File not found at path: ${filePath}`);
     }
+  }
+
+  async getCommit(
+    projectId: string,
+    commitHash: string,
+    user: AuthenticatedUser | undefined,
+  ): Promise<RepoCommitDetail> {
+    await this.authService.assertCanView(projectId, user?.id, user?.role);
+
+    if (!commitHash || !/^[0-9a-fA-F]{7,64}$/.test(commitHash)) {
+      throw new BadRequestException('Invalid commit hash format.');
+    }
+
+    const { project, repo } = await this.getOrCreateRepository(projectId);
+    const repoPath = repo.repoDiskPath!;
+
+    const commitInfo = await this.gitService.getCommitInfo(
+      repoPath,
+      commitHash,
+    );
+    const fileChanges = await this.gitService.getCommitChangedFiles(
+      repoPath,
+      commitHash,
+    );
+
+    const searchHashes = Array.from(
+      new Set([commitHash, commitHash.toLowerCase()]),
+    );
+    const taskCommitLinks = await this.prisma.taskCommitLink.findMany({
+      where: {
+        commitHash: { in: searchHashes },
+        task: { projectId: project.id },
+      },
+      include: {
+        task: {
+          select: {
+            id: true,
+            taskNumber: true,
+            title: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: {
+        task: {
+          taskNumber: 'asc',
+        },
+      },
+    });
+
+    const linkedTasks: RepoLinkedTaskItem[] = [];
+    for (const link of taskCommitLinks) {
+      if (!link.task) continue;
+      if (!linkedTasks.some((t) => t.id === link.task.id)) {
+        linkedTasks.push({
+          id: link.task.id,
+          taskNumber: link.task.taskNumber,
+          taskCode: `TASK-${link.task.taskNumber}`,
+          title: link.task.title,
+          status: link.task.status,
+        });
+      }
+    }
+
+    return {
+      hash: commitInfo.hash,
+      message: commitInfo.message,
+      author: {
+        username: commitInfo.authorName,
+        displayName: commitInfo.authorName,
+      },
+      date: new Date(commitInfo.date).toISOString(),
+      changedFiles: fileChanges.map((f) => f.path),
+      fileChanges,
+      linkedTasks,
+    };
   }
 
   commitFile(

@@ -1,9 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { GitService } from './git.service';
-import {
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import * as child_process from 'child_process';
 import * as fs from 'fs/promises';
 import { EventEmitter } from 'events';
@@ -284,6 +281,169 @@ describe('GitService', () => {
       expect(result.size).toBe(2);
       expect(result.get('hash1')).toBe('hello');
       expect(result.get('hash2')).toBe('');
+    });
+  });
+
+  describe('getCommitInfo', () => {
+    it('should parse git log -1 output correctly', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockResolvedValue(
+          'hash123|feat: add jump|Developer|dev@pantheon.studio|2026-01-01T12:00:00Z\n',
+        );
+
+      const result = await service.getCommitInfo('/repo/path', 'hash123');
+
+      expect(result).toEqual({
+        hash: 'hash123',
+        message: 'feat: add jump',
+        authorName: 'Developer',
+        authorEmail: 'dev@pantheon.studio',
+        date: '2026-01-01T12:00:00Z',
+      });
+    });
+
+    it('should throw NotFoundException if commit does not exist', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockRejectedValue(new Error('fatal: bad object nonexistent'));
+
+      await expect(
+        service.getCommitInfo('/repo/path', 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('getCommitChangedFiles', () => {
+    it('should parse added file correctly', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockResolvedValue('A\tsrc/player/Movement.ts\n');
+
+      const result = await service.getCommitChangedFiles(
+        '/repo/path',
+        'hash123',
+      );
+
+      expect(result).toEqual([
+        {
+          status: 'ADDED',
+          path: 'src/player/Movement.ts',
+        },
+      ]);
+    });
+
+    it('should parse modified file correctly', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockResolvedValue('M\tsrc/player/Input.ts\n');
+
+      const result = await service.getCommitChangedFiles(
+        '/repo/path',
+        'hash123',
+      );
+
+      expect(result).toEqual([
+        {
+          status: 'MODIFIED',
+          path: 'src/player/Input.ts',
+        },
+      ]);
+    });
+
+    it('should parse deleted file correctly', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockResolvedValue('D\tsrc/old/LegacyPhysics.ts\n');
+
+      const result = await service.getCommitChangedFiles(
+        '/repo/path',
+        'hash123',
+      );
+
+      expect(result).toEqual([
+        {
+          status: 'DELETED',
+          path: 'src/old/LegacyPhysics.ts',
+        },
+      ]);
+    });
+
+    it('should parse renamed file with old and new path correctly', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockResolvedValue('R100\tsrc/old/Player.ts\tsrc/new/Player.ts\n');
+
+      const result = await service.getCommitChangedFiles(
+        '/repo/path',
+        'hash123',
+      );
+
+      expect(result).toEqual([
+        {
+          status: 'RENAMED',
+          oldPath: 'src/old/Player.ts',
+          path: 'src/new/Player.ts',
+        },
+      ]);
+    });
+
+    it('should parse multiple changed files in a commit', async () => {
+      const gitOutput = [
+        'A\ttests/player.test.ts',
+        'M\tsrc/player/Player.ts',
+        'D\tsrc/player/OldInput.ts',
+        'R095\tsrc/assets/old_tex.png\tsrc/assets/new_tex.png',
+      ].join('\n');
+
+      jest.spyOn(service as any, 'execGit').mockResolvedValue(gitOutput);
+
+      const result = await service.getCommitChangedFiles(
+        '/repo/path',
+        'hash123',
+      );
+
+      expect(result).toHaveLength(4);
+      expect(result[0]).toEqual({
+        status: 'ADDED',
+        path: 'tests/player.test.ts',
+      });
+      expect(result[1]).toEqual({
+        status: 'MODIFIED',
+        path: 'src/player/Player.ts',
+      });
+      expect(result[2]).toEqual({
+        status: 'DELETED',
+        path: 'src/player/OldInput.ts',
+      });
+      expect(result[3]).toEqual({
+        status: 'RENAMED',
+        oldPath: 'src/assets/old_tex.png',
+        path: 'src/assets/new_tex.png',
+      });
+    });
+
+    it('should return empty array for commit with no changed files', async () => {
+      jest.spyOn(service as any, 'execGit').mockResolvedValue('\n');
+
+      const result = await service.getCommitChangedFiles(
+        '/repo/path',
+        'emptyhash',
+      );
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw NotFoundException for invalid or nonexistent commit hash', async () => {
+      jest
+        .spyOn(service as any, 'execGit')
+        .mockRejectedValue(
+          new Error('fatal: Not a valid object name fakehash'),
+        );
+
+      await expect(
+        service.getCommitChangedFiles('/repo/path', 'fakehash'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });

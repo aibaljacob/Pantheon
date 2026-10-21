@@ -28,12 +28,17 @@ import { TasksModule } from '../tasks/tasks.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { GameBlueprintController } from './blueprint/game-blueprint.controller';
 import { GameBlueprintService } from './blueprint/game-blueprint.service';
+import { GameVisionAiService } from '../ai/game-vision-ai.service';
+import { ArtDesignController } from './art-design/art-design.controller';
+import { ArtDesignService } from './art-design/art-design.service';
+import { ArtDesignStorageService } from './art-design/art-design-storage.service';
 
 @Module({
   imports: [PrismaModule, AuthModule, TasksModule, NotificationsModule],
   controllers: [
     ProjectsController,
     GameBlueprintController,
+    ArtDesignController,
     ProjectInvitationsController,
     UserInvitationsController,
     ProjectRepositoryController,
@@ -42,6 +47,9 @@ import { GameBlueprintService } from './blueprint/game-blueprint.service';
   providers: [
     ProjectsService,
     GameBlueprintService,
+    GameVisionAiService,
+    ArtDesignService,
+    ArtDesignStorageService,
     ProjectMembersService,
     AiRecommendationService,
     TalentMatchingService,
@@ -61,6 +69,7 @@ import { GameBlueprintService } from './blueprint/game-blueprint.service';
   exports: [
     ProjectsService,
     GameBlueprintService,
+    GameVisionAiService,
     ProjectMembersService,
     AiRecommendationService,
     TalentMatchingService,

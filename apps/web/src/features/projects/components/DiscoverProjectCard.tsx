@@ -153,6 +153,10 @@ export const DiscoverProjectCard: React.FC<DiscoverProjectCardProps> = ({
               <img
                 src={founder.avatarUrl}
                 alt={founder.displayName || founder.username}
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
                 className="h-5 w-5 rounded-full object-cover shrink-0"
               />
             ) : (

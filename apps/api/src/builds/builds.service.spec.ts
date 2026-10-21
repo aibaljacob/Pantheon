@@ -17,11 +17,15 @@ import {
   ProjectModerationStatus,
   Role,
 } from '@prisma/client';
+import { BuildRunnersService } from '../build-runners/build-runners.service';
+import { BuildsGateway } from '../events/builds.gateway';
 
 describe('Builds Module - BuildsService', () => {
   let buildsService: BuildsService;
   let authService: ProjectAuthorizationService;
   let prismaMock: any;
+  let buildRunnersServiceMock: any;
+  let buildsGatewayMock: any;
 
   const mockProjectId = 'project-uuid-1';
   const mockFounderId = 'founder-uuid-1';
@@ -222,6 +226,34 @@ describe('Builds Module - BuildsService', () => {
       },
     };
 
+    buildRunnersServiceMock = {
+      getRunnerStatus: jest.fn().mockResolvedValue({
+        platform: BuildPlatform.WINDOWS,
+        online: true,
+        status: 'ONLINE',
+        runner: {
+          id: 'runner-uuid-1',
+          name: 'Windows Runner',
+          platform: BuildPlatform.WINDOWS,
+          lastSeenAt: new Date(),
+        },
+        currentJob: null,
+      }),
+      getActiveRunnerForPlatform: jest.fn().mockResolvedValue({
+        id: 'runner-uuid-1',
+        name: 'Windows Runner',
+        platform: BuildPlatform.WINDOWS,
+        isOnline: true,
+        lastSeenAt: new Date(),
+      }),
+    };
+
+    buildsGatewayMock = {
+      emitBuildCreated: jest.fn(),
+      emitBuildUpdated: jest.fn(),
+      emitRunnerStatus: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         BuildsService,
@@ -229,6 +261,14 @@ describe('Builds Module - BuildsService', () => {
         {
           provide: PrismaService,
           useValue: prismaMock,
+        },
+        {
+          provide: BuildRunnersService,
+          useValue: buildRunnersServiceMock,
+        },
+        {
+          provide: BuildsGateway,
+          useValue: buildsGatewayMock,
         },
       ],
     }).compile();
@@ -240,7 +280,7 @@ describe('Builds Module - BuildsService', () => {
   });
 
   describe('1 & 2. Build creation & default QUEUED status', () => {
-    it('should create a build job with QUEUED status', async () => {
+    it('should create a build job with QUEUED status and emit build.created', async () => {
       const result = await buildsService.createBuild(
         mockProjectId,
         {
@@ -263,6 +303,34 @@ describe('Builds Module - BuildsService', () => {
           }),
         }),
       );
+      expect(buildsGatewayMock.emitBuildCreated).toHaveBeenCalledWith(
+        mockProjectId,
+        expect.objectContaining({
+          id: expect.any(String),
+          status: BuildStatus.QUEUED,
+        }),
+      );
+    });
+
+    it('should reject build creation with BadRequestException when no live runner exists', async () => {
+      buildRunnersServiceMock.getRunnerStatus.mockResolvedValueOnce({
+        platform: BuildPlatform.WINDOWS,
+        online: false,
+        status: 'OFFLINE',
+        runner: null,
+        currentJob: null,
+      });
+
+      await expect(
+        buildsService.createBuild(
+          mockProjectId,
+          {
+            targetPlatform: BuildPlatform.WINDOWS,
+            branchName: 'main',
+          },
+          mockFounderId,
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -36,7 +36,7 @@ export const EditBasicProfileModal: React.FC<EditBasicProfileModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accessToken) return;
+    if (!accessToken || isLoading) return;
 
     setIsLoading(true);
     setError(null);
@@ -91,7 +91,8 @@ export const EditBasicProfileModal: React.FC<EditBasicProfileModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-[#363433] bg-[#141312] p-1.5 text-[#8c887e] hover:text-[#ffffff]"
+            disabled={isLoading}
+            className="rounded-xl border border-[#363433] bg-[#141312] p-1.5 text-[#8c887e] hover:text-[#ffffff] disabled:opacity-50"
           >
             <X className="h-4 w-4" />
           </button>
@@ -99,6 +100,7 @@ export const EditBasicProfileModal: React.FC<EditBasicProfileModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-4">
+          <fieldset disabled={isLoading} className="space-y-4">
           {error && (
             <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-xs text-red-300 font-mono">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -209,6 +211,7 @@ export const EditBasicProfileModal: React.FC<EditBasicProfileModalProps> = ({
               <option value="Founder active">Founder active</option>
             </select>
           </div>
+          </fieldset>
 
           {/* Footer Actions */}
           <div className="flex items-center justify-end gap-3 border-t border-[#2b2a29] pt-4">

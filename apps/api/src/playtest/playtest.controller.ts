@@ -26,6 +26,7 @@ import {
   UpdatePlaytestSessionDto,
   CreatePlaytestFeedbackDto,
   UpdatePlaytestFeedbackDto,
+  PlaytestSessionResponseDto,
 } from './dto/playtest.dto';
 
 @ApiTags('Playtests')
@@ -37,6 +38,11 @@ export class PlaytestController {
   @ApiOperation({
     summary: 'Create a new playtest session for a specific build',
   })
+  @ApiResponse({
+    status: 201,
+    description: 'Playtest session created successfully',
+    type: PlaytestSessionResponseDto,
+  })
   @UseGuards(JwtAuthGuard)
   @Post('playable-builds/:buildId/playtests')
   createPlaytest(
@@ -44,7 +50,7 @@ export class PlaytestController {
     @Param('buildId') buildId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreatePlaytestSessionDto,
-  ) {
+  ): Promise<PlaytestSessionResponseDto> {
     return this.playtestService.createPlaytest(
       projectId,
       buildId,
@@ -55,23 +61,33 @@ export class PlaytestController {
   }
 
   @ApiOperation({ summary: 'Get all playtest sessions for a project' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all playtest sessions for a project',
+    type: [PlaytestSessionResponseDto],
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get('playtests')
   getPlaytests(
     @Param('projectId') projectId: string,
     @CurrentUser() user?: AuthenticatedUser,
-  ) {
+  ): Promise<PlaytestSessionResponseDto[]> {
     return this.playtestService.getPlaytests(projectId, user?.id, user?.role);
   }
 
   @ApiOperation({ summary: 'Get a single playtest session' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns playtest session details',
+    type: PlaytestSessionResponseDto,
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get('playtests/:playtestId')
   getPlaytest(
     @Param('projectId') projectId: string,
     @Param('playtestId') playtestId: string,
     @CurrentUser() user?: AuthenticatedUser,
-  ) {
+  ): Promise<PlaytestSessionResponseDto> {
     return this.playtestService.getPlaytest(
       projectId,
       playtestId,
@@ -82,6 +98,11 @@ export class PlaytestController {
 
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a playtest session' })
+  @ApiResponse({
+    status: 200,
+    description: 'Playtest session updated successfully',
+    type: PlaytestSessionResponseDto,
+  })
   @UseGuards(JwtAuthGuard)
   @Patch('playtests/:playtestId')
   updatePlaytest(
@@ -89,7 +110,7 @@ export class PlaytestController {
     @Param('playtestId') playtestId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdatePlaytestSessionDto,
-  ) {
+  ): Promise<PlaytestSessionResponseDto> {
     return this.playtestService.updatePlaytest(
       projectId,
       playtestId,

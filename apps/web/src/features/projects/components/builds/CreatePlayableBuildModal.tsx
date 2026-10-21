@@ -37,6 +37,14 @@ export const CreatePlayableBuildModal: React.FC<CreatePlayableBuildModalProps> =
     e.preventDefault();
     if (!version.trim() || !title.trim()) return;
 
+    if (
+      fileSizeBytes !== '' &&
+      (Number(fileSizeBytes) < 0 || !Number.isFinite(Number(fileSizeBytes)))
+    ) {
+      setError('Release size must be a non-negative finite number.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
@@ -46,7 +54,7 @@ export const CreatePlayableBuildModal: React.FC<CreatePlayableBuildModalProps> =
         platform,
         milestoneId: milestoneId || undefined,
         storagePath: storagePath.trim() || undefined,
-        fileSizeBytes: fileSizeBytes ? Number(fileSizeBytes) : undefined,
+        fileSizeBytes: fileSizeBytes !== '' ? Number(fileSizeBytes) : undefined,
         releaseNotes: releaseNotes.trim() || undefined,
       });
       onClose();
@@ -158,6 +166,7 @@ export const CreatePlayableBuildModal: React.FC<CreatePlayableBuildModalProps> =
               </label>
               <input
                 type="number"
+                min="0"
                 value={fileSizeBytes}
                 onChange={(e) => setFileSizeBytes(e.target.value)}
                 placeholder="250000000"

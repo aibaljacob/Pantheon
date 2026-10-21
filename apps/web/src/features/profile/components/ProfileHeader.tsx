@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Share2, Edit3, UserPlus, UserCheck, MapPin, CheckCircle2, CopyCheck } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
@@ -26,6 +26,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onEditBanner,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [user.avatarUrl]);
 
   const handleShareProfile = () => {
     const profileUrl = `${window.location.origin}/u/${user.username}`;
@@ -81,10 +86,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           {/* Avatar & User Core Details */}
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
             <div className="-mt-16 sm:-mt-20 relative h-28 w-28 sm:h-36 sm:w-36 rounded-3xl border-4 border-[#1c1b1a] bg-[#2b2a29] shadow-xl overflow-hidden group">
-              {user.avatarUrl ? (
+              {user.avatarUrl && !imageError ? (
                 <img
                   src={user.avatarUrl}
                   alt={fullName}
+                  referrerPolicy="no-referrer"
+                  onError={() => setImageError(true)}
                   className="h-full w-full object-cover"
                 />
               ) : (

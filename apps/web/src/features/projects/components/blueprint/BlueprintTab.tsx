@@ -1,35 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import {
   Compass,
-  Edit3,
-  Layers,
-  Sparkles,
   Gamepad2,
-  Monitor,
-  Volume2,
+  Layers,
   Users,
-  Eye,
-  Activity,
-  Plus,
+  Edit3,
   Loader2,
   AlertCircle,
+  Plus,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { useAuthStore } from '../../../auth/store/authStore';
 import type { GameBlueprint, ProjectDetail } from '../../types';
 import { fetchGameBlueprint } from '../../services/blueprintService';
 import { EditBlueprintModal } from './EditBlueprintModal';
+import { ArtAndDesignStudio } from './art-design/ArtAndDesignStudio';
+import { NarrativeStudio } from './narrative/NarrativeStudio';
+import { InteractiveGameplayLoop } from './InteractiveGameplayLoop';
+import { AiProductionMap } from './AiProductionMap';
+import { VisualSkillCoverage } from './VisualSkillCoverage';
 
 interface BlueprintTabProps {
   project: ProjectDetail;
+  onNavigateToTab?: (tab: string) => void;
 }
 
-export const BlueprintTab: React.FC<BlueprintTabProps> = ({ project }) => {
+type BlueprintSubView =
+  | 'VISION_BOARD'
+  | 'NARRATIVE'
+  | 'GAMEPLAY_LOOP'
+  | 'PRODUCTION_MAP'
+  | 'SKILL_COVERAGE';
+
+export const BlueprintTab: React.FC<BlueprintTabProps> = ({
+  project,
+  onNavigateToTab,
+}) => {
   const accessToken = useAuthStore((state) => state.accessToken);
   const [blueprint, setBlueprint] = useState<GameBlueprint | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [activeSubView, setActiveSubView] =
+    useState<BlueprintSubView>('VISION_BOARD');
 
   useEffect(() => {
     let isCancelled = false;
@@ -38,13 +51,20 @@ export const BlueprintTab: React.FC<BlueprintTabProps> = ({ project }) => {
       setIsLoading(true);
       setError(null);
       try {
-        const bp = await fetchGameBlueprint(project.id, accessToken || undefined);
+        const bp = await fetchGameBlueprint(
+          project.id,
+          accessToken || undefined,
+        );
         if (!isCancelled) {
           setBlueprint(bp);
         }
       } catch (err: unknown) {
         if (!isCancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load game blueprint.');
+          setError(
+            err instanceof Error
+              ? err.message
+              : 'Failed to load game blueprint.',
+          );
         }
       } finally {
         if (!isCancelled) {
@@ -97,7 +117,7 @@ export const BlueprintTab: React.FC<BlueprintTabProps> = ({ project }) => {
             <Button
               variant="primary"
               size="sm"
-              icon={<Plus className="h-4 w-4" />}
+              icon={<Plus className="h-4 w-4 text-[#141312]" />}
               onClick={() => setIsEditModalOpen(true)}
             >
               Create Game Blueprint
@@ -121,190 +141,199 @@ export const BlueprintTab: React.FC<BlueprintTabProps> = ({ project }) => {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Header */}
-      <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 sm:p-8 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-[#2b2a29] pb-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="rounded-full border border-amber-500/40 bg-amber-950/20 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-amber-300">
-                PRODUCTION BLUEPRINT
-              </span>
-              {blueprint.targetFps && (
-                <span className="rounded-full border border-[#48473f] bg-[#201f1e] px-2.5 py-0.5 text-[10px] font-mono text-[#cac6bc]">
-                  TARGET: {blueprint.targetFps} FPS {blueprint.targetResolution ? `@ ${blueprint.targetResolution}` : ''}
-                </span>
-              )}
-            </div>
+      {/* Sub-navigation Segment Controller */}
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#363433] bg-[#141312] p-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveSubView('VISION_BOARD')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-mono font-bold transition-all ${
+              activeSubView === 'VISION_BOARD'
+                ? 'bg-[#201f1e] text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#1c1b1a]'
+            }`}
+          >
+            <Compass className="h-4 w-4" />
+            <span>Art & Design Studio</span>
+          </button>
 
-            <h2 className="font-headline text-2xl sm:text-3xl font-bold text-[#ffffff] tracking-tight">
-              {blueprint.tagline || project.name}
-            </h2>
+          {/* Narrative Studio temporarily hidden */}
+          {/* <button
+            type="button"
+            onClick={() => setActiveSubView('NARRATIVE')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-mono font-bold transition-all ${
+              activeSubView === 'NARRATIVE'
+                ? 'bg-[#201f1e] text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#1c1b1a]'
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Narrative Studio</span>
+          </button> */}
 
-            {blueprint.summary && (
-              <p className="text-sm leading-relaxed text-[#cac6bc] font-sans pt-1 max-w-4xl whitespace-pre-line">
-                {blueprint.summary}
-              </p>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSubView('GAMEPLAY_LOOP')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-mono font-bold transition-all ${
+              activeSubView === 'GAMEPLAY_LOOP'
+                ? 'bg-[#201f1e] text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#1c1b1a]'
+            }`}
+          >
+            <Gamepad2 className="h-4 w-4" />
+            <span>Gameplay Loop</span>
+          </button>
 
-          {project.isFounder && (
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Edit3 className="h-3.5 w-3.5" />}
-              onClick={() => setIsEditModalOpen(true)}
-              className="shrink-0"
-            >
-              Edit Blueprint
-            </Button>
-          )}
+          <button
+            type="button"
+            onClick={() => setActiveSubView('PRODUCTION_MAP')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-mono font-bold transition-all ${
+              activeSubView === 'PRODUCTION_MAP'
+                ? 'bg-[#201f1e] text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#1c1b1a]'
+            }`}
+          >
+            <Layers className="h-4 w-4" />
+            <span>Production Map</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubView('SKILL_COVERAGE')}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-mono font-bold transition-all ${
+              activeSubView === 'SKILL_COVERAGE'
+                ? 'bg-[#201f1e] text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'text-[#8c887e] hover:text-[#e6e2df] hover:bg-[#1c1b1a]'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            <span>Skill Coverage</span>
+          </button>
         </div>
 
-        {/* Specifications Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[#8c887e]">
-              <Users className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Audience</span>
-            </div>
-            <p className="text-xs font-mono font-semibold text-[#ffffff] truncate" title={blueprint.targetAudience || 'Unspecified'}>
-              {blueprint.targetAudience || 'Standard'}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[#8c887e]">
-              <Eye className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Perspective</span>
-            </div>
-            <p className="text-xs font-mono font-semibold text-[#ffffff] truncate" title={blueprint.cameraPerspective || 'Unspecified'}>
-              {blueprint.cameraPerspective || 'Standard'}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[#8c887e]">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Art Style</span>
-            </div>
-            <p className="text-xs font-mono font-semibold text-[#ffffff] truncate" title={blueprint.artStyle || 'Unspecified'}>
-              {blueprint.artStyle || 'Standard'}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[#8c887e]">
-              <Volume2 className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Audio Tone</span>
-            </div>
-            <p className="text-xs font-mono font-semibold text-[#ffffff] truncate" title={blueprint.audioTone || 'Unspecified'}>
-              {blueprint.audioTone || 'Standard'}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[#8c887e]">
-              <Activity className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Network Model</span>
-            </div>
-            <p className="text-xs font-mono font-semibold text-[#ffffff] truncate" title={blueprint.networkModel || 'Unspecified'}>
-              {blueprint.networkModel || 'Single-Player'}
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-3 space-y-1">
-            <div className="flex items-center gap-1.5 text-[#8c887e]">
-              <Monitor className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-mono uppercase tracking-wider">Engine / Target</span>
-            </div>
-            <p className="text-xs font-mono font-semibold text-[#ffffff] truncate">
-              {project.gameEngine || 'Standard'}
-            </p>
-          </div>
-        </div>
+        {project.isFounder && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Edit3 className="h-3.5 w-3.5" />}
+            onClick={() => setIsEditModalOpen(true)}
+            className="text-xs font-mono text-[#cac6bc]"
+          >
+            Edit Specs
+          </Button>
+        )}
       </div>
 
-      {/* Core Gameplay Loop */}
-      {blueprint.coreLoop && (
-        <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-3">
-          <div className="flex items-center gap-2 text-xs font-mono font-semibold text-amber-400 uppercase tracking-wider">
-            <Gamepad2 className="h-4 w-4" /> Core Gameplay Loop
-          </div>
-          <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 text-sm leading-relaxed text-[#ffffff] font-mono">
-            {blueprint.coreLoop}
-          </div>
+      {/* Sub-view Render */}
+      {activeSubView === 'VISION_BOARD' && (
+        <div className="space-y-6">
+          <ArtAndDesignStudio
+            project={project}
+            blueprint={blueprint}
+            token={accessToken || undefined}
+            onBlueprintUpdated={(saved) => setBlueprint(saved)}
+            onNavigateToTab={onNavigateToTab}
+          />
+
+          {/* Design Pillars Section */}
+          {pillars.length > 0 && (
+            <div className="rounded-3xl border border-[#363433] bg-[#141312] p-6 sm:p-8 space-y-4">
+              <div className="flex items-center gap-2">
+                <Layers className="h-5 w-5 text-amber-400" />
+                <h3 className="font-headline text-lg font-bold text-[#ffffff]">
+                  Core Design Pillars
+                </h3>
+              </div>
+              <p className="text-xs font-mono text-[#8c887e]">
+                Guiding creative and technical principles for all feature decisions
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+                {pillars.map((pillar: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a] p-5 space-y-2 relative overflow-hidden transition-all hover:border-[#48473f]"
+                  >
+                    <div className="text-[10px] font-mono font-bold text-amber-400">
+                      PILLAR #{idx + 1}
+                    </div>
+                    <h4 className="font-headline text-base font-bold text-[#ffffff]">
+                      {pillar.title}
+                    </h4>
+                    {pillar.description && (
+                      <p className="text-xs leading-relaxed text-[#cac6bc] font-sans">
+                        {pillar.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Features & Deliverables Section */}
+          {keyFeatures.length > 0 && (
+            <div className="rounded-3xl border border-[#363433] bg-[#141312] p-6 sm:p-8 space-y-4">
+              <div className="flex items-center gap-2">
+                <Gamepad2 className="h-5 w-5 text-amber-400" />
+                <h3 className="font-headline text-lg font-bold text-[#ffffff]">
+                  Key Features & Deliverables
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                {keyFeatures.map((feat: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className="rounded-2xl border border-[#2b2a29] bg-[#1c1b1a] p-4 space-y-2 transition-all hover:border-[#363433]"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md border border-[#363433] bg-[#141312] px-2 py-0.5 text-[10px] font-mono text-amber-300">
+                        {feat.category || 'GAMEPLAY'}
+                      </span>
+                      <h4 className="font-headline text-sm font-bold text-[#ffffff]">
+                        {feat.title}
+                      </h4>
+                    </div>
+                    {feat.description && (
+                      <p className="text-xs leading-relaxed text-[#cac6bc] font-sans">
+                        {feat.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Design Pillars */}
-      {pillars.length > 0 && (
-        <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-amber-400" />
-            <h3 className="font-headline text-lg font-bold text-[#ffffff]">
-              Core Design Pillars
-            </h3>
-          </div>
-          <p className="text-xs font-mono text-[#8c887e]">
-            Guiding creative and technical principles for all feature decisions
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
-            {pillars.map((pillar, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-5 space-y-2 relative overflow-hidden transition-all hover:border-[#48473f]"
-              >
-                <div className="text-[10px] font-mono font-bold text-amber-400">
-                  PILLAR #{idx + 1}
-                </div>
-                <h4 className="font-headline text-base font-bold text-[#ffffff]">
-                  {pillar.title}
-                </h4>
-                {pillar.description && (
-                  <p className="text-xs leading-relaxed text-[#cac6bc] font-sans">
-                    {pillar.description}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      {activeSubView === 'NARRATIVE' && (
+        <NarrativeStudio
+          project={project}
+          blueprint={blueprint}
+          token={accessToken || undefined}
+          onBlueprintUpdated={(saved) => setBlueprint(saved)}
+        />
       )}
 
-      {/* Key Features & Deliverables */}
-      {keyFeatures.length > 0 && (
-        <div className="rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 sm:p-8 space-y-4">
-          <div className="flex items-center gap-2">
-            <Gamepad2 className="h-5 w-5 text-amber-400" />
-            <h3 className="font-headline text-lg font-bold text-[#ffffff]">
-              Key Features & Deliverables
-            </h3>
-          </div>
+      {activeSubView === 'GAMEPLAY_LOOP' && (
+        <InteractiveGameplayLoop
+          project={project}
+          blueprint={blueprint}
+          onBlueprintUpdated={(saved) => setBlueprint(saved)}
+        />
+      )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            {keyFeatures.map((feat, idx) => (
-              <div
-                key={idx}
-                className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 space-y-2 transition-all hover:border-[#363433]"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="rounded-md border border-[#363433] bg-[#1c1b1a] px-2 py-0.5 text-[10px] font-mono text-amber-300">
-                    {feat.category || 'GAMEPLAY'}
-                  </span>
-                  <h4 className="font-headline text-sm font-bold text-[#ffffff]">
-                    {feat.title}
-                  </h4>
-                </div>
-                {feat.description && (
-                  <p className="text-xs leading-relaxed text-[#cac6bc] font-sans">
-                    {feat.description}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      {activeSubView === 'PRODUCTION_MAP' && (
+        <AiProductionMap project={project} blueprint={blueprint} />
+      )}
+
+      {activeSubView === 'SKILL_COVERAGE' && (
+        <VisualSkillCoverage
+          project={project}
+          onNavigateToTab={onNavigateToTab}
+        />
       )}
 
       {/* Edit Modal */}

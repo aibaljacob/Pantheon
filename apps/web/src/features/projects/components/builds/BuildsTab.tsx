@@ -7,11 +7,13 @@ import {
   AlertCircle,
   Filter,
   RefreshCw,
+  Server,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
-import { buildService } from '../../services/buildService';
+import { buildService, type RunnerStatusInfo } from '../../services/buildService';
 import { taskService } from '../../services/taskService';
 import { useWorkspaceStore, dedupeRequest } from '../../store/workspaceStore';
+import { useProjectBuildSocket } from '../../hooks/useProjectBuildSocket';
 import type {
   BuildJobItem,
   BuildPlatform,
@@ -27,6 +29,7 @@ import { CreateBuildModal } from './CreateBuildModal';
 import { BuildDetailModal } from './BuildDetailModal';
 import { PlayableBuildsSection } from './PlayableBuildsSection';
 import { CreatePlayableBuildModal } from './CreatePlayableBuildModal';
+import { LocalAgentSettingsModal } from './LocalAgentSettingsModal';
 
 interface BuildsTabProps {
   projectId: string;
@@ -81,7 +84,39 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
   // Modals
   const [isCreateBuildOpen, setIsCreateBuildOpen] = useState(false);
   const [isRegisterPlayableOpen, setIsRegisterPlayableOpen] = useState(false);
+  const [isAgentSettingsOpen, setIsAgentSettingsOpen] = useState(false);
   const [selectedBuild, setSelectedBuild] = useState<BuildJobItem | null>(null);
+
+  // Runner status & Socket reconciliation
+  const [runnerInfo, setRunnerInfo] = useState<RunnerStatusInfo | null>(null);
+
+  const reconcile = React.useCallback(() => {
+    buildService.getRunnerStatus('WINDOWS').then(setRunnerInfo).catch(() => {});
+    buildService.getBuilds(projectId, {}).then((fetched) => {
+      setLocalBuilds(fetched);
+      setBuildsStore(projectId, fetched);
+    }).catch(() => {});
+  }, [projectId, setBuildsStore]);
+
+  const { runnerStatus: socketRunnerStatus } = useProjectBuildSocket({
+    projectId,
+    targetPlatform: 'WINDOWS',
+    onReconcile: reconcile,
+  });
+
+  const activeRunnerStatus = socketRunnerStatus || runnerInfo;
+
+  useEffect(() => {
+    let ignore = false;
+    buildService.getRunnerStatus('WINDOWS')
+      .then((status) => {
+        if (!ignore) setRunnerInfo(status);
+      })
+      .catch(() => {});
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const isFounderOrAdmin = isFounder || currentUser?.role === 'Administrator';
   const isMember = isFounderOrAdmin || members.some((m) => m.userId === currentUser?.id);
@@ -132,6 +167,7 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
   const handleRefresh = () => {
     setIsFetching(true);
     invalidateBuilds(projectId);
+    buildService.getRunnerStatus('WINDOWS').then(setRunnerInfo).catch(() => {});
     setRefreshTrigger((prev) => prev + 1);
   };
 
@@ -178,13 +214,49 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
             <Cpu className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-headline text-xl font-bold text-[#ffffff]">
                 Build Pipeline & Releases
               </h2>
               <span className="rounded-full border border-[#48473f] bg-[#201f1e] px-2.5 py-0.5 text-xs font-mono font-semibold text-[#cac6bc]">
                 {builds.length} {builds.length === 1 ? 'job' : 'jobs'}
               </span>
+
+              {activeRunnerStatus && (
+                <div
+                  className={`flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-mono transition-colors ${
+                    activeRunnerStatus.status === 'ONLINE'
+                      ? 'border-emerald-800/40 bg-emerald-950/20 text-emerald-400'
+                      : activeRunnerStatus.status === 'BUILDING'
+                      ? 'border-amber-800/40 bg-amber-950/20 text-amber-300'
+                      : 'border-[#48473f] bg-[#201f1e] text-[#8c887e]'
+                  }`}
+                  title={
+                    activeRunnerStatus.status === 'ONLINE'
+                      ? `Windows runner "${activeRunnerStatus.runner?.name || 'Active'}" is online and ready for jobs`
+                      : activeRunnerStatus.status === 'BUILDING'
+                      ? `Windows runner is executing a build job`
+                      : 'No live Windows runner detected. Start the local runner to process builds.'
+                  }
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      activeRunnerStatus.status === 'ONLINE'
+                        ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]'
+                        : activeRunnerStatus.status === 'BUILDING'
+                        ? 'bg-amber-400 animate-pulse'
+                        : 'bg-[#66645c]'
+                    }`}
+                  />
+                  <span>
+                    {activeRunnerStatus.status === 'ONLINE'
+                      ? 'Runner Ready'
+                      : activeRunnerStatus.status === 'BUILDING'
+                      ? 'Runner Building'
+                      : 'Runner Offline'}
+                  </span>
+                </div>
+              )}
             </div>
             <p className="text-xs font-mono text-[#8c887e]">
               Automate game compilation, monitor engine build runners, and distribute playable packages.
@@ -202,6 +274,16 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
             title="Refresh Builds & Releases"
           >
             Refresh
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<Server className="h-4 w-4" />}
+            onClick={() => setIsAgentSettingsOpen(true)}
+            title="Configure Local Runner Agent"
+          >
+            Local Runner
           </Button>
 
           {isFounderOrAdmin && (
@@ -370,6 +452,7 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
         onClose={() => setIsCreateBuildOpen(false)}
         onTrigger={handleTriggerBuild}
         milestones={milestones}
+        runnerStatus={activeRunnerStatus}
       />
 
       {/* Register Playable Build Modal */}
@@ -393,6 +476,12 @@ export const BuildsTab: React.FC<BuildsTabProps> = ({
           }
         />
       )}
+
+      {/* Local Runner Agent Settings Modal */}
+      <LocalAgentSettingsModal
+        isOpen={isAgentSettingsOpen}
+        onClose={() => setIsAgentSettingsOpen(false)}
+      />
     </div>
   );
 };

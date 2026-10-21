@@ -136,9 +136,9 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-fadeIn">
-        <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl overflow-hidden">
+        <div className="relative w-full max-w-2xl max-h-[85vh] flex flex-col rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl overflow-hidden">
           {/* Modal Header */}
-          <div className="flex items-center justify-between border-b border-[#2b2a29] px-6 py-4">
+          <div className="shrink-0 flex items-center justify-between border-b border-[#2b2a29] px-6 py-4 bg-[#1c1b1a]">
             <div className="flex items-center gap-2">
               <Edit3 className="h-5 w-5 text-amber-400" />
               <h2 className="font-headline text-lg font-bold text-[#ffffff]">
@@ -148,14 +148,16 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-[#363433] bg-[#141312] p-1.5 text-[#8c887e] hover:text-[#ffffff]"
+              disabled={isLoading}
+              className="rounded-xl border border-[#363433] bg-[#141312] p-1.5 text-[#8c887e] hover:text-[#ffffff] disabled:opacity-50"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Modal Body */}
-          <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Modal Body (Scrollable) */}
+          <form id="edit-project-form" onSubmit={handleSave} className="flex-1 overflow-y-auto px-6 py-5 space-y-4 custom-scrollbar">
+            <fieldset disabled={isLoading} className="space-y-4">
             {error && (
               <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/30 p-3 text-xs text-red-300 font-mono">
                 <AlertCircle className="h-4 w-4 shrink-0" />
@@ -270,23 +272,31 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
                 <option value="PAUSED">Paused</option>
               </select>
             </div>
-
-            {/* Footer Actions */}
-            <div className="flex items-center justify-end gap-3 border-t border-[#2b2a29] pt-4">
-              <Button variant="secondary" size="sm" type="button" onClick={onClose} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                type="submit"
-                disabled={isLoading || Boolean(successMessage)}
-                icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : undefined}
-              >
-                Save Changes
-              </Button>
-            </div>
+            </fieldset>
           </form>
+
+          {/* Modal Footer Actions — Pinned and Always Accessible */}
+          <div className="shrink-0 flex items-center justify-end gap-3 border-t border-[#2b2a29] px-6 py-4 bg-[#141312]">
+            <Button
+              variant="secondary"
+              size="sm"
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              type="submit"
+              form="edit-project-form"
+              disabled={isLoading || Boolean(successMessage)}
+              icon={isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : undefined}
+            >
+              Save Changes
+            </Button>
+          </div>
         </div>
       </div>
 

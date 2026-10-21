@@ -75,9 +75,16 @@ async function runGodotBuild(jobId, repoDir, buildDir, logFn) {
     presetsContent += '\ndebug/export_console_wrapper=0';
   }
 
+  // Disable application/modify_resources to prevent requiring rcedit during headless export
+  if (presetsContent.includes('application/modify_resources=')) {
+    presetsContent = presetsContent.replace(/application\/modify_resources=(true|false)/g, 'application/modify_resources=false');
+  } else {
+    presetsContent += '\napplication/modify_resources=false';
+  }
+
   fs.writeFileSync(exportPresetFile, presetsContent);
   
-  logFn(`[runner] Windows export preset configured (main engine template: ${templatePath}, embed_pck=false, console_wrapper=0)`);
+  logFn(`[runner] Windows export preset configured (main engine template: ${templatePath}, embed_pck=false, console_wrapper=0, modify_resources=false)`);
 
   const outputDir = path.join(buildDir, 'build');
   if (!fs.existsSync(outputDir)) {

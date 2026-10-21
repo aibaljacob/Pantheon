@@ -276,7 +276,7 @@ export class ProjectInvitationsService {
         userId: invitation.inviterId,
         type: 'INVITATION_REJECTED' as any,
         title: 'Invitation Declined',
-        message: `@${rejected.invitee.username} declined the invitation to join ${rejected.project.name}.`,
+        message: `@${rejected.invitee?.username || 'Candidate'} declined the invitation to join ${rejected.project?.name || 'the project'}.`,
         entityType: 'ProjectInvitation',
         entityId: invitationId,
       });
@@ -284,115 +284,115 @@ export class ProjectInvitationsService {
       return this.mapToResponseDto(rejected);
     }
 
-    // Atomic acceptance inside a single transaction
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Re-verify invitation status
-      const currentInv = await tx.projectInvitation.findUnique({
-        where: { id: invitationId },
-      });
+    // 2. Pre-transaction validation of role status
+    if (
+      !invitation.projectRole ||
+      invitation.projectRole.status === ProjectRoleStatus.CLOSED ||
+      invitation.projectRole.status === ProjectRoleStatus.FILLED
+    ) {
+      throw new BadRequestException('Project role is no longer open.');
+    }
 
-      if (
-        !currentInv ||
-        currentInv.status !== ProjectInvitationStatus.PENDING
-      ) {
-        throw new BadRequestException('Invitation is no longer pending.');
-      }
-
-      // 2. Verify project role is OPEN or IN_REVIEW
-      const currentRole = await tx.projectRole.findUnique({
-        where: { id: currentInv.projectRoleId },
-        include: { role: true },
-      });
-
-      if (
-        !currentRole ||
-        currentRole.status === ProjectRoleStatus.CLOSED ||
-        currentRole.status === ProjectRoleStatus.FILLED
-      ) {
-        throw new BadRequestException('Project role is no longer open.');
-      }
-
-      // 3. Verify user is not already an active member
-      const existingMembership = await tx.projectMember.findUnique({
-        where: {
-          projectId_userId: {
-            projectId: currentInv.projectId,
-            userId,
-          },
+    // 3. Verify user is not already an active member before entering transaction
+    const existingMembership = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId: invitation.projectId,
+          userId,
         },
-      });
-
-      if (
-        existingMembership &&
-        (!existingMembership.status ||
-          existingMembership.status === ProjectMemberStatus.ACTIVE)
-      ) {
-        throw new BadRequestException(
-          'Candidate is already an active team member of this project.',
-        );
-      }
-
-      const memberRoleTitle =
-        currentRole.title || currentRole.role?.name || 'Member';
-      let memberId: string;
-
-      // 4. Create or Reactivate ProjectMember
-      if (existingMembership) {
-        const updated = await tx.projectMember.update({
-          where: { id: existingMembership.id },
-          data: {
-            status: ProjectMemberStatus.ACTIVE,
-            role: memberRoleTitle,
-            projectRoleId: currentInv.projectRoleId,
-            joinedAt: new Date(),
-            leftAt: null,
-          },
-        });
-        memberId = updated.id;
-      } else {
-        const created = await tx.projectMember.create({
-          data: {
-            projectId: currentInv.projectId,
-            userId,
-            role: memberRoleTitle,
-            projectRoleId: currentInv.projectRoleId,
-            status: ProjectMemberStatus.ACTIVE,
-          },
-        });
-        memberId = created.id;
-      }
-
-      // 5. Update ProjectInvitation status to ACCEPTED
-      const updatedInvitation = await tx.projectInvitation.update({
-        where: { id: invitationId },
-        data: { status: ProjectInvitationStatus.ACCEPTED },
-        include: {
-          project: { select: { name: true } },
-          invitee: { select: { username: true } },
-        },
-      });
-
-      // 6. Update ProjectRole status to FILLED and assign to member
-      await tx.projectRole.update({
-        where: { id: currentInv.projectRoleId },
-        data: {
-          assignedMemberId: memberId,
-          status: ProjectRoleStatus.FILLED,
-        },
-      });
-
-      // Notify inviter
-      await this.notificationsService.createNotification({
-        userId: currentInv.inviterId,
-        type: 'INVITATION_ACCEPTED' as any,
-        title: 'Invitation Accepted',
-        message: `@${updatedInvitation.invitee.username} accepted the invitation to join ${updatedInvitation.project.name}!`,
-        entityType: 'ProjectInvitation',
-        entityId: invitationId,
-      });
-
-      return this.mapToResponseDto(updatedInvitation);
+      },
     });
+
+    if (
+      existingMembership &&
+      (!existingMembership.status ||
+        existingMembership.status === ProjectMemberStatus.ACTIVE)
+    ) {
+      throw new BadRequestException(
+        'Candidate is already an active team member of this project.',
+      );
+    }
+
+    const memberRoleTitle =
+      invitation.projectRole.title ||
+      invitation.projectRole.role?.name ||
+      'Member';
+
+    // Atomic acceptance inside a focused write-only transaction
+    const updatedInvitation = await this.prisma.$transaction(
+      async (tx) => {
+        let memberId: string;
+
+        // 4. Create or Reactivate ProjectMember
+        if (existingMembership) {
+          const updated = await tx.projectMember.update({
+            where: { id: existingMembership.id },
+            data: {
+              status: ProjectMemberStatus.ACTIVE,
+              role: memberRoleTitle,
+              projectRoleId: invitation.projectRoleId,
+              joinedAt: new Date(),
+              leftAt: null,
+            },
+          });
+          memberId = updated.id;
+        } else {
+          const created = await tx.projectMember.create({
+            data: {
+              projectId: invitation.projectId,
+              userId,
+              role: memberRoleTitle,
+              projectRoleId: invitation.projectRoleId,
+              status: ProjectMemberStatus.ACTIVE,
+            },
+          });
+          memberId = created.id;
+        }
+
+        // 5. Update ProjectRole status to FILLED atomically if still open
+        const roleUpdate = await tx.projectRole.updateMany({
+          where: {
+            id: invitation.projectRoleId,
+            status: {
+              in: [ProjectRoleStatus.OPEN, ProjectRoleStatus.IN_REVIEW],
+            },
+          },
+          data: {
+            assignedMemberId: memberId,
+            status: ProjectRoleStatus.FILLED,
+          },
+        });
+
+        if (roleUpdate.count === 0) {
+          throw new BadRequestException('Project role is no longer open.');
+        }
+
+        // 6. Update ProjectInvitation status to ACCEPTED
+        const accepted = await tx.projectInvitation.update({
+          where: { id: invitationId },
+          data: { status: ProjectInvitationStatus.ACCEPTED },
+          include: {
+            project: { select: { name: true } },
+            invitee: { select: { username: true } },
+          },
+        });
+
+        return accepted;
+      },
+      { maxWait: 10000, timeout: 20000 },
+    );
+
+    // 7. Notify inviter outside the transaction to prevent timeout & connection starvation
+    await this.notificationsService.createNotification({
+      userId: invitation.inviterId,
+      type: 'INVITATION_ACCEPTED' as any,
+      title: 'Invitation Accepted',
+      message: `@${updatedInvitation.invitee?.username || 'Candidate'} accepted the invitation to join ${updatedInvitation.project?.name || 'the project'}!`,
+      entityType: 'ProjectInvitation',
+      entityId: invitationId,
+    });
+
+    return this.mapToResponseDto(updatedInvitation);
   }
 
   async cancelInvitation(

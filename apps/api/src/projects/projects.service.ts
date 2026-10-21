@@ -481,26 +481,24 @@ export class ProjectsService {
       `${project.founder.profile?.firstName || ''} ${project.founder.profile?.lastName || ''}`.trim() ||
       project.founder.username;
 
-    const [allProjectRoles, acceptedApps, acceptedInvs] = await Promise.all([
-      this.prisma.projectRole.findMany({
-        where: { projectId: project.id },
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          assignedMemberId: true,
-          role: { select: { name: true } },
-        },
-      }),
-      this.prisma.projectApplication.findMany({
-        where: { projectId: project.id, status: 'ACCEPTED' as any },
-        select: { applicantId: true, projectRoleId: true },
-      }),
-      this.prisma.projectInvitation.findMany({
-        where: { projectId: project.id, status: 'ACCEPTED' as any },
-        select: { inviteeId: true, projectRoleId: true },
-      }),
-    ]);
+    const allProjectRoles = await this.prisma.projectRole.findMany({
+      where: { projectId: project.id },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        assignedMemberId: true,
+        role: { select: { name: true } },
+      },
+    });
+    const acceptedApps = await this.prisma.projectApplication.findMany({
+      where: { projectId: project.id, status: 'ACCEPTED' as any },
+      select: { applicantId: true, projectRoleId: true },
+    });
+    const acceptedInvs = await this.prisma.projectInvitation.findMany({
+      where: { projectId: project.id, status: 'ACCEPTED' as any },
+      select: { inviteeId: true, projectRoleId: true },
+    });
 
     const mappedMembers = project.members.map((m) => {
       const displayName =
@@ -581,11 +579,13 @@ export class ProjectsService {
         viewerRole = isFounder ? 'Founder' : 'Administrator';
       } else if (isMember) {
         viewerRelationship = 'ACTIVE_MEMBER';
-        const memberRecord = mappedMembers.find((m) => m.userId === currentUserId);
+        const memberRecord = mappedMembers.find(
+          (m) => m.userId === currentUserId,
+        );
         viewerRole = memberRecord?.role || 'Member';
       } else {
-        const [pendingInvitation, pendingApplication] = await Promise.all([
-          this.prisma.projectInvitation.findFirst({
+        const pendingInvitation =
+          await this.prisma.projectInvitation.findFirst({
             where: {
               projectId: project.id,
               inviteeId: currentUserId,
@@ -607,8 +607,9 @@ export class ProjectsService {
                 },
               },
             },
-          }),
-          this.prisma.projectApplication.findFirst({
+          });
+        const pendingApplication =
+          await this.prisma.projectApplication.findFirst({
             where: {
               projectId: project.id,
               applicantId: currentUserId,
@@ -623,8 +624,7 @@ export class ProjectsService {
                 },
               },
             },
-          }),
-        ]);
+          });
 
         if (pendingInvitation) {
           viewerPendingInvitation = {
@@ -928,70 +928,68 @@ export class ProjectsService {
       }
     }
 
-    const [roles, allMembers, acceptedApps, acceptedInvs] = await Promise.all([
-      this.prisma.projectRole.findMany({
-        where: { projectId: project.id },
-        include: {
-          role: true,
-          requiredSkills: { include: { skill: true } },
-          requiredTools: { include: { tool: true } },
-          assignedMember: {
-            select: {
-              id: true,
-              userId: true,
-              user: {
-                select: {
-                  username: true,
-                  profile: {
-                    select: {
-                      displayName: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-          primaryMembers: {
-            where: { status: ProjectMemberStatus.ACTIVE },
-            select: {
-              id: true,
-              userId: true,
-              user: {
-                select: {
-                  username: true,
-                  profile: {
-                    select: {
-                      displayName: true,
-                    },
+    const roles = await this.prisma.projectRole.findMany({
+      where: { projectId: project.id },
+      include: {
+        role: true,
+        requiredSkills: { include: { skill: true } },
+        requiredTools: { include: { tool: true } },
+        assignedMember: {
+          select: {
+            id: true,
+            userId: true,
+            user: {
+              select: {
+                username: true,
+                profile: {
+                  select: {
+                    displayName: true,
                   },
                 },
               },
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
-      }),
-      this.prisma.projectMember.findMany({
-        where: { projectId: project.id, status: ProjectMemberStatus.ACTIVE },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              profile: { select: { displayName: true } },
+        primaryMembers: {
+          where: { status: ProjectMemberStatus.ACTIVE },
+          select: {
+            id: true,
+            userId: true,
+            user: {
+              select: {
+                username: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                  },
+                },
+              },
             },
           },
         },
-      }),
-      this.prisma.projectApplication.findMany({
-        where: { projectId: project.id, status: 'ACCEPTED' as any },
-        select: { applicantId: true, projectRoleId: true },
-      }),
-      this.prisma.projectInvitation.findMany({
-        where: { projectId: project.id, status: 'ACCEPTED' as any },
-        select: { inviteeId: true, projectRoleId: true },
-      }),
-    ]);
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const allMembers = await this.prisma.projectMember.findMany({
+      where: { projectId: project.id, status: ProjectMemberStatus.ACTIVE },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { displayName: true } },
+          },
+        },
+      },
+    });
+    const acceptedApps = await this.prisma.projectApplication.findMany({
+      where: { projectId: project.id, status: 'ACCEPTED' as any },
+      select: { applicantId: true, projectRoleId: true },
+    });
+    const acceptedInvs = await this.prisma.projectInvitation.findMany({
+      where: { projectId: project.id, status: 'ACCEPTED' as any },
+      select: { inviteeId: true, projectRoleId: true },
+    });
 
     return roles.map((r) =>
       this.mapProjectRoleToDto(r, allMembers, acceptedApps, acceptedInvs),
@@ -1286,20 +1284,18 @@ export class ProjectsService {
       );
     }
 
-    const [rolesTaxonomy, skillsTaxonomy, toolsTaxonomy] = await Promise.all([
-      this.prisma.professionalRole.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, description: true },
-      }),
-      this.prisma.skill.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, description: true },
-      }),
-      this.prisma.tool.findMany({
-        where: { isActive: true },
-        select: { id: true, name: true, description: true },
-      }),
-    ]);
+    const rolesTaxonomy = await this.prisma.professionalRole.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, description: true },
+    });
+    const skillsTaxonomy = await this.prisma.skill.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, description: true },
+    });
+    const toolsTaxonomy = await this.prisma.tool.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, description: true },
+    });
 
     const existingRoleNames = project.openRoles.map((r) => r.role.name);
 

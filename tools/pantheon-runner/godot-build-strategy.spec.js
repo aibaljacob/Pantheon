@@ -144,7 +144,7 @@ describe('GodotBuildStrategy', () => {
     process.env.GODOT_EXECUTABLE = 'C:\\runner\\Godot_v4.3-stable_win64_console.exe';
     mockedFs.readFileSync.mockImplementation((filePath) => {
       if (filePath.endsWith('export_presets.cfg')) {
-        return 'name="Windows Desktop"\ncustom_template/release=""\ncustom_template/debug=""\ndebug/export_console_wrapper=1\nbinary_format/embed_pck=true';
+        return 'name="Windows Desktop"\ncustom_template/release=""\ncustom_template/debug=""\ndebug/export_console_wrapper=1\nbinary_format/embed_pck=true\napplication/modify_resources=true';
       }
       return 'dummy';
     });
@@ -158,6 +158,7 @@ describe('GodotBuildStrategy', () => {
     expect(writtenConfig).toContain('custom_template/debug="C:/runner/Godot_v4.3-stable_win64.exe"');
     expect(writtenConfig).toContain('debug/export_console_wrapper=0');
     expect(writtenConfig).toContain('binary_format/embed_pck=false');
+    expect(writtenConfig).toContain('application/modify_resources=false');
   });
 
   it('12. should fail if derived main engine executable is missing from disk', async () => {
@@ -170,5 +171,22 @@ describe('GodotBuildStrategy', () => {
 
     await expect(runGodotBuild('job1', 'repoDir', 'buildDir', logFn))
       .rejects.toThrow('The normal Windows Godot executable was not found at: C:\\runner\\Godot_v4.3-stable_win64.exe');
+  });
+
+  it('13. should ensure application/modify_resources=false is set even if omitted in export_presets.cfg', async () => {
+    process.env.GODOT_EXECUTABLE = 'C:\\runner\\Godot_v4.3-stable_win64_console.exe';
+    mockedFs.readFileSync.mockImplementation((filePath) => {
+      if (filePath.endsWith('export_presets.cfg')) {
+        return 'name="Windows Desktop"';
+      }
+      return 'dummy';
+    });
+
+    await runGodotBuild('job1', 'repoDir', 'buildDir', logFn);
+
+    const writeCall = mockedFs.writeFileSync.mock.calls.find(c => c[0].endsWith('export_presets.cfg'));
+    expect(writeCall).toBeDefined();
+    const writtenConfig = writeCall[1];
+    expect(writtenConfig).toContain('application/modify_resources=false');
   });
 });

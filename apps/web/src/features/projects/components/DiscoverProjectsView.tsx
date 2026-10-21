@@ -42,7 +42,15 @@ const DEFAULT_PLATFORMS = [
   'Web',
 ];
 
-export const DiscoverProjectsView: React.FC = () => {
+export interface DiscoverProjectsViewProps {
+  showHeader?: boolean;
+  onSwitchToMyProjects?: () => void;
+}
+
+export const DiscoverProjectsView: React.FC<DiscoverProjectsViewProps> = ({
+  showHeader = true,
+  onSwitchToMyProjects,
+}) => {
   const [projects, setProjects] = useState<DashboardProjectItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,29 +134,31 @@ export const DiscoverProjectsView: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      {/* Page Header */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-pantheon-border bg-pantheon-low px-3 py-1 text-xs font-mono text-pantheon-ivory">
-            <Compass className="h-3.5 w-3.5 text-pantheon-dim" />
-            Studio Productions
-          </span>
-          <span className="text-xs font-mono text-pantheon-dim">
-            LIVE CATALOGUE
-          </span>
-        </div>
+      {/* Page Header (Rendered conditionally) */}
+      {showHeader && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-pantheon-border bg-pantheon-low px-3 py-1 text-xs font-mono text-pantheon-ivory">
+              <Compass className="h-3.5 w-3.5 text-pantheon-dim" />
+              Studio Productions
+            </span>
+            <span className="text-xs font-mono text-pantheon-dim">
+              LIVE CATALOGUE
+            </span>
+          </div>
 
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <h1 className="font-headline text-3xl sm:text-4xl font-bold text-pantheon-ivory tracking-tight">
-              Discover Projects
-            </h1>
-            <p className="mt-1 text-sm text-pantheon-muted max-w-2xl leading-relaxed">
-              Explore active game studio productions, playable prototypes, and open roles seeking talent across the community.
-            </p>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h1 className="font-headline text-3xl sm:text-4xl font-bold text-pantheon-ivory tracking-tight">
+                Discover Projects
+              </h1>
+              <p className="mt-1 text-sm text-pantheon-muted max-w-2xl leading-relaxed">
+                Explore active game studio productions, playable prototypes, and open roles seeking talent across the community.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="rounded-2xl border border-pantheon-border bg-pantheon-low p-4 sm:p-5 space-y-4 shadow-xl">
@@ -223,6 +233,17 @@ export const DiscoverProjectsView: React.FC = () => {
               <Briefcase className="h-3.5 w-3.5 text-amber-400" />
               <span>Hiring / Open Roles Only</span>
             </button>
+
+            {onSwitchToMyProjects && (
+              <button
+                type="button"
+                onClick={onSwitchToMyProjects}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-pantheon-border bg-pantheon-bg px-3 py-1.5 text-xs font-mono text-pantheon-muted hover:border-pantheon-border-light hover:text-pantheon-ivory transition-colors"
+              >
+                <FolderKanban className="h-3.5 w-3.5 text-pantheon-dim" />
+                <span>Filter to My Projects</span>
+              </button>
+            )}
 
             {hasActiveFilters && (
               <button

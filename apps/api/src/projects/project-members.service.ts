@@ -6,11 +6,13 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  NotificationType,
   ProjectMemberStatus,
   ProjectModerationStatus,
   ProjectRoleStatus,
   Role,
 } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import type {
   AssignProjectMemberRolesDto,
   ProjectActiveTeamMemberDto,
@@ -20,7 +22,10 @@ import type {
 
 @Injectable()
 export class ProjectMembersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   private mapToActiveMemberDto(
     member: any,
@@ -443,7 +448,7 @@ export class ProjectMembersService {
   ): Promise<ProjectFormerTeamMemberDto> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      select: { id: true, founderId: true },
+      select: { id: true, name: true, founderId: true },
     });
 
     if (!project) {
@@ -458,6 +463,13 @@ export class ProjectMembersService {
 
     const targetMember = await this.prisma.projectMember.findUnique({
       where: { id: memberId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        projectRoleId: true,
+        status: true,
+      },
     });
 
     if (!targetMember || targetMember.projectId !== projectId) {
@@ -472,18 +484,27 @@ export class ProjectMembersService {
       throw new BadRequestException('This member is no longer active.');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const current = await tx.projectMember.findUnique({
-        where: { id: memberId },
+    const roleConditions: any[] = [{ assignedMemberId: targetMember.id }];
+    if (targetMember.projectRoleId) {
+      roleConditions.push({ id: targetMember.projectRoleId });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.projectMember.updateMany({
+        where: {
+          id: memberId,
+          projectId,
+          status: ProjectMemberStatus.ACTIVE,
+        },
+        data: {
+          status: ProjectMemberStatus.REMOVED,
+          leftAt: new Date(),
+          projectRoleId: null,
+        },
       });
 
-      if (!current || current.status !== ProjectMemberStatus.ACTIVE) {
+      if (updateResult.count === 0) {
         throw new BadRequestException('This member is no longer active.');
-      }
-
-      const roleConditions: any[] = [{ assignedMemberId: current.id }];
-      if (current.projectRoleId) {
-        roleConditions.push({ id: current.projectRoleId });
       }
 
       // Free all occupied roles
@@ -502,51 +523,62 @@ export class ProjectMembersService {
       await tx.task.updateMany({
         where: {
           projectId,
-          assigneeId: current.userId,
+          assigneeId: targetMember.userId,
         },
         data: {
           assigneeId: null,
         },
       });
+    });
 
-      const updated = await tx.projectMember.update({
-        where: { id: memberId },
-        data: {
-          status: ProjectMemberStatus.REMOVED,
-          leftAt: new Date(),
-          projectRoleId: null,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                  headline: true,
-                },
+    const updated = await this.prisma.projectMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                headline: true,
               },
             },
           },
-          projectRole: {
-            include: {
-              role: true,
-            },
-          },
-          assignedRoles: {
-            include: {
-              role: true,
-            },
+        },
+        projectRole: {
+          include: {
+            role: true,
           },
         },
-      });
-
-      return this.mapToFormerMemberDto(updated, project.founderId);
+        assignedRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
+
+    if (targetMember.userId) {
+      try {
+        await this.notificationsService.createNotification({
+          userId: targetMember.userId,
+          type: NotificationType.REMOVED_FROM_PROJECT,
+          title: 'Removed from Project',
+          message: `You have been removed from the project "${project.name}".`,
+          entityType: 'PROJECT',
+          entityId: projectId,
+        });
+      } catch (notifErr) {
+        // Log warning, notification failure must not rollback member removal
+        console.warn('Failed to create member removal notification:', notifErr);
+      }
+    }
+
+    return this.mapToFormerMemberDto(updated, project.founderId);
   }
 
   async leaveProject(
@@ -555,7 +587,7 @@ export class ProjectMembersService {
   ): Promise<{ success: boolean; message: string }> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      select: { id: true, founderId: true },
+      select: { id: true, name: true, founderId: true },
     });
 
     if (!project) {
@@ -572,6 +604,13 @@ export class ProjectMembersService {
       where: {
         projectId_userId: { projectId, userId },
       },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        projectRoleId: true,
+        status: true,
+      },
     });
 
     if (!membership || membership.status !== ProjectMemberStatus.ACTIVE) {
@@ -580,22 +619,29 @@ export class ProjectMembersService {
       );
     }
 
+    const roleConditions: any[] = [{ assignedMemberId: membership.id }];
+    if (membership.projectRoleId) {
+      roleConditions.push({ id: membership.projectRoleId });
+    }
+
     await this.prisma.$transaction(async (tx) => {
-      const current = await tx.projectMember.findUnique({
+      const updateResult = await tx.projectMember.updateMany({
         where: {
-          projectId_userId: { projectId, userId },
+          id: membership.id,
+          projectId,
+          status: ProjectMemberStatus.ACTIVE,
+        },
+        data: {
+          status: ProjectMemberStatus.LEFT,
+          leftAt: new Date(),
+          projectRoleId: null,
         },
       });
 
-      if (!current || current.status !== ProjectMemberStatus.ACTIVE) {
+      if (updateResult.count === 0) {
         throw new BadRequestException(
           'You are not an active member of this project.',
         );
-      }
-
-      const roleConditions: any[] = [{ assignedMemberId: current.id }];
-      if (current.projectRoleId) {
-        roleConditions.push({ id: current.projectRoleId });
       }
 
       // Reopen any occupied roles
@@ -614,19 +660,10 @@ export class ProjectMembersService {
       await tx.task.updateMany({
         where: {
           projectId,
-          assigneeId: current.userId,
+          assigneeId: membership.userId,
         },
         data: {
           assigneeId: null,
-        },
-      });
-
-      await tx.projectMember.update({
-        where: { id: current.id },
-        data: {
-          status: ProjectMemberStatus.LEFT,
-          leftAt: new Date(),
-          projectRoleId: null,
         },
       });
     });
@@ -646,7 +683,7 @@ export class ProjectMembersService {
   ): Promise<ProjectActiveTeamMemberDto> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      select: { id: true, founderId: true },
+      select: { id: true, name: true, founderId: true },
     });
 
     if (!project) {
@@ -661,6 +698,14 @@ export class ProjectMembersService {
 
     const targetMember = await this.prisma.projectMember.findUnique({
       where: { id: memberId },
+      select: {
+        id: true,
+        userId: true,
+        projectId: true,
+        role: true,
+        projectRoleId: true,
+        status: true,
+      },
     });
 
     if (!targetMember || targetMember.projectId !== projectId) {
@@ -679,6 +724,9 @@ export class ProjectMembersService {
       targetRoleIds = dto.projectRoleId ? [dto.projectRoleId] : [];
     }
 
+    let primaryRoleTitle = 'Member';
+    const primaryRoleId = targetRoleIds[0] || null;
+
     // Verify all requested role IDs belong to the project and are not closed
     if (targetRoleIds.length > 0) {
       const validRoles = await this.prisma.projectRole.findMany({
@@ -686,6 +734,7 @@ export class ProjectMembersService {
           id: { in: targetRoleIds },
           projectId,
         },
+        include: { role: true },
       });
 
       if (validRoles.length !== targetRoleIds.length) {
@@ -701,28 +750,57 @@ export class ProjectMembersService {
           );
         }
       }
+
+      if (primaryRoleId) {
+        const primaryRole = validRoles.find((r) => r.id === primaryRoleId);
+        if (primaryRole) {
+          primaryRoleTitle =
+            primaryRole.title || primaryRole.role?.name || 'Member';
+        }
+      }
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      // Find all roles currently assigned to this member
-      const currentlyAssignedRoles = await tx.projectRole.findMany({
+    // Find currently assigned roles outside the transaction
+    const currentlyAssignedRoles = await this.prisma.projectRole.findMany({
+      where: {
+        projectId,
+        OR: [
+          { assignedMemberId: memberId },
+          { id: targetMember.projectRoleId || undefined },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const rolesToUnassignIds = currentlyAssignedRoles
+      .filter((r) => !targetRoleIds.includes(r.id))
+      .map((r) => r.id);
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Atomic compare-and-swap on active member status
+      const updateResult = await tx.projectMember.updateMany({
         where: {
+          id: memberId,
           projectId,
-          OR: [
-            { assignedMemberId: memberId },
-            { id: targetMember.projectRoleId || undefined },
-          ],
+          status: ProjectMemberStatus.ACTIVE,
+        },
+        data: {
+          projectRoleId: primaryRoleId,
+          role: primaryRoleTitle,
         },
       });
 
-      // 1. Unassign roles that are no longer in targetRoleIds
-      const rolesToUnassign = currentlyAssignedRoles.filter(
-        (r) => !targetRoleIds.includes(r.id),
-      );
+      if (updateResult.count === 0) {
+        throw new BadRequestException('This member is no longer active.');
+      }
 
-      for (const role of rolesToUnassign) {
-        await tx.projectRole.update({
-          where: { id: role.id },
+      // 2. Unassign roles that are no longer in targetRoleIds
+      if (rolesToUnassignIds.length > 0) {
+        await tx.projectRole.updateMany({
+          where: {
+            id: { in: rolesToUnassignIds },
+            projectId,
+          },
           data: {
             assignedMemberId: null,
             status: ProjectRoleStatus.OPEN,
@@ -730,70 +808,69 @@ export class ProjectMembersService {
         });
       }
 
-      // 2. Assign target roles to this member
-      for (const roleId of targetRoleIds) {
-        await tx.projectRole.update({
-          where: { id: roleId },
+      // 3. Assign target roles to this member
+      if (targetRoleIds.length > 0) {
+        await tx.projectRole.updateMany({
+          where: {
+            id: { in: targetRoleIds },
+            projectId,
+          },
           data: {
             assignedMemberId: memberId,
             status: ProjectRoleStatus.FILLED,
           },
         });
       }
+    });
 
-      // 3. Update member's primary projectRoleId and role title (for legacy support)
-      const primaryRoleId = targetRoleIds[0] || null;
-      let primaryRoleTitle = targetMember.role;
-      if (primaryRoleId) {
-        const primaryRole = await tx.projectRole.findUnique({
-          where: { id: primaryRoleId },
-          include: { role: true },
-        });
-        if (primaryRole) {
-          primaryRoleTitle =
-            primaryRole.title || primaryRole.role.name || 'Member';
-        }
-      } else {
-        primaryRoleTitle = 'Member';
-      }
-
-      const updated = await tx.projectMember.update({
-        where: { id: memberId },
-        data: {
-          projectRoleId: primaryRoleId,
-          role: primaryRoleTitle,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                  headline: true,
-                },
+    // Enriched read outside transaction
+    const updated = await this.prisma.projectMember.findUnique({
+      where: { id: memberId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                headline: true,
               },
             },
           },
-          projectRole: {
-            include: {
-              role: true,
-            },
-          },
-          assignedRoles: {
-            include: {
-              role: true,
-            },
+        },
+        projectRole: {
+          include: {
+            role: true,
           },
         },
-      });
-
-      return this.mapToActiveMemberDto(updated, project.founderId);
+        assignedRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
+
+    if (targetMember.userId) {
+      try {
+        await this.notificationsService.createNotification({
+          userId: targetMember.userId,
+          type: NotificationType.PROJECT_ROLE_CHANGED,
+          title: 'Project Role Updated',
+          message: `Your role in "${project.name}" has been updated to "${primaryRoleTitle}".`,
+          entityType: 'PROJECT',
+          entityId: projectId,
+        });
+      } catch (notifErr) {
+        console.warn('Failed to create role update notification:', notifErr);
+      }
+    }
+
+    return this.mapToActiveMemberDto(updated, project.founderId);
   }
 
   async assignRoleToUser(
@@ -804,7 +881,7 @@ export class ProjectMembersService {
   ): Promise<ProjectActiveTeamMemberDto> {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      select: { id: true, founderId: true },
+      select: { id: true, name: true, founderId: true },
     });
 
     if (!project) {
@@ -832,14 +909,24 @@ export class ProjectMembersService {
 
     const roleTitle = projectRole.title || projectRole.role.name || 'Member';
 
-    return this.prisma.$transaction(async (tx) => {
-      let member = await tx.projectMember.findUnique({
-        where: {
-          projectId_userId: { projectId, userId: targetUserId },
-        },
-      });
+    const existingMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: { projectId, userId: targetUserId },
+      },
+      select: {
+        id: true,
+        userId: true,
+        role: true,
+        projectRoleId: true,
+        status: true,
+      },
+    });
 
-      if (!member) {
+    let assignedMemberId: string;
+
+    await this.prisma.$transaction(async (tx) => {
+      let member: { id: string };
+      if (!existingMember) {
         member = await tx.projectMember.create({
           data: {
             projectId,
@@ -849,26 +936,31 @@ export class ProjectMembersService {
             status: ProjectMemberStatus.ACTIVE,
           },
         });
-      } else if (member.status !== ProjectMemberStatus.ACTIVE) {
+      } else if (existingMember.status !== ProjectMemberStatus.ACTIVE) {
         member = await tx.projectMember.update({
-          where: { id: member.id },
+          where: { id: existingMember.id },
           data: {
             status: ProjectMemberStatus.ACTIVE,
             leftAt: null,
             joinedAt: new Date(),
             role: roleTitle,
-            projectRoleId: member.projectRoleId || projectRoleId,
+            projectRoleId: existingMember.projectRoleId || projectRoleId,
           },
         });
       } else {
         member = await tx.projectMember.update({
-          where: { id: member.id },
+          where: { id: existingMember.id },
           data: {
-            projectRoleId: member.projectRoleId || projectRoleId,
-            role: member.role === 'Member' ? roleTitle : member.role,
+            projectRoleId: existingMember.projectRoleId || projectRoleId,
+            role:
+              existingMember.role === 'Member'
+                ? roleTitle
+                : existingMember.role,
           },
         });
       }
+
+      assignedMemberId = member.id;
 
       // Assign the role to this member
       await tx.projectRole.update({
@@ -878,40 +970,53 @@ export class ProjectMembersService {
           status: ProjectRoleStatus.FILLED,
         },
       });
+    });
 
-      const updated = await tx.projectMember.findUnique({
-        where: { id: member.id },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  firstName: true,
-                  lastName: true,
-                  avatarUrl: true,
-                  headline: true,
-                },
+    const updated = await this.prisma.projectMember.findUnique({
+      where: { id: assignedMemberId! },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            profile: {
+              select: {
+                displayName: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                headline: true,
               },
             },
           },
-          projectRole: {
-            include: {
-              role: true,
-            },
-          },
-          assignedRoles: {
-            include: {
-              role: true,
-            },
+        },
+        projectRole: {
+          include: {
+            role: true,
           },
         },
-      });
-
-      return this.mapToActiveMemberDto(updated, project.founderId);
+        assignedRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
+
+    try {
+      await this.notificationsService.createNotification({
+        userId: targetUserId,
+        type: NotificationType.PROJECT_ROLE_CHANGED,
+        title: 'Assigned to Project Role',
+        message: `You have been assigned to role "${roleTitle}" in "${project.name}".`,
+        entityType: 'PROJECT',
+        entityId: projectId,
+      });
+    } catch (notifErr) {
+      console.warn('Failed to create role assignment notification:', notifErr);
+    }
+
+    return this.mapToActiveMemberDto(updated, project.founderId);
   }
 
   // Alias for backward compatibility

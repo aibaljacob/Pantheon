@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   ProjectInvitationStatus,
   ProjectRoleStatus,
+  ProjectMemberStatus,
   Role,
 } from '@prisma/client';
 import { RespondInvitationAction } from './projects.dto';
@@ -248,39 +249,36 @@ describe('ProjectInvitationsService', () => {
         inviterId: 'founder-1',
         inviteeId: 'candidate-1',
         status: ProjectInvitationStatus.PENDING,
-        projectRole: { title: 'Lead Developer', role: { name: 'Developer' } },
+        projectRole: {
+          id: 'role-1',
+          title: 'Lead Developer',
+          role: { name: 'Developer' },
+          status: ProjectRoleStatus.OPEN,
+        },
       };
 
       prismaMock.projectInvitation.findUnique.mockResolvedValue(mockInv);
+      prismaMock.projectMember.findUnique.mockResolvedValue(null);
+
+      const txMock = {
+        projectMember: {
+          create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
+        },
+        projectRole: {
+          updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        },
+        projectInvitation: {
+          update: jest.fn().mockResolvedValue({
+            ...mockInv,
+            status: ProjectInvitationStatus.ACCEPTED,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        },
+      };
 
       // Mock $transaction callback execution
       prismaMock.$transaction.mockImplementation(async (callback: any) => {
-        const txMock = {
-          projectInvitation: {
-            findUnique: jest.fn().mockResolvedValue(mockInv),
-            update: jest.fn().mockResolvedValue({
-              ...mockInv,
-              status: ProjectInvitationStatus.ACCEPTED,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }),
-          },
-          projectRole: {
-            findUnique: jest.fn().mockResolvedValue({
-              id: 'role-1',
-              status: ProjectRoleStatus.OPEN,
-              title: 'Lead Developer',
-            }),
-            update: jest.fn().mockResolvedValue({
-              id: 'role-1',
-              status: ProjectRoleStatus.FILLED,
-            }),
-          },
-          projectMember: {
-            findUnique: jest.fn().mockResolvedValue(null),
-            create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
-          },
-        };
         return callback(txMock);
       });
 
@@ -290,6 +288,19 @@ describe('ProjectInvitationsService', () => {
 
       expect(result.status).toBe(ProjectInvitationStatus.ACCEPTED);
       expect(prismaMock.$transaction).toHaveBeenCalled();
+      expect(txMock.projectRole.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: 'role-1',
+          status: {
+            in: [ProjectRoleStatus.OPEN, ProjectRoleStatus.IN_REVIEW],
+          },
+        },
+        data: {
+          assignedMemberId: 'mem-1',
+          status: ProjectRoleStatus.FILLED,
+        },
+      });
+      expect(notificationsServiceMock.createNotification).toHaveBeenCalled();
     });
 
     it('should fail transaction if role is already filled', async () => {
@@ -299,34 +310,21 @@ describe('ProjectInvitationsService', () => {
         projectRoleId: 'role-1',
         inviteeId: 'candidate-1',
         status: ProjectInvitationStatus.PENDING,
-        projectRole: { title: 'Lead Developer', role: { name: 'Developer' } },
+        projectRole: {
+          title: 'Lead Developer',
+          role: { name: 'Developer' },
+          status: ProjectRoleStatus.FILLED,
+        },
       };
 
       prismaMock.projectInvitation.findUnique.mockResolvedValue(mockInv);
-
-      prismaMock.$transaction.mockImplementation(async (callback: any) => {
-        const txMock = {
-          projectInvitation: {
-            findUnique: jest.fn().mockResolvedValue(mockInv),
-          },
-          projectRole: {
-            findUnique: jest.fn().mockResolvedValue({
-              id: 'role-1',
-              status: ProjectRoleStatus.FILLED,
-            }),
-          },
-          projectMember: {
-            findUnique: jest.fn().mockResolvedValue(null),
-          },
-        };
-        return callback(txMock);
-      });
 
       await expect(
         service.respondToInvitation('inv-1', 'candidate-1', {
           action: RespondInvitationAction.ACCEPT,
         }),
       ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
     });
 
     it('should fail transaction if user is already a project member', async () => {
@@ -336,24 +334,55 @@ describe('ProjectInvitationsService', () => {
         projectRoleId: 'role-1',
         inviteeId: 'candidate-1',
         status: ProjectInvitationStatus.PENDING,
-        projectRole: { title: 'Lead Developer', role: { name: 'Developer' } },
+        projectRole: {
+          title: 'Lead Developer',
+          role: { name: 'Developer' },
+          status: ProjectRoleStatus.OPEN,
+        },
       };
 
       prismaMock.projectInvitation.findUnique.mockResolvedValue(mockInv);
+      prismaMock.projectMember.findUnique.mockResolvedValue({
+        id: 'existing-mem',
+        status: ProjectMemberStatus.ACTIVE,
+      });
+
+      await expect(
+        service.respondToInvitation('inv-1', 'candidate-1', {
+          action: RespondInvitationAction.ACCEPT,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should fail transaction if role is concurrently filled during transaction', async () => {
+      const mockInv = {
+        id: 'inv-1',
+        projectId: 'proj-1',
+        projectRoleId: 'role-1',
+        inviteeId: 'candidate-1',
+        status: ProjectInvitationStatus.PENDING,
+        projectRole: {
+          id: 'role-1',
+          title: 'Lead Developer',
+          role: { name: 'Developer' },
+          status: ProjectRoleStatus.OPEN,
+        },
+      };
+
+      prismaMock.projectInvitation.findUnique.mockResolvedValue(mockInv);
+      prismaMock.projectMember.findUnique.mockResolvedValue(null);
 
       prismaMock.$transaction.mockImplementation(async (callback: any) => {
         const txMock = {
-          projectInvitation: {
-            findUnique: jest.fn().mockResolvedValue(mockInv),
+          projectMember: {
+            create: jest.fn().mockResolvedValue({ id: 'mem-1' }),
           },
           projectRole: {
-            findUnique: jest.fn().mockResolvedValue({
-              id: 'role-1',
-              status: ProjectRoleStatus.OPEN,
-            }),
+            updateMany: jest.fn().mockResolvedValue({ count: 0 }),
           },
-          projectMember: {
-            findUnique: jest.fn().mockResolvedValue({ id: 'existing-mem' }),
+          projectInvitation: {
+            update: jest.fn(),
           },
         };
         return callback(txMock);

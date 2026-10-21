@@ -135,6 +135,85 @@ export class TasksService {
     }
   }
 
+  private isProgressingTransition(
+    currentStatus: TaskStatus,
+    targetStatus: TaskStatus,
+  ): boolean {
+    if (currentStatus === targetStatus) {
+      return false;
+    }
+
+    // Moving to BLOCKED, BACKLOG, or TODO is not progressing work into active progress or completion
+    if (
+      targetStatus === TaskStatus.BLOCKED ||
+      targetStatus === TaskStatus.BACKLOG ||
+      targetStatus === TaskStatus.TODO
+    ) {
+      return false;
+    }
+
+    // Progression hierarchy for active/completed states:
+    // BACKLOG (0) < TODO (1) < IN_PROGRESS (2) < IN_REVIEW (3) < DONE (4)
+    const STATUS_RANK: Record<TaskStatus, number> = {
+      [TaskStatus.BACKLOG]: 0,
+      [TaskStatus.TODO]: 1,
+      [TaskStatus.IN_PROGRESS]: 2,
+      [TaskStatus.IN_REVIEW]: 3,
+      [TaskStatus.DONE]: 4,
+      [TaskStatus.BLOCKED]: 0, // Unblocking to IN_PROGRESS/IN_REVIEW/DONE is progressing
+    };
+
+    return (STATUS_RANK[targetStatus] ?? 0) > (STATUS_RANK[currentStatus] ?? 0);
+  }
+
+  private async getPrerequisites(
+    taskId: string,
+    hasUpdatedDependencies: boolean,
+    existing?: {
+      dependencies?: Array<{
+        id?: string;
+        dependsOnTaskId: string;
+        dependsOnTask?: {
+          id: string;
+          taskNumber: number;
+          title: string;
+          status: TaskStatus;
+        } | null;
+      }>;
+    } | null,
+  ): Promise<
+    Array<{
+      id?: string;
+      dependsOnTaskId: string;
+      dependsOnTask?: {
+        id: string;
+        taskNumber: number;
+        title: string;
+        status: TaskStatus;
+      } | null;
+    }>
+  > {
+    if (!hasUpdatedDependencies && Array.isArray(existing?.dependencies)) {
+      return existing.dependencies;
+    }
+
+    const fetched = await this.prisma.taskDependency.findMany({
+      where: { taskId },
+      include: {
+        dependsOnTask: {
+          select: {
+            id: true,
+            taskNumber: true,
+            title: true,
+            status: true,
+          },
+        },
+      },
+    });
+
+    return fetched || [];
+  }
+
   async createTask(
     projectId: string,
     dto: CreateTaskDto,
@@ -169,12 +248,25 @@ export class TasksService {
       const distinctIds = Array.from(new Set(dto.dependencyTaskIds));
       const found = await this.prisma.task.findMany({
         where: { id: { in: distinctIds }, projectId: project.id },
-        select: { id: true },
+        select: { id: true, taskNumber: true, status: true },
       });
       if (found.length !== distinctIds.length) {
         throw new BadRequestException(
           'One or more prerequisite tasks do not exist in this project.',
         );
+      }
+
+      const targetStatus = dto.status || TaskStatus.TODO;
+      if (this.isProgressingTransition(TaskStatus.TODO, targetStatus)) {
+        const incomplete = found.filter((t) => t.status !== TaskStatus.DONE);
+        if (incomplete.length > 0) {
+          const depList = incomplete
+            .map((t) => `TASK-${t.taskNumber}`)
+            .join(', ');
+          throw new BadRequestException(
+            `Task is blocked by incomplete prerequisite tasks: ${depList}.`,
+          );
+        }
       }
     }
 
@@ -344,6 +436,20 @@ export class TasksService {
 
     const existing = await this.prisma.task.findFirst({
       where: { id: taskId, projectId: project.id },
+      include: {
+        dependencies: {
+          include: {
+            dependsOnTask: {
+              select: {
+                id: true,
+                taskNumber: true,
+                title: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!existing) {
@@ -434,6 +540,36 @@ export class TasksService {
             dependsOnTaskId: depId,
           })),
         });
+      }
+    }
+
+    if (dto.status !== undefined && dto.status !== existing.status) {
+      const currentStatus = existing.status || TaskStatus.TODO;
+      if (this.isProgressingTransition(currentStatus, dto.status)) {
+        const prerequisites = await this.getPrerequisites(
+          taskId,
+          dto.dependencyTaskIds !== undefined,
+          existing,
+        );
+
+        const incompletePrereqs = prerequisites.filter(
+          (dep) =>
+            !dep.dependsOnTask || dep.dependsOnTask.status !== TaskStatus.DONE,
+        );
+
+        if (incompletePrereqs.length > 0) {
+          const depList = incompletePrereqs
+            .map((dep) =>
+              dep.dependsOnTask?.taskNumber
+                ? `TASK-${dep.dependsOnTask.taskNumber}`
+                : dep.dependsOnTaskId || 'Unknown',
+            )
+            .join(', ');
+
+          throw new BadRequestException(
+            `Task is blocked by incomplete prerequisite tasks: ${depList}.`,
+          );
+        }
       }
     }
 

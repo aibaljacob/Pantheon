@@ -37,13 +37,61 @@ export class NotificationsService {
       this.prisma.notification.count({ where: { userId, isRead: false } }),
     ]);
 
+    const enrichedItems = items.map((item) => ({
+      ...item,
+      actionUrl: this.resolveActionUrl(item),
+    }));
+
     return {
-      items,
+      items: enrichedItems,
       total,
       unreadCount,
       page,
       limit,
     };
+  }
+
+  resolveActionUrl(item: {
+    type: NotificationType;
+    entityType?: string | null;
+    entityId?: string | null;
+  }): string | null {
+    if (!item.entityId) return null;
+
+    if (item.type === NotificationType.PROJECT_ROLE_CHANGED) {
+      return `/projects/${item.entityId}?tab=team`;
+    }
+    if (item.type === NotificationType.REMOVED_FROM_PROJECT) {
+      return `/projects/${item.entityId}`;
+    }
+    if (
+      item.type === NotificationType.INVITATION_RECEIVED ||
+      (item.type as string) === 'INVITATION_ACCEPTED'
+    ) {
+      return `/projects/${item.entityId}`;
+    }
+    if (
+      item.type === NotificationType.APPLICATION_ACCEPTED ||
+      item.type === NotificationType.APPLICATION_REJECTED
+    ) {
+      return `/projects/${item.entityId}`;
+    }
+
+    const entityType = item.entityType?.toUpperCase();
+    if (item.type === NotificationType.TASK_ASSIGNED || entityType === 'TASK') {
+      return `/projects/${item.entityId}?tab=tasks`;
+    }
+    if (entityType === 'PROJECT') {
+      return `/projects/${item.entityId}`;
+    }
+    if (entityType === 'PLAYTEST') {
+      return `/projects/${item.entityId}?tab=playtests`;
+    }
+    if (entityType === 'APPLICATION') {
+      return `/projects/${item.entityId}?tab=applications`;
+    }
+
+    return `/projects/${item.entityId}`;
   }
 
   async getUnreadCount(userId: string) {

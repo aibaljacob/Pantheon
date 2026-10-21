@@ -2,8 +2,8 @@ import React from 'react';
 import { Badge } from '../../../components/ui/Badge';
 import type { DashboardUser } from '../types';
 import pantheonlogo from '../../../assets/pantheon-logowhole.png';
-import { LayoutDashboard, Compass, FolderKanban, BadgeHelp, Settings, ChevronRight, Mail, Send } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { LayoutDashboard, FolderKanban, BadgeHelp, Settings, ChevronRight, Mail, Send } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 import { UserAvatar } from '../../auth/components/UserAvatar';
 
 interface SidebarProps {
@@ -20,8 +20,7 @@ interface NavItem {
 
 const userNavItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Discover', href: '/discover', icon: Compass },
-  { label: 'My Projects', href: '/projects', icon: FolderKanban },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Invitations', href: '/dashboard#invitations', icon: Mail },
   { label: 'Applications', href: '/dashboard#applications', icon: Send },
   { label: 'Profile & Portfolio', href: '/profile', icon: BadgeHelp },
@@ -36,6 +35,7 @@ const adminNavItems: NavItem[] = [
 export const Sidebar: React.FC<SidebarProps> = ({ user, onCloseMobile }) => {
   const isAdmin = user.role === 'Administrator';
   const navItems = isAdmin ? adminNavItems : userNavItems;
+  const location = useLocation();
 
   return (
     <aside className="flex h-full flex-col border-r border-pantheon-border-dark bg-pantheon-bg">
@@ -48,9 +48,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, onCloseMobile }) => {
         {navItems.map((item) => {
           const Icon = item.icon;
           const targetHref = item.href === '/profile' ? `/u/${user.username}` : item.href;
+          const isActive =
+            item.href === '/dashboard'
+              ? location.pathname === '/dashboard' && !location.hash
+              : item.href.includes('#')
+              ? location.pathname === '/dashboard' && location.hash === item.href.slice(item.href.indexOf('#'))
+              : item.href === '/profile'
+              ? location.pathname.startsWith('/u/') || location.pathname === '/profile'
+              : location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+
           return (
-            <Link key={item.label} to={targetHref} onClick={onCloseMobile} className="group flex items-center justify-between rounded-2xl border border-transparent px-3 py-3 text-sm text-pantheon-muted transition-colors hover:border-pantheon-border hover:bg-pantheon-low hover:text-pantheon-ivory">
-              <span className="flex items-center gap-3"><Icon className="h-4 w-4 text-pantheon-dim transition-colors group-hover:text-pantheon-ivory" />{item.label}</span>
+            <Link
+              key={item.label}
+              to={targetHref}
+              onClick={onCloseMobile}
+              className={`group flex items-center justify-between rounded-2xl border px-3 py-3 text-sm transition-colors ${
+                isActive
+                  ? 'border-pantheon-border bg-pantheon-low text-pantheon-ivory font-medium'
+                  : 'border-transparent text-pantheon-muted hover:border-pantheon-border hover:bg-pantheon-low hover:text-pantheon-ivory'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <Icon
+                  className={`h-4 w-4 transition-colors ${
+                    isActive ? 'text-amber-400' : 'text-pantheon-dim group-hover:text-pantheon-ivory'
+                  }`}
+                />
+                {item.label}
+              </span>
               <span>{item.comingSoon ? <Badge variant="bronze" className="text-[9px]">Soon</Badge> : null}</span>
             </Link>
           );

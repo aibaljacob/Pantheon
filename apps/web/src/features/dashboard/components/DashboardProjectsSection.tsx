@@ -46,12 +46,18 @@ interface DashboardProjectsSectionProps {
   showViewAllLink?: boolean;
   headerTitle?: string;
   headerSubtitle?: string;
+  showHeader?: boolean;
+  onSwitchToDiscover?: () => void;
+  onProjectsLoaded?: (count: number) => void;
 }
 
 export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> = ({
   showViewAllLink = true,
   headerTitle = 'My Projects',
   headerSubtitle = 'Active Studio Productions',
+  showHeader = true,
+  onSwitchToDiscover,
+  onProjectsLoaded,
 }) => {
   const accessToken = useAuthStore((state) => state.accessToken);
   const [projects, setProjects] = useState<DashboardProjectItem[]>([]);
@@ -71,13 +77,14 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
     try {
       const res = await fetchUserDashboardProjects(accessToken);
       setProjects(res.projects || []);
+      onProjectsLoaded?.(res.projects?.length || 0);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unable to load active projects.';
       setError(message);
     } finally {
       setIsLoading(false);
     }
-  }, [accessToken]);
+  }, [accessToken, onProjectsLoaded]);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -87,6 +94,7 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
       .then((res) => {
         if (!ignore) {
           setProjects(res.projects || []);
+          onProjectsLoaded?.(res.projects?.length || 0);
           setError(null);
         }
       })
@@ -104,49 +112,55 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
     return () => {
       ignore = true;
     };
-  }, [accessToken]);
+  }, [accessToken, onProjectsLoaded]);
 
   const handleProjectCreated = (newProject: DashboardProjectItem) => {
-    setProjects((prev) => [newProject, ...prev]);
+    setProjects((prev) => {
+      const updated = [newProject, ...prev];
+      onProjectsLoaded?.(updated.length);
+      return updated;
+    });
   };
 
   return (
     <section className="space-y-4">
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2b2a29] pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <FolderKanban className="h-4 w-4 text-[#8c887e]" />
-            <p className="text-xs font-mono uppercase tracking-[0.25em] text-[#8c887e]">
-              {headerSubtitle}
-            </p>
+      {showHeader && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2b2a29] pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <FolderKanban className="h-4 w-4 text-[#8c887e]" />
+              <p className="text-xs font-mono uppercase tracking-[0.25em] text-[#8c887e]">
+                {headerSubtitle}
+              </p>
+            </div>
+            <h2 className="mt-1 font-headline text-2xl font-bold text-[#ffffff]">
+              {headerTitle}
+            </h2>
           </div>
-          <h2 className="mt-1 font-headline text-2xl font-bold text-[#ffffff]">
-            {headerTitle}
-          </h2>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setIsCreateModalOpen(true)}
-            icon={<Crown className="h-3.5 w-3.5 text-amber-400" />}
-          >
-            New Project
-          </Button>
-
-          {showViewAllLink && projects.length > 0 && (
-            <Link
-              to="/projects"
-              className="inline-flex items-center gap-1.5 text-xs font-mono text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+          <div className="flex items-center gap-3">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCreateModalOpen(true)}
+              icon={<Crown className="h-3.5 w-3.5 text-amber-400" />}
             >
-              <span>View All ({projects.length})</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          )}
+              New Project
+            </Button>
+
+            {showViewAllLink && projects.length > 0 && (
+              <Link
+                to="/projects?tab=mine"
+                className="inline-flex items-center gap-1.5 text-xs font-mono text-[#cac6bc] hover:text-[#ffffff] transition-colors"
+              >
+                <span>View All ({projects.length})</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Loading Skeleton State */}
       {isLoading && (
@@ -308,11 +322,22 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <Link to="/discover">
-                <Button variant="secondary" size="sm" icon={<Compass className="h-4 w-4" />}>
-                  Explore Projects
+              {onSwitchToDiscover ? (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={onSwitchToDiscover}
+                  icon={<Compass className="h-4 w-4 text-amber-400" />}
+                >
+                  Explore & Discover Projects
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/projects?tab=discover">
+                  <Button variant="secondary" size="sm" icon={<Compass className="h-4 w-4 text-amber-400" />} >
+                    Explore & Discover Projects
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 

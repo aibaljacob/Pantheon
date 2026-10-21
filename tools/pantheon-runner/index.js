@@ -215,6 +215,32 @@ async function pollJobs() {
   }
 }
 
+async function markOffline() {
+  if (!RUNNER_ID || !RUNNER_TOKEN) return;
+  try {
+    console.log('\n[runner] Notifying server of graceful shutdown...');
+    await axios.post(`${API_URL}/build-runners/offline`, {}, {
+      headers: getHeaders(),
+      timeout: 3000,
+    });
+    console.log('[runner] Successfully marked offline.');
+  } catch (err) {
+    console.error('[runner] Failed to notify offline state:', err.response?.data || err.message);
+  }
+}
+
+let isShuttingDown = false;
+async function handleShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.log(`\n[runner] Received ${signal}. Shutting down cleanly...`);
+  await markOffline();
+  process.exit(0);
+}
+
+process.on('SIGINT', () => handleShutdown('SIGINT'));
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+
 async function start() {
   if (!RUNNER_ID || !RUNNER_TOKEN) {
     await registerRunner();
@@ -225,7 +251,7 @@ async function start() {
   // Initial heartbeat
   await heartbeat();
 
-  setInterval(heartbeat, 30000); // 30s heartbeat
+  setInterval(heartbeat, 20000); // 20s heartbeat (within 60s liveness window)
   setInterval(pollJobs, 5000);   // 5s poll interval
 
   console.log('Runner is active and polling for jobs...');

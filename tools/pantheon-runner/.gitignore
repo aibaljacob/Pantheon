@@ -1,4 +1,6 @@
-﻿Godot_*.exe
+Godot_*.exe
 godot.zip
 templates.zip
 workspace/
+.agent-config.json
+.agent-*.json

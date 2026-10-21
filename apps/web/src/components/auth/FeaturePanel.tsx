@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ShieldCheck, Sparkles, Users, Kanban, ArrowLeft } from 'lucide-react';
+import { Sparkles, Users, Kanban, ArrowLeft } from 'lucide-react';
 import { Badge } from '../ui/Badge';
+import pantheonlogo from '../../assets/pantheon-logowhole.png';
 
 export const FeaturePanel: React.FC = () => {
   return (
@@ -12,20 +13,13 @@ export const FeaturePanel: React.FC = () => {
 
       {/* Top Header: Logo & Return Link */}
       <div className="relative z-10 flex items-center justify-between">
-        <Link
-          to="/"
-          className="flex items-center gap-3 group focus:outline-none focus:ring-2 focus:ring-[#939188] rounded-lg"
-        >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-b from-[#363433] to-[#1c1b1a] border border-[#48473f] flex items-center justify-center shadow-lg group-hover:border-[#939188] transition-colors">
-            <ShieldCheck className="w-5 h-5 text-[#e6e2df]" />
-          </div>
+        <Link to="/" className="flex items-center gap-3 group focus:outline-none">
+          {/* <div className="w-9 h-9 rounded-xl bg-gradient-to-b from-pantheon-high to-pantheon-low border border-pantheon-border flex items-center justify-center shadow-lg group-hover:border-pantheon-border-light transition-colors relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-pantheon-ivory/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <img src={pantheonp} alt="Pantheon P" className="h-6" />
+          </div> */}
           <div className="flex flex-col">
-            <span className="font-headline font-bold text-lg tracking-widest text-[#e6e2df] uppercase">
-              PANTHEON
-            </span>
-            <span className="font-mono text-[9px] text-[#8c887e] tracking-wider uppercase -mt-1">
-              ENGINEERED SAAS
-            </span>
+            <img src={pantheonlogo} alt="Pantheon Logo" className="w-21 h-auto" />
           </div>
         </Link>
 

@@ -67,6 +67,23 @@ export class ProjectRepositoryController {
     return this.repositoryService.getFileContent(projectId, path, user, branch);
   }
 
+  @ApiOperation({
+    summary: 'Get details and changed files for a specific commit',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns commit details, changed files, and linked tasks',
+  })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get(':id/repo/commits/:hash')
+  getCommit(
+    @Param('id') projectId: string,
+    @Param('hash') hash: string,
+    @CurrentUser() user: AuthenticatedUser | undefined,
+  ) {
+    return this.repositoryService.getCommit(projectId, hash, user);
+  }
+
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Commit a new or updated file to the repository' })
   @ApiResponse({ status: 201, description: 'File committed successfully' })

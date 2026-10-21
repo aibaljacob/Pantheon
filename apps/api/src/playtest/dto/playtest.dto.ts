@@ -7,7 +7,7 @@ import {
   IsEnum,
   IsObject,
 } from 'class-validator';
-import { FeedbackSeverity, FeedbackStatus } from '@prisma/client';
+import { FeedbackSeverity, FeedbackStatus, Prisma } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePlaytestSessionDto {
@@ -78,7 +78,7 @@ export class CreatePlaytestFeedbackDto {
   @ApiPropertyOptional()
   @IsObject()
   @IsOptional()
-  systemSpecs?: Record<string, any>;
+  systemSpecs?: Prisma.InputJsonObject;
 }
 
 export class UpdatePlaytestFeedbackDto {
@@ -101,4 +101,83 @@ export class UpdatePlaytestFeedbackDto {
   @IsEnum(FeedbackStatus)
   @IsOptional()
   status?: FeedbackStatus;
+}
+
+export class PlaytestBuildInfoDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  version: string;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiProperty()
+  platform: string;
+
+  @ApiPropertyOptional()
+  storagePath?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'File size in bytes represented as string to avoid BigInt serialization errors',
+  })
+  fileSizeBytes?: string | null;
+
+  @ApiPropertyOptional()
+  fileChecksum?: string | null;
+
+  @ApiPropertyOptional()
+  releaseNotes?: string | null;
+
+  @ApiPropertyOptional()
+  buildJob?: {
+    id?: string;
+    commitHash?: string | null;
+    branchName?: string | null;
+  } | null;
+}
+
+export class PlaytestSessionResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  projectId: string;
+
+  @ApiPropertyOptional()
+  playableBuildId?: string | null;
+
+  @ApiProperty()
+  title: string;
+
+  @ApiPropertyOptional()
+  instructions?: string | null;
+
+  @ApiProperty()
+  isActive: boolean;
+
+  @ApiPropertyOptional()
+  startDate?: Date | null;
+
+  @ApiPropertyOptional()
+  endDate?: Date | null;
+
+  @ApiPropertyOptional()
+  createdById?: string | null;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  updatedAt: Date;
+
+  @ApiPropertyOptional({ type: PlaytestBuildInfoDto })
+  playableBuild?: PlaytestBuildInfoDto | null;
+
+  @ApiPropertyOptional()
+  _count?: {
+    feedback: number;
+  };
 }

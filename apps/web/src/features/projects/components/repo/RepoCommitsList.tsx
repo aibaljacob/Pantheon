@@ -1,24 +1,19 @@
-import React, { useState } from 'react';
-import {
-  GitCommit,
-  Copy,
-  Check,
-  FileCode,
-  X,
-  CheckSquare,
-} from 'lucide-react';
-import type { RepoCommit } from '../../services/projectRepositoryService';
+import React, { useState } from "react";
+import { GitCommit, Copy, Check, CheckSquare } from "lucide-react";
+import type { RepoCommit } from "../../services/projectRepositoryService";
+import { RepoCommitDetailModal } from "./RepoCommitDetailModal";
 
 interface RepoCommitsListProps {
   commits: RepoCommit[];
+  projectId?: string;
+  accessToken?: string | null;
 }
 
-function parseTaskLink(message: string): number | null {
-  const match = message.match(/\[?TASK-(\d+)\]?/i);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-export const RepoCommitsList: React.FC<RepoCommitsListProps> = ({ commits }) => {
+export const RepoCommitsList: React.FC<RepoCommitsListProps> = ({
+  commits,
+  projectId,
+  accessToken,
+}) => {
   const [selectedCommit, setSelectedCommit] = useState<RepoCommit | null>(null);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
@@ -37,7 +32,7 @@ export const RepoCommitsList: React.FC<RepoCommitsListProps> = ({ commits }) => 
 
       <div className="space-y-3">
         {commits.map((c) => {
-          const taskNumber = parseTaskLink(c.message);
+          const linkedTasks = c.linkedTasks ?? [];
           return (
             <div
               key={c.hash}
@@ -65,13 +60,21 @@ export const RepoCommitsList: React.FC<RepoCommitsListProps> = ({ commits }) => 
                       </>
                     )}
                     <span>·</span>
-                    {taskNumber !== null ? (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                        <CheckSquare className="h-3 w-3 text-amber-400" />
-                        TASK-{taskNumber}
-                      </span>
+                    {linkedTasks.length > 0 ? (
+                      linkedTasks.map((t) => (
+                        <span
+                          key={t.id || t.taskNumber}
+                          className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-300"
+                          title={t.title || undefined}
+                        >
+                          <CheckSquare className="h-3 w-3 text-amber-400" />
+                          {t.taskCode || `TASK-${t.taskNumber}`}
+                        </span>
+                      ))
                     ) : (
-                      <span className="text-[10px] text-[#8c887e]/60">No task linked</span>
+                      <span className="text-[10px] text-[#8c887e]/60">
+                        No task linked
+                      </span>
                     )}
                   </div>
                 </div>
@@ -97,75 +100,12 @@ export const RepoCommitsList: React.FC<RepoCommitsListProps> = ({ commits }) => 
         })}
       </div>
 
-      {/* Commit Detail Modal */}
-      {selectedCommit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-fadeIn">
-          <div className="relative w-full max-w-2xl rounded-3xl border border-[#363433] bg-[#1c1b1a] p-6 space-y-4 shadow-2xl overflow-hidden font-mono">
-            <div className="flex items-center justify-between border-b border-[#2b2a29] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-2 text-amber-400">
-                  <GitCommit className="h-4 w-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#ffffff]">Commit Details</h4>
-                  <span className="text-xs text-[#8c887e]">{selectedCommit.hash}</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedCommit(null)}
-                className="rounded-xl border border-[#363433] bg-[#141312] p-1.5 text-[#8c887e] hover:text-[#ffffff]"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              <div className="rounded-xl border border-[#2b2a29] bg-[#141312] p-3 space-y-2">
-                <p className="font-bold text-sm text-[#ffffff]">{selectedCommit.message}</p>
-                <div className="flex items-center gap-3 text-[11px] text-[#8c887e] flex-wrap">
-                  <span>Committed by @{selectedCommit.author.username}</span>
-                  <span>·</span>
-                  <span>{new Date(selectedCommit.date).toLocaleString()}</span>
-                  {parseTaskLink(selectedCommit.message) !== null && (
-                    <>
-                      <span>·</span>
-                      <span className="inline-flex items-center gap-1 rounded-md border border-amber-500/40 bg-amber-950/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">
-                        <CheckSquare className="h-3 w-3 text-amber-400" />
-                        Linked to TASK-{parseTaskLink(selectedCommit.message)}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <span className="text-[11px] text-[#8c887e] uppercase">
-                  Changed Files ({selectedCommit.changedFiles.length})
-                </span>
-                {selectedCommit.changedFiles.length === 0 ? (
-                  <p className="text-xs text-[#8c887e]">No file changes recorded for this commit.</p>
-                ) : (
-                  <div className="space-y-1.5 max-h-60 overflow-y-auto">
-                    {selectedCommit.changedFiles.map((file) => (
-                      <div
-                        key={file}
-                        className="flex items-center justify-between rounded-xl border border-[#2b2a29] bg-[#141312] px-3 py-2 text-xs"
-                      >
-                        <span className="font-semibold text-xs text-[#e6e2df] flex items-center gap-2 truncate">
-                          <FileCode className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                          <span className="truncate">{file}</span>
-                        </span>
-                        <span className="text-[10px] text-[#8c887e] font-mono">modified</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <RepoCommitDetailModal
+        commit={selectedCommit}
+        onClose={() => setSelectedCommit(null)}
+        projectId={projectId}
+        accessToken={accessToken}
+      />
     </div>
   );
 };

@@ -111,6 +111,18 @@ export class UpsertGameBlueprintDto {
   @IsOptional()
   @IsObject()
   targetSpecs?: Record<string, any>;
+
+  @IsOptional()
+  @IsObject()
+  visualDirection?: Record<string, any>;
+
+  @IsOptional()
+  @IsObject()
+  gameplayLoop?: Record<string, any>;
+
+  @IsOptional()
+  @IsObject()
+  narrative?: Record<string, any>;
 }
 
 export class GameBlueprintResponseDto {
@@ -129,6 +141,123 @@ export class GameBlueprintResponseDto {
   pillars: GamePillarDto[] | null;
   keyFeatures: GameFeatureDto[] | null;
   targetSpecs: Record<string, any> | null;
+  visualDirection: Record<string, any> | null;
+  gameplayLoop: Record<string, any> | null;
+  narrative: Record<string, any> | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export class ApproveProductionTaskDto {
+  @IsNotEmpty()
+  @IsString()
+  tempId: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(200)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @IsOptional()
+  @IsString()
+  discipline?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  dependsOnTempIds?: string[];
+}
+
+export class ApproveProductionPlanDto {
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(200)
+  milestoneTitle: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  milestoneDescription?: string;
+
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ApproveProductionTaskDto)
+  tasks: ApproveProductionTaskDto[];
+}
+
+export interface SkillCoverageMemberDto {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  matchedSkills: string[];
+}
+
+export interface SkillCoverageOpenRoleDto {
+  id: string;
+  title: string;
+  openPositions: number;
+  skills: string[];
+}
+
+export interface SkillCoverageCandidateRecommendationDto {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string | null;
+  headline: string | null;
+  matchScore: number;
+}
+
+export interface SkillCoverageDisciplineDto {
+  discipline: string;
+  status: 'COVERED' | 'RECRUITING' | 'GAP';
+  requiredSkills: string[];
+  coveredByMembers: SkillCoverageMemberDto[];
+  openRoles: SkillCoverageOpenRoleDto[];
+  recommendedCandidatesCount: number;
+  sampleCandidate?: SkillCoverageCandidateRecommendationDto | null;
+}
+
+export interface SkillCoverageResponseDto {
+  totalRequiredSkills: number;
+  coveredCount: number;
+  recruitingCount: number;
+  gapCount: number;
+  coveragePercentage: number;
+  disciplines: SkillCoverageDisciplineDto[];
+}
+
+export class UpdateNarrativeDto {
+  @IsNotEmpty()
+  @IsObject()
+  narrative: Record<string, any>;
+}
+
+export class AiProposeNarrativeDto {
+  @IsNotEmpty()
+  @IsString()
+  section: 'STORY_BIBLE' | 'CHARACTERS' | 'SCENE' | 'QUEST';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  prompt?: string;
+
+  @IsOptional()
+  @IsObject()
+  context?: Record<string, any>;
 }

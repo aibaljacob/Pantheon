@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Check, Loader2 } from 'lucide-react';
+import { Bell, Check, Loader2, ChevronRight } from 'lucide-react';
 import { apiClient } from '../../auth/services/httpClient';
 
 interface NotificationItem {
@@ -108,21 +108,42 @@ export const NotificationsDropdown: React.FC = () => {
       void markAsRead(notification.id);
     }
 
+    const normalizedEntityType = notification.entityType?.toUpperCase();
+    const isInvitation =
+      notification.type === 'INVITATION_RECEIVED' ||
+      notification.type === 'PROJECT_INVITATION' ||
+      normalizedEntityType === 'INVITATION' ||
+      normalizedEntityType === 'PROJECTINVITATION';
+
     const targetUrl =
       notification.actionUrl ||
-      (notification.entityType === 'PROJECT' && notification.entityId
+      (isInvitation && notification.entityId
         ? `/projects/${notification.entityId}`
-        : notification.entityType === 'TASK' && notification.entityId
+        : isInvitation
+        ? '/dashboard#invitations'
+        : notification.type === 'PROJECT_ROLE_CHANGED' && notification.entityId
+        ? `/projects/${notification.entityId}?tab=team`
+        : notification.type === 'REMOVED_FROM_PROJECT' && notification.entityId
+        ? `/projects/${notification.entityId}`
+        : (normalizedEntityType === 'PROJECT' || normalizedEntityType === 'PROJECTMEMBER') && notification.entityId
+        ? `/projects/${notification.entityId}`
+        : (normalizedEntityType === 'TASK' || notification.type === 'TASK_ASSIGNED') && notification.entityId
         ? `/projects/${notification.entityId}?tab=tasks`
-        : notification.entityType === 'PLAYTEST' && notification.entityId
+        : normalizedEntityType === 'PLAYTEST' && notification.entityId
         ? `/projects/${notification.entityId}?tab=playtests`
-        : notification.entityType === 'APPLICATION' && notification.entityId
+        : (normalizedEntityType === 'APPLICATION' || normalizedEntityType === 'PROJECTAPPLICATION') && notification.entityId
         ? `/projects/${notification.entityId}?tab=applications`
+        : notification.entityId
+        ? `/projects/${notification.entityId}`
         : null);
 
     if (targetUrl) {
       setIsOpen(false);
-      navigate(targetUrl);
+      try {
+        navigate(targetUrl);
+      } catch (err) {
+        console.warn('Navigation failed:', err);
+      }
     }
   };
 
@@ -175,32 +196,53 @@ export const NotificationsDropdown: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col gap-1 px-2">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`flex items-start gap-3 rounded-xl p-3 transition-colors hover:bg-pantheon-mid cursor-pointer ${
-                      !notification.isRead ? 'bg-pantheon-mid/50' : ''
-                    }`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-pantheon-ivory break-words">{notification.title}</p>
-                      <p className="text-xs text-pantheon-dim mt-1 break-words">{notification.message}</p>
-                      <p className="text-[10px] text-pantheon-dim mt-2 font-mono">
-                        {formatRelativeTime(notification.createdAt)}
-                      </p>
+                {notifications.map((notification) => {
+                  const isActionable = Boolean(notification.actionUrl || notification.entityId);
+
+                  return (
+                    <div
+                      key={notification.id}
+                      onClick={() => handleNotificationClick(notification)}
+                      className={`group flex items-start gap-2.5 rounded-xl p-3 transition-colors hover:bg-pantheon-mid cursor-pointer ${
+                        !notification.isRead
+                          ? 'bg-pantheon-mid/70 border border-amber-500/20 shadow-sm'
+                          : 'border border-transparent'
+                      }`}
+                    >
+                      {!notification.isRead && (
+                        <span
+                          className="mt-1.5 h-2 w-2 rounded-full bg-amber-400 shrink-0"
+                          aria-label="Unread notification"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm break-words ${!notification.isRead ? 'font-semibold text-pantheon-ivory' : 'font-medium text-pantheon-ivory/90'}`}>
+                          {notification.title}
+                        </p>
+                        <p className="text-xs text-pantheon-dim mt-1 break-words">{notification.message}</p>
+                        <p className="text-[10px] text-pantheon-dim mt-2 font-mono">
+                          {formatRelativeTime(notification.createdAt)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 self-center">
+                        {!notification.isRead && (
+                          <button
+                            onClick={(e) => markAsRead(notification.id, e)}
+                            className="text-pantheon-dim hover:text-pantheon-ivory p-1 rounded-lg hover:bg-pantheon-low"
+                            title="Mark as read"
+                            aria-label="Mark as read"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                        )}
+                        {isActionable && (
+                          <ChevronRight className="h-4 w-4 text-pantheon-dim group-hover:text-pantheon-ivory transition-transform group-hover:translate-x-0.5" />
+                        )}
+                      </div>
                     </div>
-                    {!notification.isRead && (
-                      <button
-                        onClick={(e) => markAsRead(notification.id, e)}
-                        className="flex-shrink-0 text-pantheon-dim hover:text-pantheon-ivory p-1"
-                        title="Mark as read"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

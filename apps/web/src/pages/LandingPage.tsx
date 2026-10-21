@@ -1,15 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Navbar } from '../components/Navbar';
 import { Hero } from '../components/Hero';
 import { TrustedBy } from '../components/TrustedBy';
 import { Features } from '../components/Features';
 import { HowItWorks } from '../components/HowItWorks';
 import { PlatformPreview } from '../components/PlatformPreview';
-import { Testimonials } from '../components/Testimonials';
 import { CTASection } from '../components/CTASection';
 import { Footer } from '../components/Footer';
 
 export const LandingPage: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const targetId = location.hash.replace('#', '');
+      const timer = setTimeout(() => {
+        const element = document.getElementById(targetId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [location.hash]);
   return (
     <div className="min-h-screen bg-pantheon-bg text-pantheon-ivory flex flex-col font-sans selection:bg-pantheon-border selection:text-pantheon-ivory relative transition-colors duration-200">
       {/* Global Soft Ambient Daylight/Noir Light Source */}
@@ -25,7 +39,6 @@ export const LandingPage: React.FC = () => {
         <Features />
         <HowItWorks />
         <PlatformPreview />
-        <Testimonials />
         <CTASection />
       </main>
       <Footer />

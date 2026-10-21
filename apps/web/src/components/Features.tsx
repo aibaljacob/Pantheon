@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Sparkles, Kanban, Compass, Users, FolderTree, BarChart3, ArrowUpRight } from 'lucide-react';
+import { Sparkles, Kanban, Compass, Users, GitBranch, Gamepad2, ArrowUpRight } from 'lucide-react';
 
 interface FeatureItem {
   icon: React.ReactNode;
@@ -13,46 +13,46 @@ interface FeatureItem {
 
 const FEATURES: FeatureItem[] = [
   {
-    icon: <Sparkles className="w-6 h-6 text-[#e6e2df]" />,
+    icon: <Sparkles className="w-6 h-6 text-amber-400" />,
     title: 'AI Talent Matching',
-    tag: 'NEURAL RECRUITMENT',
-    description: 'Instantly match specialized game developers, 3D riggers, shader programmers, and audio engineers based on project stack and engine requirements.',
-    highlights: ['Unreal & Unity Skill Graphs', 'Real-time Availability', 'Portfolio Verification'],
+    tag: 'GRAPH RECOMMENDATIONS',
+    description: 'Match specialized game developers, 3D artists, narrative writers, and audio engineers using taxonomy-based graph team formation.',
+    highlights: ['Engine & Skill Taxonomy', 'Graph Match Scoring', 'Verified Credentials'],
   },
   {
     icon: <Kanban className="w-6 h-6 text-[#e6e2df]" />,
-    title: 'Project Management',
-    tag: 'GAME SPRINT ENGINE',
-    description: 'Engineered milestone tracking built explicitly for game production pipelines—from vertical slice preparation to final gold master submission.',
-    highlights: ['Gantt & Kanban Views', 'Engine Commit Linking', 'Milestone Gates'],
+    title: 'Sprint & Task Tracking',
+    tag: 'PRODUCTION SPRINT ENGINE',
+    description: 'Milestone and task tracking engineered explicitly for game production pipelines—from prototype slices to final release candidates.',
+    highlights: ['Kanban Task Workflows', 'Task Dependency Tracking', 'Role Assignments'],
   },
   {
     icon: <Compass className="w-6 h-6 text-[#e6e2df]" />,
-    title: 'Portfolio Discovery',
-    tag: 'CREATOR NETWORK',
-    description: 'Showcase interactive 3D model viewports, GLTF renders, shader clips, and technical design documents to potential studio leads.',
-    highlights: ['3D WebGL Viewport', 'Shader Graph Demos', 'Verified Credentials'],
+    title: 'Game Blueprint & Vision',
+    tag: 'CREATIVE DIRECTION',
+    description: 'Direct core gameplay loops, narrative quest arcs, art proposals with team voting rounds, and aesthetic palette curation.',
+    highlights: ['Art Direction & Voting', 'Narrative Arc Studio', 'Color & Mood Curation'],
+  },
+  {
+    icon: <GitBranch className="w-6 h-6 text-[#e6e2df]" />,
+    title: 'Integrated Git & Build Runners',
+    tag: 'CI/CD & VERSION CONTROL',
+    description: 'Connect project Git repositories, inspect commit history, and execute automated build runners for Godot and multi-engine exports.',
+    highlights: ['Commit Stream & Diffs', 'Automated Build Runners', 'Release Artifact Storage'],
+  },
+  {
+    icon: <Gamepad2 className="w-6 h-6 text-[#e6e2df]" />,
+    title: 'Playable Builds & Playtesting',
+    tag: 'RELEASE & FEEDBACK',
+    description: 'Deploy playable WebGL builds directly into the browser, coordinate playtest sessions, and gather structured player feedback.',
+    highlights: ['In-Browser WebGL Play', 'Playtest Survey Forms', 'Versioned Release Channels'],
   },
   {
     icon: <Users className="w-6 h-6 text-[#e6e2df]" />,
-    title: 'Team Collaboration',
-    tag: 'STUDIO HUB',
-    description: 'Real-time voice, text, asset review, and playtest feedback channels integrated seamlessly into desktop & mobile environments.',
-    highlights: ['Playtest Video Markers', 'Voice Channels', 'Live Screen Draw'],
-  },
-  {
-    icon: <FolderTree className="w-6 h-6 text-[#e6e2df]" />,
-    title: 'Asset Organization',
-    tag: '3D/2D REPOSITORY',
-    description: 'Centralized cloud repository supporting massive FBX, OBJ, BLEND, and EXR textures with version control and LOD auto-generation.',
-    highlights: ['LOD Decimation', 'Git LFS Integration', 'Metadata Tagging'],
-  },
-  {
-    icon: <BarChart3 className="w-6 h-6 text-[#e6e2df]" />,
-    title: 'Production Analytics',
-    tag: 'PERFORMANCE DATA',
-    description: 'Track frame budget allocations, memory footprints, build compilation times, and sprint velocity with automated telemetry dashboards.',
-    highlights: ['FPS Budget Telemetry', 'Build Health Score', 'Resource Allocation'],
+    title: 'Studio Recruitment & Network',
+    tag: 'CREATOR HUB',
+    description: 'Discover community studios, post open roles, review developer portfolios, and manage candidate invitations and applications.',
+    highlights: ['Project Discovery Hub', 'Candidate Applications', 'Studio Invitations'],
   },
 ];
 

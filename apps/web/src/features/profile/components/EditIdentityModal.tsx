@@ -69,7 +69,7 @@ export const EditIdentityModal: React.FC<EditIdentityModalProps> = ({
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!accessToken) return;
+    if (!accessToken || isLoading) return;
 
     setIsLoading(true);
     setError(null);

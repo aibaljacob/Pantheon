@@ -1,11 +1,19 @@
 function getApiBaseUrl(): string {
-  return import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000';
+  return import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000";
 }
 
 export interface RepoAuthor {
   username: string;
   displayName: string;
   avatarUrl?: string | null;
+}
+
+export interface RepoLinkedTask {
+  id: string;
+  taskNumber: number;
+  taskCode?: string;
+  title: string;
+  status?: string;
 }
 
 export interface RepoCommit {
@@ -15,6 +23,17 @@ export interface RepoCommit {
   date: string;
   branch: string;
   changedFiles: string[];
+  linkedTasks?: RepoLinkedTask[];
+}
+
+export interface RepoCommitFileChange {
+  path: string;
+  status: "ADDED" | "MODIFIED" | "DELETED" | "RENAMED";
+  oldPath?: string;
+}
+
+export interface RepoCommitDetail extends RepoCommit {
+  fileChanges: RepoCommitFileChange[];
 }
 
 export interface RepoFile {
@@ -44,7 +63,7 @@ export interface RepoPullRequest {
   description: string;
   sourceBranch: string;
   targetBranch: string;
-  status: 'OPEN' | 'MERGED' | 'CLOSED';
+  status: "OPEN" | "MERGED" | "CLOSED";
   author: RepoAuthor;
   createdAt: string;
   updatedAt: string;
@@ -104,24 +123,24 @@ export async function fetchProjectRepo(
 ): Promise<ProjectRepositoryData> {
   const url = new URL(`${getApiBaseUrl()}/projects/${projectId}/repo`);
   if (branch) {
-    url.searchParams.set('branch', branch);
+    url.searchParams.set("branch", branch);
   }
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(url.toString(), {
-    method: 'GET',
+    method: "GET",
     headers,
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to fetch project repository.');
+    throw new Error(errorData.message || "Failed to fetch project repository.");
   }
 
   return res.json();
@@ -134,26 +153,26 @@ export async function fetchRepoFile(
   token?: string | null,
 ): Promise<RepoFile> {
   const url = new URL(`${getApiBaseUrl()}/projects/${projectId}/repo/file`);
-  url.searchParams.set('path', path);
+  url.searchParams.set("path", path);
   if (branch) {
-    url.searchParams.set('branch', branch);
+    url.searchParams.set("branch", branch);
   }
 
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   }
 
   const res = await fetch(url.toString(), {
-    method: 'GET',
+    method: "GET",
     headers,
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to fetch file content.');
+    throw new Error(errorData.message || "Failed to fetch file content.");
   }
 
   return res.json();
@@ -169,18 +188,21 @@ export async function commitRepoFile(
   },
   token: string,
 ): Promise<{ commit: RepoCommit; file: RepoFile }> {
-  const res = await fetch(`${getApiBaseUrl()}/projects/${projectId}/repo/files`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const res = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/repo/files`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
-  });
+  );
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to commit file.');
+    throw new Error(errorData.message || "Failed to commit file.");
   }
 
   return res.json();
@@ -195,18 +217,21 @@ export async function deleteRepoFile(
   },
   token: string,
 ): Promise<{ success: boolean; commit: RepoCommit }> {
-  const res = await fetch(`${getApiBaseUrl()}/projects/${projectId}/repo/files`, {
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const res = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/repo/files`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
-  });
+  );
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to delete file.');
+    throw new Error(errorData.message || "Failed to delete file.");
   }
 
   return res.json();
@@ -220,18 +245,21 @@ export async function createRepoBranch(
   },
   token: string,
 ): Promise<RepoBranch> {
-  const res = await fetch(`${getApiBaseUrl()}/projects/${projectId}/repo/branches`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const res = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/repo/branches`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
-  });
+  );
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to create branch.');
+    throw new Error(errorData.message || "Failed to create branch.");
   }
 
   return res.json();
@@ -247,18 +275,21 @@ export async function createRepoPullRequest(
   },
   token: string,
 ): Promise<RepoPullRequest> {
-  const res = await fetch(`${getApiBaseUrl()}/projects/${projectId}/repo/pulls`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const res = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/repo/pulls`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
-  });
+  );
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to create pull request.');
+    throw new Error(errorData.message || "Failed to create pull request.");
   }
 
   return res.json();
@@ -272,9 +303,9 @@ export async function mergeRepoPullRequest(
   const res = await fetch(
     `${getApiBaseUrl()}/projects/${projectId}/repo/pulls/${prNumber}/merge`,
     {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
     },
@@ -282,7 +313,7 @@ export async function mergeRepoPullRequest(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to merge pull request.');
+    throw new Error(errorData.message || "Failed to merge pull request.");
   }
 
   return res.json();
@@ -298,18 +329,47 @@ export async function createRepoRelease(
   },
   token: string,
 ): Promise<RepoRelease> {
-  const res = await fetch(`${getApiBaseUrl()}/projects/${projectId}/repo/releases`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+  const res = await fetch(
+    `${getApiBaseUrl()}/projects/${projectId}/repo/releases`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
     },
-    body: JSON.stringify(data),
+  );
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || "Failed to create release.");
+  }
+
+  return res.json();
+}
+
+export async function fetchRepoCommit(
+  projectId: string,
+  commitHash: string,
+  token?: string | null,
+): Promise<RepoCommitDetail> {
+  const url = `${getApiBaseUrl()}/projects/${projectId}/repo/commits/${encodeURIComponent(commitHash)}`;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers,
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Failed to create release.');
+    throw new Error(errorData.message || "Failed to fetch commit details.");
   }
 
   return res.json();

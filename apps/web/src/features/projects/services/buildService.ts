@@ -213,6 +213,41 @@ export async function downloadBuildArtifact(
   document.body.removeChild(a);
 }
 
+export interface RunnerStatusInfo {
+  platform: BuildPlatform;
+  online: boolean;
+  status: 'ONLINE' | 'BUILDING' | 'OFFLINE';
+  runner: {
+    id: string;
+    name: string;
+    platform: BuildPlatform;
+    lastSeenAt: string;
+  } | null;
+  currentJob: {
+    id: string;
+    projectId: string;
+    startedAt: string;
+  } | null;
+}
+
+export async function fetchRunnerStatus(
+  platform: BuildPlatform = 'WINDOWS',
+  accessToken?: string | null,
+): Promise<RunnerStatusInfo> {
+  const url = `${getApiBaseUrl()}/build-runners/status?platform=${platform}`;
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: buildHeaders(accessToken),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to fetch runner status.');
+  }
+
+  return res.json();
+}
+
 export const buildService = {
   getBuilds: fetchProjectBuilds,
   getBuild: fetchProjectBuild,
@@ -223,5 +258,6 @@ export const buildService = {
   getPlayableBuild: fetchPlayableBuild,
   createPlayableBuild: createPlayableBuild,
   downloadBuild: downloadBuildArtifact,
+  getRunnerStatus: fetchRunnerStatus,
 };
 

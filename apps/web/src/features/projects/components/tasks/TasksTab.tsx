@@ -8,6 +8,8 @@ import {
   AlertCircle,
   FolderKanban,
   RefreshCw,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
 import { taskService } from '../../services/taskService';
@@ -75,6 +77,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'ALL'>('ALL');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('ALL');
   const [selectedMilestoneId, setSelectedMilestoneId] = useState<string | undefined>(undefined);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Modals
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState<boolean>(false);
@@ -467,6 +470,44 @@ export const TasksTab: React.FC<TasksTabProps> = ({
         </div>
       </div>
 
+      {/* View Toolbar Header */}
+      {!isLoading && !error && filteredTasks.length > 0 && (
+        <div className="flex items-center justify-between px-1">
+          <span className="text-xs font-mono text-[#8c887e]">
+            Showing <span className="text-[#e6e2df] font-semibold">{filteredTasks.length}</span> of {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
+          </span>
+
+          <div className="flex items-center gap-1 rounded-xl border border-[#363433] bg-[#141312] p-1">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-[#2b2a29] text-[#ffffff] font-semibold shadow-sm'
+                  : 'text-[#8c887e] hover:text-[#e6e2df]'
+              }`}
+              title="Grid View"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Grid</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-mono transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-[#2b2a29] text-[#ffffff] font-semibold shadow-sm'
+                  : 'text-[#8c887e] hover:text-[#e6e2df]'
+              }`}
+              title="List View"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">List</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Task List / Grid Display */}
       {isLoading ? (
         <div className="flex h-64 items-center justify-center">
@@ -501,10 +542,16 @@ export const TasksTab: React.FC<TasksTabProps> = ({
             </Button>
           )}
         </div>
-      ) : (
+      ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTasks.map((task) => (
-            <TaskCard key={task.id} task={task} onClick={(t) => setActiveTask(t)} />
+            <TaskCard key={task.id} task={task} onClick={(t) => setActiveTask(t)} viewMode="grid" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {filteredTasks.map((task) => (
+            <TaskCard key={task.id} task={task} onClick={(t) => setActiveTask(t)} viewMode="list" />
           ))}
         </div>
       )}

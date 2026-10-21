@@ -48,19 +48,19 @@ export const CTASection: React.FC = () => {
             </Button>
           </div>
 
-          {/* Micro Guarantee Metrics */}
+          {/* Authentic Platform Highlights */}
           <div className="pt-8 border-t border-[#2b2a29] flex flex-wrap items-center justify-center gap-8 text-xs font-mono text-[#8c887e] relative z-10">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#e6e2df]" />
-              <span>14-Day Free Studio Trial</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Free for Indie Creators & Studios</span>
             </div>
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#e6e2df]" />
-              <span>No Credit Card Required</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Multi-Engine Ready (Godot, Unity, Unreal)</span>
             </div>
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#e6e2df]" />
-              <span>Instant Git LFS Provisioning</span>
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Integrated Git & Playable Builds</span>
             </div>
           </div>
 

@@ -41,34 +41,24 @@ export class ProjectAuthorizationService {
       OR: [{ id: projectIdOrSlug }, { slug: projectIdOrSlug }],
     };
 
-    const projectPromise = this.prisma.project.findFirst({
+    const project = await this.prisma.project.findFirst({
       where: projectWhere,
       select: {
         id: true,
         slug: true,
         founderId: true,
         moderationStatus: true,
+        members: {
+          where: {
+            userId: userId ?? '',
+            status: ProjectMemberStatus.ACTIVE,
+          },
+          select: {
+            id: true,
+          },
+        },
       },
     });
-
-    const memberPromise =
-      userId && this.prisma.projectMember?.findFirst
-        ? this.prisma.projectMember.findFirst({
-            where: {
-              project: projectWhere,
-              userId,
-              status: ProjectMemberStatus.ACTIVE,
-            },
-            select: {
-              id: true,
-            },
-          })
-        : Promise.resolve(null);
-
-    const [project, member] = await Promise.all([
-      projectPromise,
-      memberPromise,
-    ]);
 
     const duration = performance.now() - tStart;
     this.logger.log(
@@ -81,24 +71,19 @@ export class ProjectAuthorizationService {
 
     const isFounder = Boolean(userId && project.founderId === userId);
 
-    interface FallbackMember {
-      userId: string;
-      status: ProjectMemberStatus;
-    }
-    const fallbackMembers = (
-      project as unknown as { members?: FallbackMember[] }
-    ).members;
-
-    const isMember = member
-      ? true
-      : Boolean(
-          userId &&
-          Array.isArray(fallbackMembers) &&
-          fallbackMembers.some(
-            (m) =>
-              m.userId === userId && m.status === ProjectMemberStatus.ACTIVE,
-          ),
-        );
+    const isMember = Boolean(
+      userId &&
+        Array.isArray(project.members) &&
+        project.members.some((m: any) => {
+          if (m.userId !== undefined || m.status !== undefined) {
+            return (
+              m.userId === userId &&
+              m.status === ProjectMemberStatus.ACTIVE
+            );
+          }
+          return Boolean(m.id);
+        }),
+    );
     const isAdmin = userRole === Role.ADMINISTRATOR;
 
     return {

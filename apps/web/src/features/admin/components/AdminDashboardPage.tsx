@@ -97,6 +97,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<AdminProjectDetail | null>(null);
   const [isInspectingProjectLoading, setIsInspectingProjectLoading] = useState(false);
+  const [inspectProjectError, setInspectProjectError] = useState<string | null>(null);
+
+  const closeProjectDossier = () => {
+    setSelectedProjectDetail(null);
+    setInspectProjectError(null);
+    setIsInspectingProjectLoading(false);
+  };
 
   // Taxonomy Tab State
   const [activeTaxonomyType, setActiveTaxonomyType] = useState('roles');
@@ -208,11 +215,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
   const handleInspectProject = async (projectId: string) => {
     if (!accessToken) return;
     setIsInspectingProjectLoading(true);
+    setInspectProjectError(null);
+    setSelectedProjectDetail(null);
     try {
       const details = await fetchAdminProjectDetails(accessToken, projectId);
       setSelectedProjectDetail(details);
     } catch (err: any) {
-      alert(err.message || 'Failed to load project details.');
+      setInspectProjectError(err.message || 'Failed to load project details.');
     } finally {
       setIsInspectingProjectLoading(false);
     }
@@ -1071,44 +1080,73 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
       )}
 
       {/* Game Foundation Dossier & Moderation Modal */}
-      {selectedProjectDetail && (
+      {(isInspectingProjectLoading || inspectProjectError || selectedProjectDetail) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 sm:p-6 animate-fadeIn">
           <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="shrink-0 flex items-center justify-between border-b border-[#2b2a29] px-6 py-4 bg-[#141312]">
-              <div className="flex items-center gap-3">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-2 text-amber-400">
-                  <Gamepad2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-headline text-lg font-bold text-[#ffffff] flex items-center gap-2">
-                    Game Foundation Dossier
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono ${
-                        selectedProjectDetail.moderationStatus === 'PENDING_REVIEW'
-                          ? 'border border-amber-500/40 bg-amber-950/40 text-amber-300'
-                          : selectedProjectDetail.moderationStatus === 'PUBLISHED'
-                          ? 'border border-emerald-500/40 bg-emerald-950/40 text-emerald-300'
-                          : 'border border-red-500/40 bg-red-950/40 text-red-300'
-                      }`}
-                    >
-                      ● {selectedProjectDetail.moderationStatus}
-                    </span>
-                  </h3>
-                  <p className="text-xs font-mono text-[#8c887e]">
-                    Detailed evaluation & intelligence for studio launch approval
-                  </p>
-                </div>
+            {isInspectingProjectLoading ? (
+              <div className="p-16 flex flex-col items-center justify-center space-y-4">
+                <Loader2 className="h-9 w-9 animate-spin text-amber-400" />
+                <h4 className="font-headline text-lg font-bold text-[#ffffff]">
+                  Loading Studio Dossier...
+                </h4>
+                <p className="text-xs font-mono text-[#8c887e]">
+                  Retrieving game architecture, team roster, and intelligence recommendations
+                </p>
               </div>
+            ) : inspectProjectError ? (
+              <div className="p-12 flex flex-col items-center justify-center space-y-4 text-center">
+                <AlertCircle className="h-10 w-10 text-red-400" />
+                <h4 className="font-headline text-lg font-bold text-[#ffffff]">
+                  Inspection Error
+                </h4>
+                <p className="text-xs font-mono text-red-300 max-w-md">
+                  {inspectProjectError}
+                </p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={closeProjectDossier}
+                >
+                  Close
+                </Button>
+              </div>
+            ) : selectedProjectDetail && (
+              <>
+                {/* Modal Header */}
+                <div className="shrink-0 flex items-center justify-between border-b border-[#2b2a29] px-6 py-4 bg-[#141312]">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-950/30 p-2 text-amber-400">
+                      <Gamepad2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-headline text-lg font-bold text-[#ffffff] flex items-center gap-2">
+                        Game Foundation Dossier
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-mono ${
+                            selectedProjectDetail.moderationStatus === 'PENDING_REVIEW'
+                              ? 'border border-amber-500/40 bg-amber-950/40 text-amber-300'
+                              : selectedProjectDetail.moderationStatus === 'PUBLISHED'
+                              ? 'border border-emerald-500/40 bg-emerald-950/40 text-emerald-300'
+                              : 'border border-red-500/40 bg-red-950/40 text-red-300'
+                          }`}
+                        >
+                          ● {selectedProjectDetail.moderationStatus}
+                        </span>
+                      </h3>
+                      <p className="text-xs font-mono text-[#8c887e]">
+                        Detailed evaluation & intelligence for studio launch approval
+                      </p>
+                    </div>
+                  </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedProjectDetail(null)}
-                className="rounded-xl border border-[#363433] bg-[#141312] p-2 text-[#8c887e] hover:text-[#ffffff] transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+                  <button
+                    type="button"
+                    onClick={closeProjectDossier}
+                    className="rounded-xl border border-[#363433] bg-[#141312] p-2 text-[#8c887e] hover:text-[#ffffff] transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
 
             {/* Modal Scrollable Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs font-mono custom-scrollbar">
@@ -1497,7 +1535,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                   </button>
                 )}
                 <Link
-                  to={`/projects/${selectedProjectDetail.slug}`}
+                  to={`/projects/${selectedProjectDetail.slug}?inspect=admin`}
                   target="_blank"
                   className="inline-flex items-center gap-1.5 rounded-xl border border-[#363433] bg-[#201f1e] px-4 py-2 text-xs font-semibold text-[#e6e2df] hover:text-[#ffffff] hover:border-[#48473f] transition-colors"
                 >
@@ -1509,11 +1547,13 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setSelectedProjectDetail(null)}
+                onClick={closeProjectDossier}
               >
                 Close Dossier
               </Button>
             </div>
+          </>
+        )}
           </div>
         </div>
       )}
