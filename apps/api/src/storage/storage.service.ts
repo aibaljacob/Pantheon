@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { LocalStorageProvider } from './local-storage.provider';
 import { S3StorageProvider } from './s3-storage.provider';
+import { CloudinaryStorageProvider } from './cloudinary-storage.provider';
 import type {
   SavedFile,
   SaveFileOptions,
@@ -16,12 +17,21 @@ export class StorageService implements OnModuleInit {
   constructor(
     private readonly localProvider: LocalStorageProvider,
     private readonly s3Provider: S3StorageProvider,
+    private readonly cloudinaryProvider: CloudinaryStorageProvider,
   ) {}
 
   onModuleInit() {
-    const providerName = (process.env.STORAGE_PROVIDER ?? 'local').toLowerCase();
+    const rawProvider = process.env.STORAGE_PROVIDER?.toLowerCase();
+    const hasCloudinaryEnv = Boolean(
+      process.env.CLOUDINARY_URL || process.env.CLOUDINARY_CLOUD_NAME,
+    );
 
-    if (providerName === 's3' || providerName === 'r2') {
+    // If explicitly set to cloudinary or if cloudinary credentials are present without explicit local override
+    if (rawProvider === 'cloudinary' || (hasCloudinaryEnv && rawProvider !== 'local' && rawProvider !== 's3')) {
+      this.cloudinaryProvider.validateConfig();
+      this.provider = this.cloudinaryProvider;
+      this.logger.log('Cloudinary media storage initialized successfully.');
+    } else if (rawProvider === 's3' || rawProvider === 'r2') {
       this.s3Provider.validateConfig();
       this.provider = this.s3Provider;
       this.logger.log('Persistent S3 / Cloudflare R2 object storage initialized.');
@@ -31,7 +41,7 @@ export class StorageService implements OnModuleInit {
         this.logger.warn(
           'WARNING: Application is running in PRODUCTION with local filesystem storage. ' +
           'Uploads stored on ephemeral container disks (e.g. Render) will be lost on container restart. ' +
-          'Set STORAGE_PROVIDER=s3 along with S3_* credentials for persistent storage.',
+          'Set STORAGE_PROVIDER=cloudinary along with Cloudinary credentials for persistent media storage.',
         );
       } else {
         this.logger.log('Local filesystem storage initialized for development.');

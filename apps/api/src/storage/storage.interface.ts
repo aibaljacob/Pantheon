@@ -10,10 +10,11 @@ export interface SaveFileOptions {
   allowedMimes?: string[];
   maxSizeBytes?: number;
   label?: string;
+  isPrivate?: boolean;
 }
 
 export interface SavedFile {
-  /** Storage key or relative path stored in DB, e.g. /uploads/avatars/uuid.jpg */
+  /** Storage key or relative path stored in DB, e.g. /uploads/avatars/uuid.jpg or Cloudinary public_id */
   key: string;
   /** Browser-accessible URL */
   url: string;

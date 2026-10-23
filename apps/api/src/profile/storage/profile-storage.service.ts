@@ -52,6 +52,7 @@ export class ProfileStorageService {
       ],
       maxSizeBytes: 10 * 1024 * 1024,
       label: 'Resume',
+      isPrivate: true,
     });
 
     const sizeInMb = (file.size / (1024 * 1024)).toFixed(1);

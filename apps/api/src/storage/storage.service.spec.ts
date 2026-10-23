@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { LocalStorageProvider } from './local-storage.provider';
 import { S3StorageProvider } from './s3-storage.provider';
+import { CloudinaryStorageProvider } from './cloudinary-storage.provider';
 import { StorageService } from './storage.service';
 import type { StorageFile } from './storage.interface';
 
@@ -116,6 +117,89 @@ describe('Storage System', () => {
     });
   });
 
+  describe('CloudinaryStorageProvider', () => {
+    it('should throw an informative error if Cloudinary credentials are missing', () => {
+      const provider = CloudinaryStorageProvider.create({});
+      expect(() => provider.validateConfig()).toThrow(
+        /missing configuration: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET/,
+      );
+    });
+
+    it('should validate successfully when full credentials or URL are present', () => {
+      const provider = CloudinaryStorageProvider.create({
+        cloudName: 'test-cloud',
+        apiKey: 'test-key',
+        apiSecret: 'test-secret',
+      });
+      expect(() => provider.validateConfig()).not.toThrow();
+
+      const urlProvider = CloudinaryStorageProvider.create({
+        cloudinaryUrl: 'cloudinary://key:secret@test-cloud',
+      });
+      expect(() => urlProvider.validateConfig()).not.toThrow();
+    });
+
+    it('should resolve URLs properly without prepending localhost or API url', () => {
+      const provider = CloudinaryStorageProvider.create({
+        cloudName: 'demo',
+        apiKey: 'key',
+        apiSecret: 'sec',
+      });
+
+      expect(
+        provider.resolveUrl('https://res.cloudinary.com/demo/image/upload/v1/sample.jpg'),
+      ).toBe('https://res.cloudinary.com/demo/image/upload/v1/sample.jpg');
+
+      expect(provider.resolveUrl('/uploads/avatars/legacy.jpg')).toBe(
+        '/uploads/avatars/legacy.jpg',
+      );
+    });
+
+    it('should reject files exceeding maxSizeBytes before calling Cloudinary', async () => {
+      const provider = CloudinaryStorageProvider.create({
+        cloudName: 'demo',
+        apiKey: 'key',
+        apiSecret: 'sec',
+      });
+
+      const mockFile: StorageFile = {
+        buffer: Buffer.from('large'),
+        originalname: 'big.jpg',
+        mimetype: 'image/jpeg',
+        size: 5000,
+      };
+
+      await expect(
+        provider.saveFile(mockFile, {
+          folder: 'avatars',
+          maxSizeBytes: 1000,
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject files with unsupported mime types', async () => {
+      const provider = CloudinaryStorageProvider.create({
+        cloudName: 'demo',
+        apiKey: 'key',
+        apiSecret: 'sec',
+      });
+
+      const mockFile: StorageFile = {
+        buffer: Buffer.from('malicious'),
+        originalname: 'malware.sh',
+        mimetype: 'application/x-sh',
+        size: 100,
+      };
+
+      await expect(
+        provider.saveFile(mockFile, {
+          folder: 'avatars',
+          allowedMimes: ['image/jpeg', 'image/png'],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
   describe('StorageService', () => {
     const originalEnv = process.env;
 
@@ -130,10 +214,45 @@ describe('Storage System', () => {
 
     it('should initialize LocalStorageProvider by default', () => {
       delete process.env.STORAGE_PROVIDER;
-      const service = new StorageService(new LocalStorageProvider(), new S3StorageProvider());
+      const service = new StorageService(
+        new LocalStorageProvider(),
+        new S3StorageProvider(),
+        new CloudinaryStorageProvider(),
+      );
       service.onModuleInit();
 
       expect(service.activeProvider.name).toBe('local');
+    });
+
+    it('should activate CloudinaryStorageProvider when STORAGE_PROVIDER is cloudinary', () => {
+      process.env.STORAGE_PROVIDER = 'cloudinary';
+      process.env.CLOUDINARY_CLOUD_NAME = 'demo';
+      process.env.CLOUDINARY_API_KEY = 'test-key';
+      process.env.CLOUDINARY_API_SECRET = 'test-secret';
+
+      const service = new StorageService(
+        new LocalStorageProvider(),
+        new S3StorageProvider(),
+        new CloudinaryStorageProvider(),
+      );
+      service.onModuleInit();
+
+      expect(service.activeProvider.name).toBe('cloudinary');
+    });
+
+    it('should fail fast if STORAGE_PROVIDER is cloudinary but credentials are missing', () => {
+      process.env.STORAGE_PROVIDER = 'cloudinary';
+      delete process.env.CLOUDINARY_CLOUD_NAME;
+      delete process.env.CLOUDINARY_API_KEY;
+      delete process.env.CLOUDINARY_API_SECRET;
+      delete process.env.CLOUDINARY_URL;
+
+      const service = new StorageService(
+        new LocalStorageProvider(),
+        new S3StorageProvider(),
+        new CloudinaryStorageProvider(),
+      );
+      expect(() => service.onModuleInit()).toThrow(/missing configuration/);
     });
 
     it('should fail fast if STORAGE_PROVIDER is s3 but credentials are missing', () => {
@@ -142,7 +261,11 @@ describe('Storage System', () => {
       delete process.env.S3_ACCESS_KEY_ID;
       delete process.env.S3_SECRET_ACCESS_KEY;
 
-      const service = new StorageService(new LocalStorageProvider(), new S3StorageProvider());
+      const service = new StorageService(
+        new LocalStorageProvider(),
+        new S3StorageProvider(),
+        new CloudinaryStorageProvider(),
+      );
       expect(() => service.onModuleInit()).toThrow(/missing configuration/);
     });
   });
