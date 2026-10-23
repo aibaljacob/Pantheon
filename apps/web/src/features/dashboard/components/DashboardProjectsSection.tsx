@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
+import { AppImage } from '../../../components/ui/AppImage';
 import type { DashboardProjectItem } from '../../projects/types';
 import {
   fetchUserDashboardProjects,
@@ -240,17 +241,16 @@ export const DashboardProjectsSection: React.FC<DashboardProjectsSectionProps> =
             <Link key={project.id} to={`/projects/${project.id}`}>
               <Card className="h-full p-0 overflow-hidden hover:border-[#48473f] transition-all group relative">
                 <div className="relative h-36 border-b border-[#2b2a29] bg-[#141312] overflow-hidden">
-                  {project.coverUrl ? (
-                    <img
-                      src={project.coverUrl}
-                      alt={project.name}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] to-[#141312]">
-                      <FolderKanban className="h-10 w-10 text-[#363433]" />
-                    </div>
-                  )}
+                  <AppImage
+                    src={project.coverUrl}
+                    alt={project.name}
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
+                    fallback={
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] to-[#141312]">
+                        <FolderKanban className="h-10 w-10 text-[#363433]" />
+                      </div>
+                    }
+                  />
 
                   {/* Status Badge */}
                   <div className="absolute top-3 left-3 rounded-full border border-[#48473f] bg-[#141312]/80 backdrop-blur-md px-3 py-0.5 text-[10px] font-mono text-[#e6e2df]">

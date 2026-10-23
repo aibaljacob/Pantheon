@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, Trash2, Loader2, AlertCircle, Image as ImageIcon, Crop } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { AppImage } from '../../../components/ui/AppImage';
 import { uploadBanner, deleteBanner } from '../services/profileService';
 import { useAuthStore } from '../../auth/store/authStore';
 import { ImageCropModal } from './ImageCropModal';
@@ -122,13 +123,16 @@ export const BannerEditModal: React.FC<BannerEditModalProps> = ({
           {/* Banner Preview */}
           <div className="space-y-4">
             <div className="relative h-40 w-full rounded-2xl border-2 border-[#2b2a29] bg-[#201f1e] overflow-hidden">
-              {displayUrl ? (
-                <img src={displayUrl} alt="Banner preview" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs font-mono text-[#8c887e]">
-                  Default Atmospheric Vignette Banner
-                </div>
-              )}
+              <AppImage
+                src={displayUrl}
+                alt="Banner preview"
+                className="h-full w-full object-cover"
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center text-xs font-mono text-[#8c887e]">
+                    Default Atmospheric Vignette Banner
+                  </div>
+                }
+              />
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3">

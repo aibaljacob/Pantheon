@@ -8,12 +8,12 @@ import {
   GitBranch,
   GitCommit,
   Flag,
-  User,
   Monitor,
   Laptop,
   Terminal,
   Globe,
 } from 'lucide-react';
+import { Avatar } from '../../../auth/components/UserAvatar';
 import type { BuildJobItem, BuildPlatform, BuildStatus } from '../../types';
 
 interface BuildCardProps {
@@ -129,17 +129,12 @@ export const BuildCard: React.FC<BuildCardProps> = ({ build, onClick }) => {
       {/* Bottom Row: Triggered By, Created Time, Duration */}
       <div className="flex items-center justify-between border-t border-[#201f1e] pt-2.5 text-xs text-[#8c887e]">
         <div className="flex items-center gap-2">
-          {build.triggeredBy.avatarUrl ? (
-            <img
-              src={build.triggeredBy.avatarUrl}
-              alt={build.triggeredBy.displayName}
-              className="h-5 w-5 rounded-full object-cover border border-[#363433]"
-            />
-          ) : (
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#201f1e] text-[#cac6bc] text-[10px]">
-              <User className="h-3 w-3" />
-            </div>
-          )}
+          <Avatar
+            src={build.triggeredBy.avatarUrl}
+            name={build.triggeredBy.displayName || build.triggeredBy.username}
+            size="xs"
+            className="!h-5 !w-5 text-[9px] border border-[#363433]"
+          />
           <span className="font-mono text-[11px] text-[#cac6bc]">
             @{build.triggeredBy.username}
           </span>

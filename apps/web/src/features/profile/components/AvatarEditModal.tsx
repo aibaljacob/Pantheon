@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, Trash2, Loader2, AlertCircle, Camera, Crop } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { AppImage } from '../../../components/ui/AppImage';
 import { uploadAvatar, deleteAvatar } from '../services/profileService';
 import { useAuthStore } from '../../auth/store/authStore';
 import { ImageCropModal } from './ImageCropModal';
@@ -119,13 +120,16 @@ export const AvatarEditModal: React.FC<AvatarEditModalProps> = ({
 
           <div className="flex flex-col items-center gap-4">
             <div className="relative h-32 w-32 rounded-3xl border-4 border-[#2b2a29] bg-[#201f1e] overflow-hidden shadow-inner">
-              {displayUrl ? (
-                <img src={displayUrl} alt="Avatar preview" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs font-mono text-[#8c887e]">
-                  No Avatar
-                </div>
-              )}
+              <AppImage
+                src={displayUrl}
+                alt="Avatar preview"
+                className="h-full w-full object-cover"
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center text-xs font-mono text-[#8c887e]">
+                    No Avatar
+                  </div>
+                }
+              />
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-3">

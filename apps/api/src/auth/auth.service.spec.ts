@@ -97,18 +97,75 @@ describe('AuthService', () => {
       expect(response.success).toBe(true);
       expect(response.data.user.email).toBe('jane.doe@example.com');
       expect(response.data.user.emailVerified).toBe(false);
+      expect(response.data.emailVerificationSent).toBe(true);
       expect(mailServiceMock.sendVerificationEmail).toHaveBeenCalledTimes(1);
     });
 
-    it('should reject registration if email is already taken', async () => {
+    it('should create account and return emailVerificationSent: false when mail provider fails', async () => {
+      prismaMock.user.findFirst.mockResolvedValue(null);
+      prismaMock.user.create.mockResolvedValue({
+        id: 'new-user-uuid',
+        username: 'janedoe',
+        email: 'jane.doe@example.com',
+        role: Role.USER,
+        provider: AuthProvider.LOCAL,
+        emailVerified: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      prismaMock.userProfile.create.mockResolvedValue({
+        id: 'new-profile-uuid',
+        userId: 'new-user-uuid',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        displayName: 'Jane Doe',
+      });
+      prismaMock.emailVerificationToken.create.mockResolvedValue({
+        id: 'token-uuid',
+        tokenHash: 'hashed-token',
+        expiresAt: new Date(Date.now() + 86400000),
+      });
+      mailServiceMock.sendVerificationEmail.mockRejectedValueOnce(
+        new Error('SMTP connection failure'),
+      );
+
+      const response = await service.register(validRegisterInput);
+
+      expect(response.success).toBe(true);
+      expect(response.data.user.email).toBe('jane.doe@example.com');
+      expect(response.data.emailVerificationSent).toBe(false);
+      expect(response.message).toContain('could not deliver your verification email');
+      // Token createdAt reset so user is not blocked by cooldown
+      expect(prismaMock.emailVerificationToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'new-user-uuid' },
+        }),
+      );
+    });
+
+    it('should reject registration if email is already taken by a verified user', async () => {
       prismaMock.user.findFirst.mockResolvedValueOnce({
         id: 'existing-id',
         email: 'jane.doe@example.com',
         username: 'someoneelse',
+        emailVerified: true,
       });
 
       await expect(service.register(validRegisterInput)).rejects.toThrow(
-        ConflictException,
+        'An account with this email already exists.',
+      );
+    });
+
+    it('should reject registration with specific recovery guidance if email is taken by an unverified user', async () => {
+      prismaMock.user.findFirst.mockResolvedValueOnce({
+        id: 'existing-id',
+        email: 'jane.doe@example.com',
+        username: 'someoneelse',
+        emailVerified: false,
+      });
+
+      await expect(service.register(validRegisterInput)).rejects.toThrow(
+        'An unverified account with this email already exists. Please verify your email or request a new verification link.',
       );
     });
 
@@ -117,10 +174,11 @@ describe('AuthService', () => {
         id: 'existing-id',
         username: 'janedoe',
         email: 'other@example.com',
+        emailVerified: true,
       });
 
       await expect(service.register(validRegisterInput)).rejects.toThrow(
-        ConflictException,
+        'That username is already taken.',
       );
     });
   });
@@ -502,6 +560,127 @@ describe('AuthService', () => {
 
       const res = await service.checkEmailAvailability('taken@example.com');
       expect(res.data.available).toBe(false);
+    });
+  });
+
+  describe('resendVerification', () => {
+    it('should return verificationSent: true without action if user does not exist or is verified', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
+
+      const resNotFound = await service.resendVerification('unknown@example.com');
+      expect(resNotFound.data.verificationSent).toBe(true);
+
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: 'u-1',
+        email: 'verified@example.com',
+        emailVerified: true,
+      });
+      const resVerified = await service.resendVerification('verified@example.com');
+      expect(resVerified.data.verificationSent).toBe(true);
+      expect(mailServiceMock.sendVerificationEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if resend is requested within 60 seconds (rate limiting)', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: 'u-unverified',
+        email: 'unverified@example.com',
+        emailVerified: false,
+      });
+
+      // Token created 20 seconds ago
+      prismaMock.emailVerificationToken.findFirst.mockResolvedValueOnce({
+        id: 'recent-token',
+        userId: 'u-unverified',
+        createdAt: new Date(Date.now() - 20000),
+      });
+
+      await expect(
+        service.resendVerification('unverified@example.com'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should successfully rotate verification token and send email if cooldown has elapsed', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: 'u-unverified',
+        email: 'unverified@example.com',
+        emailVerified: false,
+      });
+
+      // Token created 65 seconds ago
+      prismaMock.emailVerificationToken.findFirst.mockResolvedValueOnce({
+        id: 'older-token',
+        userId: 'u-unverified',
+        createdAt: new Date(Date.now() - 65000),
+      });
+
+      const res = await service.resendVerification('unverified@example.com');
+
+      expect(res.data.verificationSent).toBe(true);
+      expect(prismaMock.emailVerificationToken.deleteMany).toHaveBeenCalledWith({
+        where: { userId: 'u-unverified' },
+      });
+      expect(prismaMock.emailVerificationToken.create).toHaveBeenCalled();
+      expect(mailServiceMock.sendVerificationEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it('should reset token createdAt and rethrow when email delivery fails during resend', async () => {
+      prismaMock.user.findUnique.mockResolvedValueOnce({
+        id: 'u-unverified',
+        email: 'unverified@example.com',
+        emailVerified: false,
+      });
+
+      prismaMock.emailVerificationToken.findFirst.mockResolvedValueOnce(null);
+      mailServiceMock.sendVerificationEmail.mockRejectedValueOnce(
+        new Error('Provider timeout'),
+      );
+
+      await expect(
+        service.resendVerification('unverified@example.com'),
+      ).rejects.toThrow('Provider timeout');
+
+      expect(prismaMock.emailVerificationToken.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'u-unverified' },
+        }),
+      );
+    });
+  });
+
+  describe('seedDemoUser', () => {
+    const originalEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalEnv;
+      delete process.env.ENABLE_DEMO_SEED;
+    });
+
+    it('should skip seeding demo user in production environment', async () => {
+      process.env.NODE_ENV = 'production';
+      delete process.env.ENABLE_DEMO_SEED;
+      prismaMock.user.findUnique.mockClear();
+      prismaMock.user.create.mockClear();
+
+      await (service as any).seedDemoUser();
+
+      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+      expect(prismaMock.user.create).not.toHaveBeenCalled();
+    });
+
+    it('should seed demo user in development environment if not already existing', async () => {
+      process.env.NODE_ENV = 'development';
+      prismaMock.user.findUnique.mockResolvedValueOnce(null);
+
+      await (service as any).seedDemoUser();
+
+      expect(prismaMock.user.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            email: 'demo@pantheon.dev',
+            username: 'ava.sol',
+          }),
+        }),
+      );
     });
   });
 });

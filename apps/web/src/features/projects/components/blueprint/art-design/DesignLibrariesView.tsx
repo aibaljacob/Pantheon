@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
+import { AppImage } from '../../../../../components/ui/AppImage';
 import { useAuthStore } from '../../../../auth/store/authStore';
 import { formatApiAssetUrl } from '../../../../profile/services/profileService';
 import type {
@@ -330,8 +331,8 @@ export const DesignLibrariesView: React.FC<DesignLibrariesViewProps> = ({
                   className="relative h-44 w-full bg-black/60 overflow-hidden cursor-pointer"
                   onClick={() => setPreviewImage({ url: formatApiAssetUrl(asset.fileUrl), title: asset.title })}
                 >
-                  <img
-                    src={formatApiAssetUrl(asset.thumbnailUrl || asset.fileUrl)}
+                  <AppImage
+                    src={asset.thumbnailUrl || asset.fileUrl}
                     alt={asset.title}
                     className="h-full w-full object-cover transition-transform group-hover:scale-105"
                   />
@@ -806,7 +807,7 @@ export const DesignLibrariesView: React.FC<DesignLibrariesViewProps> = ({
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/40 min-h-[220px]">
-              <img
+              <AppImage
                 src={previewImage.url}
                 alt={previewImage.title}
                 className="max-h-[calc(100vh-13rem)] sm:max-h-[calc(100vh-14rem)] w-auto max-w-full object-contain rounded-lg shadow-lg"

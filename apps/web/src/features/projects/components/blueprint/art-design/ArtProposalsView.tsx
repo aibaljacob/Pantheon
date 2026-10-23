@@ -21,6 +21,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
+import { AppImage } from '../../../../../components/ui/AppImage';
 import type {
   ArtProposalCategory,
   ArtProposalItem,
@@ -398,8 +399,8 @@ export const ArtProposalsView: React.FC<ArtProposalsViewProps> = ({
                   {/* Thumbnail Preview */}
                   {proposal.referenceImages && proposal.referenceImages.length > 0 && (
                     <div className="h-28 w-full overflow-hidden rounded-xl border border-[#2b2a29] bg-black/40">
-                      <img
-                        src={formatApiAssetUrl(proposal.referenceImages[0].url)}
+                      <AppImage
+                        src={proposal.referenceImages[0].url}
                         alt="Reference"
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />
@@ -615,8 +616,8 @@ export const ArtProposalsView: React.FC<ArtProposalsViewProps> = ({
                         }
                         className="group relative block w-full text-left rounded-xl border border-[#2b2a29] bg-[#141312] overflow-hidden focus:outline-none focus:border-amber-400"
                       >
-                        <img
-                          src={formatApiAssetUrl(img.url)}
+                        <AppImage
+                          src={img.url}
                           alt={img.name || `Reference ${idx + 1}`}
                           className="h-36 w-full object-cover transition-transform group-hover:scale-105"
                         />
@@ -947,7 +948,7 @@ export const ArtProposalsView: React.FC<ArtProposalsViewProps> = ({
               </button>
             </div>
             <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-black/40 min-h-[220px]">
-              <img
+              <AppImage
                 src={previewImage.url}
                 alt={previewImage.title}
                 className="max-h-[calc(100vh-13rem)] sm:max-h-[calc(100vh-14rem)] w-auto max-w-full object-contain rounded-lg shadow-lg"

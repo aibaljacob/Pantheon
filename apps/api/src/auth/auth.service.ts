@@ -84,9 +84,14 @@ export class AuthService implements OnModuleInit {
       where: {
         OR: [{ email: normalizedEmail }, { username: normalizedUsername }],
       },
-      select: { id: true, email: true, username: true },
+      select: { id: true, email: true, username: true, emailVerified: true },
     });
     if (existingUser?.email === normalizedEmail) {
+      if (!existingUser.emailVerified) {
+        throw new ConflictException(
+          'An unverified account with this email already exists. Please verify your email or request a new verification link.',
+        );
+      }
       throw new ConflictException('An account with this email already exists.');
     }
     if (existingUser?.username === normalizedUsername) {
@@ -126,19 +131,39 @@ export class AuthService implements OnModuleInit {
       });
       return { user, profile };
     });
-    await this.mailService.sendVerificationEmail(
-      normalizedEmail,
-      this.buildVerificationLink(verificationToken),
-    );
+
+    let emailVerificationSent = false;
+    try {
+      await this.mailService.sendVerificationEmail(
+        normalizedEmail,
+        this.buildVerificationLink(verificationToken),
+      );
+      emailVerificationSent = true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to send initial verification email to ${normalizedEmail}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      // Reset createdAt on token so user is not penalized by resend rate-limit cooldown
+      await this.prisma.emailVerificationToken
+        .updateMany({
+          where: { userId: created.user.id },
+          data: {
+            createdAt: new Date(Date.now() - 60000),
+          },
+        })
+        .catch(() => undefined);
+    }
+
     return {
       success: true,
       data: {
         user: this.toPublicUser(created.user),
         profile: this.toPublicProfile(created.profile),
-        emailVerificationSent: true,
+        emailVerificationSent,
       },
-      message:
-        'Registration successful. Please verify your email address before signing in.',
+      message: emailVerificationSent
+        ? 'Registration successful. Please verify your email address before signing in.'
+        : 'Account created, but we could not deliver your verification email right now. Please request a new verification link.',
     };
   }
   async login(
@@ -211,6 +236,23 @@ export class AuthService implements OnModuleInit {
           'If an account exists and is unverified, a verification email has been sent.',
       };
     }
+
+    // Rate-limiting: Enforce a 60-second cooldown based on the most recently generated token
+    const latestToken = await this.prisma.emailVerificationToken.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (latestToken) {
+      const elapsedMs = Date.now() - latestToken.createdAt.getTime();
+      const COOLDOWN_MS = 60 * 1000;
+      if (elapsedMs < COOLDOWN_MS) {
+        const remainingSec = Math.ceil((COOLDOWN_MS - elapsedMs) / 1000);
+        throw new BadRequestException(
+          `Please wait ${remainingSec} seconds before requesting another verification email.`,
+        );
+      }
+    }
+
     const verificationToken = createSecureToken();
     await this.prisma.$transaction(async (transaction) => {
       await transaction.emailVerificationToken.deleteMany({
@@ -227,10 +269,25 @@ export class AuthService implements OnModuleInit {
         },
       });
     });
-    await this.mailService.sendVerificationEmail(
-      user.email,
-      this.buildVerificationLink(verificationToken),
-    );
+
+    try {
+      await this.mailService.sendVerificationEmail(
+        user.email,
+        this.buildVerificationLink(verificationToken),
+      );
+    } catch (error) {
+      // If delivery failed, reset token createdAt to 60s in the past so cooldown doesn't block immediate retry
+      await this.prisma.emailVerificationToken
+        .updateMany({
+          where: { userId: user.id },
+          data: {
+            createdAt: new Date(Date.now() - 60000),
+          },
+        })
+        .catch(() => undefined);
+      throw error;
+    }
+
     return {
       success: true,
       data: { verificationSent: true },
@@ -538,6 +595,14 @@ export class AuthService implements OnModuleInit {
     return session;
   }
   private async seedDemoUser(): Promise<void> {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      process.env.ENABLE_DEMO_SEED !== 'true'
+    ) {
+      this.logger.log('Skipping demo user seeding in production environment.');
+      return;
+    }
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email: 'demo@pantheon.dev' },
       include: { profile: true },

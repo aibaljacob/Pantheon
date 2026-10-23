@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Flag,
   User,
@@ -12,7 +12,7 @@ import {
   Link2,
 } from 'lucide-react';
 import type { TaskItem, TaskPriority, TaskStatus, TaskType } from '../../types';
-import { formatApiAssetUrl } from '../../../profile/services/profileService';
+import { Avatar } from '../../../auth/components/UserAvatar';
 
 interface TaskCardProps {
   task: TaskItem;
@@ -119,38 +119,14 @@ const STATUS_CONFIG: Record<
 const AssigneeAvatar: React.FC<{ avatarUrl?: string | null; displayName: string }> = ({
   avatarUrl,
   displayName,
-}) => {
-  const [imageError, setImageError] = useState(false);
-  const formattedUrl = avatarUrl ? formatApiAssetUrl(avatarUrl) : null;
-  const initial = displayName ? displayName.trim().charAt(0).toUpperCase() : '?';
-
-  useEffect(() => {
-    setImageError(false);
-  }, [formattedUrl]);
-
-  if (formattedUrl && !imageError) {
-    return (
-      <img
-        src={formattedUrl}
-        alt={displayName}
-        referrerPolicy="no-referrer"
-        onError={() => setImageError(true)}
-        className="h-6 w-6 rounded-full object-cover border border-[#48473f] shrink-0"
-        title={displayName}
-      />
-    );
-  }
-
-  return (
-    <div
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#201f1e] border border-[#48473f] text-[10px] font-mono font-bold text-[#e6e2df]"
-      title={displayName}
-      aria-hidden="true"
-    >
-      {initial}
-    </div>
-  );
-};
+}) => (
+  <Avatar
+    src={avatarUrl}
+    name={displayName}
+    size="xs"
+    className="!h-6 !w-6 border border-[#48473f] shrink-0"
+  />
+);
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onClick, viewMode = 'grid' }) => {
   const statusInfo = STATUS_CONFIG[task.status] || {

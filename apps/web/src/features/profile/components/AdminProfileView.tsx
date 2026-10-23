@@ -2,6 +2,8 @@ import React from 'react';
 import { ShieldCheck, Calendar, MapPin, Globe, Mail, Edit3, Camera, Image } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Card } from '../../../components/ui/Card';
+import { AppImage } from '../../../components/ui/AppImage';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { ProfileUser } from '../types';
 
 interface AdminProfileViewProps {
@@ -30,11 +32,14 @@ export const AdminProfileView: React.FC<AdminProfileViewProps> = ({
       <div className="relative rounded-3xl border border-[#363433] bg-[#1c1b1a] overflow-hidden shadow-2xl">
         {/* Banner Image */}
         <div className="relative h-48 sm:h-64 bg-gradient-to-r from-[#201f1e] to-[#141312] border-b border-[#2b2a29]">
-          {user.bannerUrl ? (
-            <img src={user.bannerUrl} alt="Banner" className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2b2a29] via-[#1c1b1a] to-[#141312]" />
-          )}
+          <AppImage
+            src={user.bannerUrl}
+            alt="Banner"
+            className="h-full w-full object-cover"
+            fallback={
+              <div className="h-full w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#2b2a29] via-[#1c1b1a] to-[#141312]" />
+            }
+          />
 
           {isOwner && (
             <button
@@ -52,17 +57,13 @@ export const AdminProfileView: React.FC<AdminProfileViewProps> = ({
         <div className="p-6 sm:p-8 space-y-6 relative">
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-20 sm:-mt-24">
             <div className="relative group shrink-0">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={fullName}
-                  className="h-28 w-28 sm:h-36 sm:w-36 rounded-full border-4 border-[#1c1b1a] object-cover bg-[#141312] shadow-xl"
-                />
-              ) : (
-                <div className="h-28 w-28 sm:h-36 sm:w-36 rounded-full border-4 border-[#1c1b1a] bg-[#201f1e] flex items-center justify-center font-bold text-3xl text-[#e6e2df] shadow-xl">
-                  {user.username.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <Avatar
+                avatarUrl={user.avatarUrl}
+                name={fullName}
+                size="xl"
+                className="!h-28 !w-28 sm:!h-36 sm:!w-36 border-4 border-[#1c1b1a] shadow-xl"
+                alt={fullName}
+              />
 
               {isOwner && (
                 <button

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import type { AuthLoginInput, AuthRegisterInput, AuthSession, AuthSessionBootstrapInput, AuthStateSnapshot, AuthUser } from '../types';
 import { login, logout, me, register, setAuthToken } from '../services/authService';
+import { getApiErrorMessage } from '../services/httpClient';
 
 interface AuthStoreState extends AuthStateSnapshot {
   hasHydrated: boolean;
@@ -126,9 +127,9 @@ export const useAuthStore = create<AuthStoreState>()(
           set({ isAuthenticating: false });
           return response.data;
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Registration failed.';
+          const message = getApiErrorMessage(error, 'Registration failed.');
           set({ isAuthenticating: false, error: message });
-          throw new Error(message);
+          throw new Error(message, { cause: error });
         }
       },
 
@@ -142,9 +143,9 @@ export const useAuthStore = create<AuthStoreState>()(
           set({ isAuthenticating: false });
           return session.user;
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Login failed.';
+          const message = getApiErrorMessage(error, 'Login failed.');
           set({ isAuthenticating: false, error: message });
-          throw new Error(message);
+          throw new Error(message, { cause: error });
         }
       },
 

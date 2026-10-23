@@ -34,6 +34,8 @@ import { Navbar } from '../components/Navbar';
 import { Footer } from '../components/Footer';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
+import { AppImage } from '../components/ui/AppImage';
+import { Avatar } from '../features/auth/components/UserAvatar';
 import type {
   DraftRoleRecommendation,
   ProjectDetail,
@@ -858,17 +860,16 @@ export const ProjectDetailPage: React.FC = () => {
         {/* Project Header Banner & Title Card */}
         <Card className="p-0 overflow-hidden border-[#363433] bg-[#1c1b1a]">
           <div className="relative h-48 sm:h-64 border-b border-[#2b2a29] bg-[#141312] overflow-hidden">
-            {project.coverUrl ? (
-              <img
-                src={project.coverUrl}
-                alt={project.name}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] via-[#1c1b1a] to-[#141312]">
-                <FolderKanban className="h-16 w-16 text-[#363433]" />
-              </div>
-            )}
+            <AppImage
+              src={project.coverUrl}
+              alt={project.name}
+              className="h-full w-full object-cover"
+              fallback={
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] via-[#1c1b1a] to-[#141312]">
+                  <FolderKanban className="h-16 w-16 text-[#363433]" />
+                </div>
+              }
+            />
             <div className="absolute inset-0 bg-gradient-to-t from-[#1c1b1a] via-transparent to-transparent opacity-80" />
 
             {/* Development Stage Badge */}
@@ -1310,17 +1311,12 @@ export const ProjectDetailPage: React.FC = () => {
                                     to={`/u/${filledByMember.username}`}
                                     className="flex items-center gap-2.5 rounded-xl border border-[#2b2a29] bg-[#1c1b1a] px-3 py-1.5 hover:border-[#48473f] transition-colors"
                                   >
-                                    {filledByMember.avatarUrl ? (
-                                      <img
-                                        src={filledByMember.avatarUrl}
-                                        alt={filledByMember.displayName}
-                                        className="h-7 w-7 rounded-full object-cover border border-[#48473f]"
-                                      />
-                                    ) : (
-                                      <div className="h-7 w-7 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#ffffff]">
-                                        {filledByMember.displayName.charAt(0).toUpperCase()}
-                                      </div>
-                                    )}
+                                    <Avatar
+                                      src={filledByMember.avatarUrl}
+                                      name={filledByMember.displayName}
+                                      size="xs"
+                                      className="!h-7 !w-7 border border-[#48473f]"
+                                    />
                                     <div className="text-left">
                                       <p className="text-xs font-semibold text-[#ffffff] hover:text-[#e6e2df]">
                                         {filledByMember.displayName}
@@ -1414,17 +1410,12 @@ export const ProjectDetailPage: React.FC = () => {
 
               <div className="flex items-center gap-4">
                 <Link to={`/u/${project.founder.username}`}>
-                  {project.founder.avatarUrl ? (
-                    <img
-                      src={project.founder.avatarUrl}
-                      alt={project.founder.displayName}
-                      className="h-12 w-12 rounded-full object-cover border border-[#48473f]"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-lg text-[#ffffff]">
-                      {project.founder.displayName.charAt(0).toUpperCase()}
-                    </div>
-                  )}
+                  <Avatar
+                    src={project.founder.avatarUrl}
+                    name={project.founder.displayName}
+                    size="lg"
+                    className="border border-[#48473f]"
+                  />
                 </Link>
 
                 <div>
@@ -1473,17 +1464,12 @@ export const ProjectDetailPage: React.FC = () => {
                   >
                     <div className="flex items-center gap-3">
                       <Link to={`/u/${member.username}`}>
-                        {member.avatarUrl ? (
-                          <img
-                            src={member.avatarUrl}
-                            alt={member.displayName}
-                            className="h-9 w-9 rounded-full object-cover border border-[#363433]"
-                          />
-                        ) : (
-                          <div className="h-9 w-9 rounded-full bg-[#201f1e] border border-[#363433] flex items-center justify-center font-bold text-xs text-[#ffffff]">
-                            {member.displayName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                      <Avatar
+                        src={member.avatarUrl}
+                        name={member.displayName}
+                        size="sm"
+                        className="!h-9 !w-9 border border-[#363433]"
+                      />
                       </Link>
                       <div>
                         <Link

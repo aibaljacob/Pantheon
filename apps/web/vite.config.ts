@@ -11,4 +11,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/uploads': {
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:3000',
+        changeOrigin: true,
+      },
+    },
+  },
 })

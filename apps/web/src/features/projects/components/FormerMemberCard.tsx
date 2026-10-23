@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { History, UserX } from 'lucide-react';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { ProjectFormerTeamMember } from '../types';
 
 interface FormerMemberCardProps {
@@ -24,17 +25,12 @@ export const FormerMemberCard: React.FC<FormerMemberCardProps> = ({ member }) =>
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#201f1e] bg-[#141312]/60 p-3.5 transition-all opacity-85 hover:opacity-100">
       <div className="flex items-center gap-3">
         <Link to={`/u/${member.username}`} className="shrink-0">
-          {member.avatarUrl ? (
-            <img
-              src={member.avatarUrl}
-              alt={member.displayName}
-              className="h-10 w-10 rounded-full object-cover grayscale contrast-125 border border-[#363433]"
-            />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#363433] bg-[#1c1b1a] text-xs font-bold text-[#8c887e]">
-              {member.displayName.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <Avatar
+            src={member.avatarUrl}
+            name={member.displayName}
+            size="sm"
+            className="!h-10 !w-10 grayscale contrast-125 border border-[#363433]"
+          />
         </Link>
 
         <div className="space-y-1">

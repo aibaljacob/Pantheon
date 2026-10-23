@@ -15,7 +15,7 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { useAuthStore } from '../../auth/store/authStore';
-import { formatApiAssetUrl } from '../../profile/services/profileService';
+import { Avatar } from '../../auth/components/UserAvatar';
 import {
   fetchProjectApplications,
   respondToProjectApplication,
@@ -232,17 +232,12 @@ export const FounderApplicationsSection: React.FC<FounderApplicationsSectionProp
                 {/* Header Row: Applicant Info & Applied Role */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    {applicant.avatarUrl ? (
-                      <img
-                        src={formatApiAssetUrl(applicant.avatarUrl)}
-                        alt={applicant.displayName}
-                        className="h-12 w-12 rounded-full object-cover border border-[#48473f]"
-                      />
-                    ) : (
-                      <div className="h-12 w-12 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-sm text-[#ffffff]">
-                        {applicant.displayName.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <Avatar
+                      src={applicant.avatarUrl}
+                      name={applicant.displayName}
+                      size="lg"
+                      className="border border-[#48473f]"
+                    />
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h4 className="font-headline text-base font-bold text-[#ffffff]">

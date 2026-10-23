@@ -17,8 +17,11 @@ import { SearchModule } from './search/search.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { EventsModule } from './events/events.module';
 
+import { StorageModule } from './storage/storage.module';
+
 @Module({
   imports: [
+    StorageModule,
     AuthModule,
     ProfileModule,
     TaxonomyModule,

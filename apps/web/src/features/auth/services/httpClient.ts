@@ -16,3 +16,32 @@ export function setApiAuthorizationHeader(token: string | null): void {
 
   delete apiClient.defaults.headers.common.Authorization;
 }
+
+export function getApiErrorMessage(
+  error: unknown,
+  fallbackMessage = 'An unexpected error occurred.',
+): string {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (data && typeof data === 'object') {
+      const message = (data as { message?: unknown }).message;
+      if (typeof message === 'string') {
+        return message;
+      }
+      if (Array.isArray(message)) {
+        return message
+          .filter((item): item is string => typeof item === 'string')
+          .join(', ');
+      }
+    }
+    if (error.response?.statusText) {
+      return `Server error: ${error.response.status} ${error.response.statusText}`;
+    }
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+}

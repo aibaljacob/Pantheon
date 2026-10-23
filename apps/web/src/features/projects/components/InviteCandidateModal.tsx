@@ -3,7 +3,7 @@ import { X, Send, UserCheck, Briefcase, AlertCircle, Loader2, Sparkles } from 'l
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { useAuthStore } from '../../auth/store/authStore';
-import { formatApiAssetUrl } from '../../profile/services/profileService';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { ProjectRoleItem } from '../types';
 import { sendProjectRoleInvitation } from '../services/talentMatchingService';
 import type { CandidateProfileSummary } from '../services/talentMatchingService';
@@ -79,17 +79,12 @@ export const InviteCandidateModal: React.FC<InviteCandidateModalProps> = ({
         <div className="rounded-2xl border border-[#2b2a29] bg-[#141312] p-4 space-y-4 font-mono text-xs">
           {/* Candidate Summary */}
           <div className="flex items-center gap-3">
-            {candidate.avatarUrl ? (
-              <img
-                src={formatApiAssetUrl(candidate.avatarUrl)}
-                alt={candidate.displayName}
-                className="h-10 w-10 rounded-full object-cover border border-[#48473f]"
-              />
-            ) : (
-              <div className="h-10 w-10 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#ffffff]">
-                {candidate.displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <Avatar
+              src={candidate.avatarUrl}
+              name={candidate.displayName}
+              size="sm"
+              className="!h-10 !w-10 border border-[#48473f]"
+            />
             <div>
               <p className="font-bold text-[#ffffff]">{candidate.displayName}</p>
               <p className="text-[#8c887e]">@{candidate.username} · {candidate.headline || 'Game Developer'}</p>

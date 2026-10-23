@@ -6,18 +6,32 @@ import { Mail, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 import { resendVerification } from '../features/auth/services/authService';
 export const VerificationSentPage: React.FC = () => {
   const location = useLocation();
-  const state = location.state as { email?: string; unverified?: boolean } | null;
-  const email = state?.email || 'your registered email address';
+  const state = location.state as {
+    email?: string;
+    unverified?: boolean;
+    emailVerificationSent?: boolean;
+  } | null;
+  const [customEmail, setCustomEmail] = useState('');
+  const email = state?.email || customEmail.trim();
+  const initialSent = state?.emailVerificationSent !== false;
+
   const [isResending, setIsResending] = useState(false);
-  const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<{
+    text: string;
+    isError: boolean;
+  } | null>(null);
   const [cooldown, setCooldown] = useState(0);
+
   const handleResend = async () => {
-    if (cooldown > 0 || isResending) return;
+    if (!email || cooldown > 0 || isResending) return;
     setIsResending(true);
     setResendStatus(null);
     try {
       const res = await resendVerification(email);
-      setResendStatus(res.message || 'Verification email resent!');
+      setResendStatus({
+        text: res.message || 'Verification email dispatched! Please check your inbox.',
+        isError: false,
+      });
       setCooldown(60);
       const interval = setInterval(() => {
         setCooldown((prev) => {
@@ -30,11 +44,12 @@ export const VerificationSentPage: React.FC = () => {
       }, 1000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to resend email.';
-      setResendStatus(msg);
+      setResendStatus({ text: msg, isError: true });
     } finally {
       setIsResending(false);
     }
   };
+
   return (
     <AuthLayout>
       <div className="space-y-6 text-left">
@@ -45,14 +60,48 @@ export const VerificationSentPage: React.FC = () => {
           </div>
           <div>
             <h2 className="font-headline font-bold text-2xl text-[#ffffff] tracking-tight">
-              Check Your Inbox
+              {initialSent ? 'Check Your Inbox' : 'Email Verification'}
             </h2>
             <p className="mt-1 font-sans text-xs text-[#cac6bc] leading-relaxed">
-              We've sent a verification link to{' '}
-              <span className="font-mono text-[#e6e2df] font-semibold">{email}</span>. Please click the link in the email to activate your account.
+              {email ? (
+                <>
+                  Verification link destination:{' '}
+                  <span className="font-mono text-[#e6e2df] font-semibold">{email}</span>.
+                </>
+              ) : (
+                'Enter your registered email to request a new verification link.'
+              )}
             </p>
           </div>
         </div>
+
+        {/* Delivery delay warning if initial email failed */}
+        {!initialSent && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 text-xs font-mono text-[#cac6bc] space-y-1">
+            <p className="text-amber-300 font-semibold">Delivery Delayed</p>
+            <p className="text-[11px] leading-relaxed text-[#cac6bc]">
+              We had trouble sending your initial verification link. Please click below to dispatch a new one.
+            </p>
+          </div>
+        )}
+
+        {/* Email input field if visited directly without email in state */}
+        {!state?.email && (
+          <div className="space-y-1.5">
+            <label htmlFor="resend-email" className="block text-xs font-mono font-medium text-[#cac6bc] uppercase tracking-wider">
+              Registered Email
+            </label>
+            <input
+              id="resend-email"
+              type="email"
+              placeholder="name@studio.com"
+              value={customEmail}
+              onChange={(e) => setCustomEmail(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-[#141312] border border-[#48473f] text-sm font-mono text-[#e6e2df] rounded-lg shadow-inner focus:outline-none focus:ring-2 focus:ring-[#939188]/40"
+            />
+          </div>
+        )}
+
         {/* Notice Card */}
         <div className="rounded-lg border border-[#363433] bg-[#141312] p-4 text-xs font-mono text-[#cac6bc] space-y-2">
           <p className="flex items-center gap-2 text-[#e6e2df] font-semibold">
@@ -60,14 +109,22 @@ export const VerificationSentPage: React.FC = () => {
             Verification Link Valid for 24 Hours
           </p>
           <p className="text-[11px] leading-relaxed text-[#939188]">
-            Can't find the email? Check your spam or junk folder, or click below to request a new link.
+            Can't find the email? Check your spam or junk folder, or request a new link below.
           </p>
         </div>
+
         {resendStatus && (
-          <p className="text-xs font-mono text-emerald-400 bg-[#141312] border border-emerald-500/30 rounded-md p-2.5">
-            {resendStatus}
+          <p
+            className={`text-xs font-mono rounded-md p-2.5 border ${
+              resendStatus.isError
+                ? 'text-red-400 bg-red-950/20 border-red-500/30'
+                : 'text-emerald-400 bg-emerald-950/20 border-emerald-500/30'
+            }`}
+          >
+            {resendStatus.text}
           </p>
         )}
+
         {/* Action Buttons */}
         <div className="space-y-3 pt-2">
           <Button
@@ -75,7 +132,7 @@ export const VerificationSentPage: React.FC = () => {
             variant="secondary"
             size="md"
             onClick={handleResend}
-            disabled={isResending || cooldown > 0}
+            disabled={!email || isResending || cooldown > 0}
             icon={isResending ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
             className="w-full justify-center text-xs font-mono"
           >
@@ -85,6 +142,7 @@ export const VerificationSentPage: React.FC = () => {
               ? `Resend Link (${cooldown}s)`
               : 'Resend Verification Email'}
           </Button>
+
           <Link to="/login" className="block w-full">
             <Button
               type="button"

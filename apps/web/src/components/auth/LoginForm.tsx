@@ -24,6 +24,7 @@ export const LoginForm: React.FC = () => {
   const {
     register,
     handleSubmit,
+    getValues,
     setError,
     clearErrors,
     formState: { errors },
@@ -140,7 +141,18 @@ export const LoginForm: React.FC = () => {
         </Button>
       </form>
       {errors.root?.message || authError ? (
-        <p className="text-sm text-red-400">{errors.root?.message ?? authError}</p>
+        <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-950/20 p-3">
+          <p className="text-sm text-red-400">{errors.root?.message ?? authError}</p>
+          {(errors.root?.message ?? authError)?.toLowerCase().includes('verified') && (
+            <Link
+              to="/verification-sent"
+              state={{ email: getValues('email'), unverified: true }}
+              className="inline-block text-xs font-mono text-[#e6e2df] underline hover:text-white"
+            >
+              Click here to resend your verification email &rarr;
+            </Link>
+          )}
+        </div>
       ) : null}
       {/* Divider */}
       <div className="relative py-2 flex items-center justify-center">

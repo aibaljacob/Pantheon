@@ -31,6 +31,8 @@ import {
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
 import { Card } from '../../../components/ui/Card';
+import { AppImage } from '../../../components/ui/AppImage';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { AuthUser } from '../../auth/types';
 import { useAuthStore } from '../../auth/store/authStore';
 import { DashboardLayout } from '../../dashboard/components/DashboardLayout';
@@ -580,13 +582,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                       <tr key={u.id} className="hover:bg-[#141312]/60 transition-colors">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            {u.avatarUrl ? (
-                              <img src={u.avatarUrl} alt={u.username} className="h-8 w-8 rounded-full object-cover shrink-0" />
-                            ) : (
-                              <div className="h-8 w-8 rounded-full bg-[#201f1e] border border-[#363433] flex items-center justify-center font-bold text-[#e6e2df]">
-                                {u.username.charAt(0).toUpperCase()}
-                              </div>
-                            )}
+                            <Avatar
+                              src={u.avatarUrl}
+                              name={u.displayName || u.username}
+                              size="sm"
+                              className="!h-8 !w-8 shrink-0"
+                            />
                             <div>
                               <p className="font-semibold text-[#ffffff]">@{u.username}</p>
                               {u.displayName && <p className="text-[10px] text-[#8c887e]">{u.displayName}</p>}
@@ -755,13 +756,16 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                       <tr key={p.id} className="hover:bg-[#141312]/60 transition-colors">
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            {p.coverUrl ? (
-                              <img src={p.coverUrl} alt={p.name} className="h-9 w-14 rounded-lg object-cover border border-[#2b2a29]" />
-                            ) : (
-                              <div className="h-9 w-14 rounded-lg bg-[#201f1e] border border-[#363433] flex items-center justify-center text-[10px] text-[#8c887e]">
-                                No Cover
-                              </div>
-                            )}
+                            <AppImage
+                              src={p.coverUrl}
+                              alt={p.name}
+                              className="h-9 w-14 rounded-lg object-cover border border-[#2b2a29]"
+                              fallback={
+                                <div className="h-9 w-14 rounded-lg bg-[#201f1e] border border-[#363433] flex items-center justify-center text-[10px] text-[#8c887e]">
+                                  No Cover
+                                </div>
+                              }
+                            />
                             <div>
                               <p className="font-semibold text-[#ffffff]">{p.name}</p>
                               <p className="text-[10px] text-[#8c887e]">/{p.slug}</p>
@@ -1039,9 +1043,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
 
             <div className="space-y-3 text-xs font-mono">
               <div className="flex items-center gap-3">
-                {selectedUserDetail.avatarUrl && (
-                  <img src={selectedUserDetail.avatarUrl} alt="Avatar" className="h-12 w-12 rounded-full object-cover" />
-                )}
+                <Avatar
+                  src={selectedUserDetail.avatarUrl}
+                  name={selectedUserDetail.displayName || selectedUserDetail.username}
+                  size="lg"
+                  className="!h-12 !w-12 border border-[#48473f]"
+                />
                 <div>
                   <p className="text-base font-bold text-[#ffffff]">@{selectedUserDetail.username}</p>
                   <p className="text-[#8c887e]">{selectedUserDetail.email}</p>
@@ -1154,7 +1161,7 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
               <div className="space-y-4">
                 {selectedProjectDetail.coverUrl && (
                   <div className="relative h-48 w-full rounded-2xl overflow-hidden border border-[#2b2a29]">
-                    <img
+                    <AppImage
                       src={selectedProjectDetail.coverUrl}
                       alt={selectedProjectDetail.name}
                       className="h-full w-full object-cover"
@@ -1218,17 +1225,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                   {/* Founder Top Row */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2b2a29] pb-4">
                     <div className="flex items-center gap-3">
-                      {selectedProjectDetail.founderProfile?.avatarUrl ? (
-                        <img
-                          src={selectedProjectDetail.founderProfile.avatarUrl}
-                          alt={selectedProjectDetail.founderUsername}
-                          className="h-12 w-12 rounded-full object-cover border border-[#48473f]"
-                        />
-                      ) : (
-                        <div className="h-12 w-12 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-base text-[#e6e2df]">
-                          {selectedProjectDetail.founderUsername.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <Avatar
+                        src={selectedProjectDetail.founderProfile?.avatarUrl}
+                        name={selectedProjectDetail.founderDisplayName || selectedProjectDetail.founderUsername}
+                        size="lg"
+                        className="!h-12 !w-12 border border-[#48473f]"
+                      />
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-[#ffffff]">
@@ -1441,17 +1443,12 @@ export const AdminDashboardPage: React.FC<AdminDashboardPageProps> = ({ user }) 
                         key={m.userId}
                         className="flex items-center gap-3 rounded-2xl border border-[#2b2a29] bg-[#141312] p-3"
                       >
-                        {m.avatarUrl ? (
-                          <img
-                            src={m.avatarUrl}
-                            alt={m.username}
-                            className="h-9 w-9 rounded-full object-cover border border-[#48473f]"
-                          />
-                        ) : (
-                          <div className="h-9 w-9 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#e6e2df]">
-                            {m.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar
+                          src={m.avatarUrl}
+                          name={m.displayName || m.username}
+                          size="sm"
+                          className="!h-9 !w-9 border border-[#48473f]"
+                        />
                         <div className="overflow-hidden">
                           <p className="font-semibold text-xs text-[#ffffff] truncate">
                             {m.displayName || m.username}

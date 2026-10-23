@@ -5,9 +5,10 @@ import {
   Users,
   Briefcase,
   ArrowUpRight,
-  User,
 } from 'lucide-react';
 import { Card } from '../../../components/ui/Card';
+import { AppImage } from '../../../components/ui/AppImage';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { DashboardProjectItem } from '../types';
 
 interface DiscoverProjectCardProps {
@@ -57,17 +58,16 @@ export const DiscoverProjectCard: React.FC<DiscoverProjectCardProps> = ({
         <div>
           {/* Cover Media */}
           <div className="relative aspect-video w-full overflow-hidden bg-[#141312] border-b border-[#2b2a29]">
-            {project.coverUrl ? (
-              <img
-                src={project.coverUrl}
-                alt={project.name}
-                className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] via-[#141312] to-[#0f0e0d]">
-                <FolderKanban className="h-12 w-12 text-[#363433]" />
-              </div>
-            )}
+            <AppImage
+              src={project.coverUrl}
+              alt={project.name}
+              className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
+              fallback={
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#201f1e] via-[#141312] to-[#0f0e0d]">
+                  <FolderKanban className="h-12 w-12 text-[#363433]" />
+                </div>
+              }
+            />
 
             <div className="absolute inset-0 bg-gradient-to-t from-[#141312] via-transparent to-transparent opacity-60" />
 
@@ -149,21 +149,12 @@ export const DiscoverProjectCard: React.FC<DiscoverProjectCardProps> = ({
         {/* Footer info: Founder & Team */}
         <div className="border-t border-[#2b2a29] px-5 py-3 text-xs font-mono text-[#8c887e] flex items-center justify-between bg-[#141312]/40">
           <div className="flex items-center gap-2 min-w-0">
-            {founder?.avatarUrl ? (
-              <img
-                src={founder.avatarUrl}
-                alt={founder.displayName || founder.username}
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-                className="h-5 w-5 rounded-full object-cover shrink-0"
-              />
-            ) : (
-              <div className="h-5 w-5 rounded-full bg-[#2b2a29] flex items-center justify-center text-[10px] text-[#e6e2df] shrink-0">
-                <User className="h-3 w-3 text-[#8c887e]" />
-              </div>
-            )}
+            <Avatar
+              src={founder?.avatarUrl}
+              name={founder?.displayName || founder?.username}
+              size="xs"
+              className="!h-5 !w-5 text-[10px]"
+            />
             <span className="truncate text-[11px] text-[#cac6bc]">
               {founder?.displayName || (founder?.username ? `@${founder.username}` : 'Studio Founder')}
             </span>

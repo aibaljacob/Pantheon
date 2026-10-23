@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { Avatar } from '../../../auth/components/UserAvatar';
 import { useAuthStore } from '../../../auth/store/authStore';
 import type {
   ProjectDetail,
@@ -258,17 +259,12 @@ export const VisualSkillCoverage: React.FC<VisualSkillCoverageProps> = ({
                         className="flex items-center justify-between rounded-xl border border-[#2b2a29] bg-[#141312] p-2.5"
                       >
                         <div className="flex items-center gap-2.5">
-                          {member.avatarUrl ? (
-                            <img
-                              src={member.avatarUrl}
-                              alt={member.displayName}
-                              className="h-7 w-7 rounded-full object-cover border border-[#363433]"
-                            />
-                          ) : (
-                            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-950/40 border border-amber-500/30 text-[10px] font-mono font-bold text-amber-300">
-                              {member.displayName.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
+                          <Avatar
+                            src={member.avatarUrl}
+                            name={member.displayName}
+                            size="xs"
+                            className="!h-7 !w-7 text-[10px] border border-[#363433]"
+                          />
                           <div>
                             <div className="text-xs font-headline font-bold text-white">
                               {member.displayName}
@@ -342,19 +338,12 @@ export const VisualSkillCoverage: React.FC<VisualSkillCoverageProps> = ({
 
                     <div className="flex items-center justify-between rounded-xl border border-[#2b2a29] bg-[#141312] p-2.5">
                       <div className="flex items-center gap-2.5">
-                        {item.sampleCandidate.avatarUrl ? (
-                          <img
-                            src={item.sampleCandidate.avatarUrl}
-                            alt={item.sampleCandidate.displayName}
-                            className="h-7 w-7 rounded-full object-cover border border-[#363433]"
-                          />
-                        ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-950/40 border border-amber-500/30 text-[10px] font-mono font-bold text-amber-300">
-                            {item.sampleCandidate.displayName
-                              .slice(0, 2)
-                              .toUpperCase()}
-                          </div>
-                        )}
+                        <Avatar
+                          src={item.sampleCandidate.avatarUrl}
+                          name={item.sampleCandidate.displayName}
+                          size="xs"
+                          className="!h-7 !w-7 text-[10px] border border-[#363433]"
+                        />
                         <div>
                           <div className="text-xs font-headline font-bold text-white">
                             {item.sampleCandidate.displayName}

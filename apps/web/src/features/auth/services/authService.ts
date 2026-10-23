@@ -92,7 +92,12 @@ export async function verifyEmail(token: string): Promise<ApiResponse<AuthGeneri
     credentials: 'include',
   });
   if (!response.ok) {
-    throw new Error('Unable to verify email.');
+    const errorData = await response.json().catch(() => null);
+    const message =
+      errorData && typeof errorData === 'object' && typeof (errorData as Record<string, unknown>).message === 'string'
+        ? ((errorData as Record<string, unknown>).message as string)
+        : 'Unable to verify email. The verification link may be invalid or expired.';
+    throw new Error(message);
   }
   return response.json() as Promise<ApiResponse<AuthGenericResult>>;
 }
@@ -113,7 +118,12 @@ async function postJson<T>(path: string, body: unknown): Promise<ApiResponse<T>>
     body: JSON.stringify(body),
   });
   if (!response.ok) {
-    throw new Error('Request failed.');
+    const errorData = await response.json().catch(() => null);
+    const message =
+      errorData && typeof errorData === 'object' && typeof (errorData as Record<string, unknown>).message === 'string'
+        ? ((errorData as Record<string, unknown>).message as string)
+        : `Request failed with status ${response.status}.`;
+    throw new Error(message);
   }
   return response.json() as Promise<ApiResponse<T>>;
 }

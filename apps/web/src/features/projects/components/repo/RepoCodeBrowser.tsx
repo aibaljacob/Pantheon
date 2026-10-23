@@ -9,6 +9,7 @@ import {
   BookOpen,
   CornerLeftUp,
 } from 'lucide-react';
+import { Avatar } from '../../../auth/components/UserAvatar';
 import type { RepoFile, RepoCommit, RepoBranch } from '../../services/projectRepositoryService';
 
 interface RepoCodeBrowserProps {
@@ -159,17 +160,12 @@ export const RepoCodeBrowser: React.FC<RepoCodeBrowserProps> = ({
       {latestCommit && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-[#363433] bg-[#1c1b1a] p-4 text-xs">
           <div className="flex items-center gap-3">
-            {latestCommit.author.avatarUrl ? (
-              <img
-                src={latestCommit.author.avatarUrl}
-                alt={latestCommit.author.username}
-                className="h-7 w-7 rounded-full object-cover border border-[#48473f]"
-              />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center text-[10px] font-bold text-[#ffffff]">
-                {latestCommit.author.username.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <Avatar
+              src={latestCommit.author.avatarUrl}
+              name={latestCommit.author.username}
+              size="xs"
+              className="!h-7 !w-7 text-[10px] border border-[#48473f]"
+            />
             <div>
               <span className="font-bold text-[#ffffff]">@{latestCommit.author.username}</span>
               <span className="ml-2 text-[#cac6bc]">{latestCommit.message}</span>

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Share2, Edit3, UserPlus, UserCheck, MapPin, CheckCircle2, CopyCheck } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { AppImage } from '../../../components/ui/AppImage';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { ProfileUser, ProfileStats } from '../types';
 
 interface ProfileHeaderProps {
@@ -26,11 +28,6 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
   onEditBanner,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    setImageError(false);
-  }, [user.avatarUrl]);
 
   const handleShareProfile = () => {
     const profileUrl = `${window.location.origin}/u/${user.username}`;
@@ -45,25 +42,20 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
     user.username ||
     'Developer';
 
-  const firstInitial = user.firstName ? user.firstName.charAt(0).toUpperCase() : '';
-  const lastInitial = user.lastName ? user.lastName.charAt(0).toUpperCase() : '';
-  const initials = firstInitial + lastInitial || user.username?.charAt(0).toUpperCase() || 'P';
-
   return (
     <div className="relative overflow-hidden rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl">
       {/* Banner / Cover Image with Atmospheric Vignette */}
       <div className="relative h-48 w-full sm:h-60 md:h-72 overflow-hidden bg-[#201f1e] group">
-        {user.bannerUrl ? (
-          <img
-            src={user.bannerUrl}
-            alt={`${fullName}'s profile banner`}
-            className="h-full w-full object-cover object-center brightness-90"
-          />
-        ) : (
-          <div className="h-full w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#363433] via-[#201f1e] to-[#141312]">
-            <div className="absolute inset-0 bg-grid-white/[0.03] bg-[size:32px_32px]" />
-          </div>
-        )}
+        <AppImage
+          src={user.bannerUrl}
+          alt={`${fullName}'s profile banner`}
+          className="h-full w-full object-cover object-center brightness-90"
+          fallback={
+            <div className="h-full w-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#363433] via-[#201f1e] to-[#141312]">
+              <div className="absolute inset-0 bg-grid-white/[0.03] bg-[size:32px_32px]" />
+            </div>
+          }
+        />
         {/* Soft Volumetric Shadow gradient over bottom of banner */}
         <div className="absolute inset-0 bg-gradient-to-t from-[#1c1b1a] via-[#1c1b1a]/40 to-transparent" />
 
@@ -86,19 +78,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({
           {/* Avatar & User Core Details */}
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end">
             <div className="-mt-16 sm:-mt-20 relative h-28 w-28 sm:h-36 sm:w-36 rounded-3xl border-4 border-[#1c1b1a] bg-[#2b2a29] shadow-xl overflow-hidden group">
-              {user.avatarUrl && !imageError ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={fullName}
-                  referrerPolicy="no-referrer"
-                  onError={() => setImageError(true)}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#2b2a29] text-3xl sm:text-4xl font-headline font-bold text-[#e6e2df]">
-                  {initials}
-                </div>
-              )}
+              <Avatar
+                avatarUrl={user.avatarUrl}
+                name={fullName}
+                size="xl"
+                className="!h-full !w-full !rounded-3xl"
+                alt={fullName}
+              />
 
               {/* Owner Avatar Overlay Edit Button */}
               {isOwner && (

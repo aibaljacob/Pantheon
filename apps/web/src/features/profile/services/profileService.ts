@@ -14,16 +14,9 @@ function getAuthHeaders(accessToken?: string | null): Record<string, string> {
   return headers;
 }
 
-export function formatApiAssetUrl(url?: string | null): string {
-  if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-    return url;
-  }
-  if (url.startsWith('/')) {
-    return `${getApiBaseUrl()}${url}`;
-  }
-  return `${getApiBaseUrl()}/${url}`;
-}
+import { resolveImageUrl } from '../../../lib/imageUrl';
+export const formatApiAssetUrl = resolveImageUrl;
+export { resolveImageUrl };
 
 export function computeProfileCompletionStats(
   user: any,

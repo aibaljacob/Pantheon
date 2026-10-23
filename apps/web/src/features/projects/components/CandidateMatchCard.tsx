@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '../../../components/ui/Badge';
 import { Button } from '../../../components/ui/Button';
-import { formatApiAssetUrl } from '../../profile/services/profileService';
+import { Avatar } from '../../auth/components/UserAvatar';
 import type { RecommendedCandidate } from '../services/talentMatchingService';
 
 interface CandidateMatchCardProps {
@@ -43,17 +43,12 @@ export const CandidateMatchCard: React.FC<CandidateMatchCardProps> = ({
       {/* Main Card Header */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          {candidate.avatarUrl ? (
-            <img
-              src={formatApiAssetUrl(candidate.avatarUrl)}
-              alt={candidate.displayName}
-              className="h-12 w-12 rounded-full object-cover border border-[#48473f]"
-            />
-          ) : (
-            <div className="h-12 w-12 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-sm text-[#ffffff]">
-              {candidate.displayName.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <Avatar
+            src={candidate.avatarUrl}
+            name={candidate.displayName}
+            size="lg"
+            className="border border-[#48473f]"
+          />
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="font-headline text-base font-bold text-[#ffffff]">{candidate.displayName}</h3>

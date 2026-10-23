@@ -13,8 +13,9 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { AppImage } from '../../../components/ui/AppImage';
+import { Avatar } from '../../auth/components/UserAvatar';
 import { useAuthStore } from '../../auth/store/authStore';
-import { formatApiAssetUrl } from '../../profile/services/profileService';
 import {
   fetchUserInvitations,
   respondToInvitation,
@@ -307,17 +308,16 @@ const InvitationCard: React.FC<InvitationCardProps> = ({
       {/* Top Banner: Project + Status */}
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-[#2b2a29] pb-4">
         <div className="flex items-start gap-4">
-          {project.coverUrl ? (
-            <img
-              src={formatApiAssetUrl(project.coverUrl)}
-              alt={project.name}
-              className="h-14 w-14 rounded-2xl object-cover border border-[#48473f]"
-            />
-          ) : (
-            <div className="h-14 w-14 rounded-2xl bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-sm text-[#ffffff]">
-              {project.name.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <AppImage
+            src={project.coverUrl}
+            alt={project.name}
+            className="h-14 w-14 rounded-2xl object-cover border border-[#48473f]"
+            fallback={
+              <div className="h-14 w-14 rounded-2xl bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-sm text-[#ffffff]">
+                {project.name.charAt(0).toUpperCase()}
+              </div>
+            }
+          />
           <div className="space-y-1">
             <Link
               to={`/projects/${project.id}`}
@@ -380,29 +380,12 @@ const InvitationCard: React.FC<InvitationCardProps> = ({
             {mode === 'sent' ? 'Invited Candidate' : 'Project Founder'}
           </span>
           <div className="flex items-center gap-3 pt-1">
-            {mode === 'sent' ? (
-              invitee.avatarUrl ? (
-                <img
-                  src={formatApiAssetUrl(invitee.avatarUrl)}
-                  alt={invitee.displayName}
-                  className="h-8 w-8 rounded-full object-cover border border-[#48473f]"
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#ffffff]">
-                  {invitee.displayName.charAt(0).toUpperCase()}
-                </div>
-              )
-            ) : inviter.avatarUrl ? (
-              <img
-                src={formatApiAssetUrl(inviter.avatarUrl)}
-                alt={inviter.displayName}
-                className="h-8 w-8 rounded-full object-cover border border-[#48473f]"
-              />
-            ) : (
-              <div className="h-8 w-8 rounded-full bg-[#201f1e] border border-[#48473f] flex items-center justify-center font-bold text-xs text-[#ffffff]">
-                {inviter.displayName.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <Avatar
+              src={mode === 'sent' ? invitee.avatarUrl : inviter.avatarUrl}
+              name={mode === 'sent' ? invitee.displayName : inviter.displayName}
+              size="sm"
+              className="!h-8 !w-8 border border-[#48473f]"
+            />
 
             <div>
               <p className="font-bold text-[#ffffff]">

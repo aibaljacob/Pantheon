@@ -12,6 +12,7 @@ import {
   GitCommit,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { Avatar } from '../../../auth/components/UserAvatar';
 import { taskService } from '../../services/taskService';
 import type {
   MilestoneItem,
@@ -747,18 +748,12 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          {commit.author?.avatarUrl ? (
-                            <img
-                              src={commit.author.avatarUrl}
-                              alt={commit.authorName}
-                              referrerPolicy="no-referrer"
-                              className="h-5 w-5 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="h-5 w-5 rounded-full bg-[#363433] flex items-center justify-center text-[9px] text-[#e6e2df]">
-                              {commit.authorName.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
+                          <Avatar
+                            src={commit.author?.avatarUrl}
+                            name={commit.authorName}
+                            size="xs"
+                            className="!h-5 !w-5 text-[9px]"
+                          />
                           <span className="text-xs font-medium text-[#e6e2df]">
                             {commit.authorName}
                           </span>

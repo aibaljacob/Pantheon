@@ -353,7 +353,18 @@ export const RegisterForm: React.FC = () => {
         </Button>
       </form>
       {errors.root?.message || authError ? (
-        <p className="text-sm text-red-400">{errors.root?.message ?? authError}</p>
+        <div className="space-y-2 rounded-lg border border-red-500/30 bg-red-950/20 p-3">
+          <p className="text-sm text-red-400">{errors.root?.message ?? authError}</p>
+          {(errors.root?.message ?? authError)?.toLowerCase().includes('unverified') && (
+            <Link
+              to="/verification-sent"
+              state={{ email: watchedEmail, unverified: true }}
+              className="inline-block text-xs font-mono text-[#e6e2df] underline hover:text-white"
+            >
+              Go to verification page to resend email &rarr;
+            </Link>
+          )}
+        </div>
       ) : null}
       {/* Divider */}
       <div className="relative py-2 flex items-center justify-center">

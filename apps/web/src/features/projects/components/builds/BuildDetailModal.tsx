@@ -9,13 +9,13 @@ import {
   GitBranch,
   GitCommit,
   Flag,
-  User,
   Terminal,
   Copy,
   Check,
   AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../../../../components/ui/Button';
+import { Avatar } from '../../../auth/components/UserAvatar';
 import type { BuildJobItem, BuildStatus } from '../../types';
 
 interface BuildDetailModalProps {
@@ -242,17 +242,12 @@ export const BuildDetailModal: React.FC<BuildDetailModalProps> = ({
 
           {/* Triggered By Info */}
           <div className="flex items-center gap-3 rounded-2xl border border-[#2b2a29] bg-[#1c1b1a] p-3">
-            {build.triggeredBy.avatarUrl ? (
-              <img
-                src={build.triggeredBy.avatarUrl}
-                alt={build.triggeredBy.displayName}
-                className="h-8 w-8 rounded-full object-cover border border-[#48473f]"
-              />
-            ) : (
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#201f1e] text-[#cac6bc] border border-[#363433]">
-                <User className="h-4 w-4" />
-              </div>
-            )}
+            <Avatar
+              src={build.triggeredBy.avatarUrl}
+              name={build.triggeredBy.displayName || build.triggeredBy.username}
+              size="sm"
+              className="!h-8 !w-8 border border-[#48473f]"
+            />
             <div>
               <span className="text-xs font-mono font-bold text-[#ffffff]">
                 {build.triggeredBy.displayName}

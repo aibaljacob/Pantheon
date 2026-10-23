@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Edit3, Loader2, AlertCircle, Upload, CheckCircle2, Crop } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { AppImage } from '../../../components/ui/AppImage';
 import type { ProjectDetail } from '../../projects/types';
 import { updateProject } from '../../projects/services/projectService';
 import { uploadPortfolioCover } from '../services/profileService';
@@ -201,13 +202,16 @@ export const EditProjectModal: React.FC<EditProjectModalProps> = ({
               </label>
               <div className="flex flex-col sm:flex-row items-center gap-4 rounded-2xl border border-[#363433] bg-[#141312] p-3">
                 <div className="relative h-24 w-36 rounded-xl border border-[#2b2a29] bg-[#201f1e] overflow-hidden shrink-0">
-                  {activeCoverDisplay ? (
-                    <img src={activeCoverDisplay} alt="Cover preview" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[10px] font-mono text-[#8c887e] text-center p-2">
-                      No Cover Image
-                    </div>
-                  )}
+                  <AppImage
+                    src={activeCoverDisplay}
+                    alt="Cover preview"
+                    className="h-full w-full object-cover"
+                    fallback={
+                      <div className="flex h-full w-full items-center justify-center text-[10px] font-mono text-[#8c887e] text-center p-2">
+                        No Cover Image
+                      </div>
+                    }
+                  />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">

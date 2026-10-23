@@ -9,8 +9,8 @@ import {
   ImageIcon,
 } from 'lucide-react';
 import { Button } from '../../../../../components/ui/Button';
+import { AppImage } from '../../../../../components/ui/AppImage';
 import type { ArtProposalCategory } from '../../../types';
-import { formatApiAssetUrl } from '../../../../profile/services/profileService';
 import {
   createArtProposal,
   uploadArtDesignReference,
@@ -232,8 +232,8 @@ export const NewArtProposalModal: React.FC<NewArtProposalModalProps> = ({
                       key={idx}
                       className="group relative rounded-xl border border-[#2b2a29] bg-[#141312] overflow-hidden"
                     >
-                      <img
-                        src={formatApiAssetUrl(ref.url)}
+                      <AppImage
+                        src={ref.url}
                         alt={ref.name || `Reference ${idx + 1}`}
                         className="h-24 w-full object-cover"
                       />

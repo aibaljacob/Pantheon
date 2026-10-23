@@ -8,8 +8,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { AppImage } from '../../../components/ui/AppImage';
 import { useAuthStore } from '../../auth/store/authStore';
-import { formatApiAssetUrl } from '../../profile/services/profileService';
 import {
   fetchCandidateApplications,
   withdrawCandidateApplication,
@@ -157,17 +157,16 @@ export const DashboardApplicationsSection: React.FC = () => {
                 {/* Top Row: Project & Role info */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    {project.coverUrl ? (
-                      <img
-                        src={formatApiAssetUrl(project.coverUrl)}
-                        alt={project.name}
-                        className="h-10 w-10 rounded-xl object-cover border border-[#48473f]"
-                      />
-                    ) : (
-                      <div className="h-10 w-10 rounded-xl bg-[#141312] border border-[#363433] flex items-center justify-center text-amber-400">
-                        <Briefcase className="h-4 w-4" />
-                      </div>
-                    )}
+                    <AppImage
+                      src={project.coverUrl}
+                      alt={project.name}
+                      className="h-10 w-10 rounded-xl object-cover border border-[#48473f]"
+                      fallback={
+                        <div className="h-10 w-10 rounded-xl bg-[#141312] border border-[#363433] flex items-center justify-center text-amber-400">
+                          <Briefcase className="h-4 w-4" />
+                        </div>
+                      }
+                    />
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <Link

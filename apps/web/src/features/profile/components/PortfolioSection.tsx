@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExternalLink, Plus, Layers, Edit2, Trash2, Gamepad2, X, Monitor } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { AppImage } from '../../../components/ui/AppImage';
 import type { PortfolioItem } from '../types';
 
 interface PortfolioSectionProps {
@@ -57,17 +58,16 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
             >
               {/* Media Thumbnail Container */}
               <div className="relative h-44 w-full overflow-hidden bg-[#201f1e]">
-                {project.coverUrl ? (
-                  <img
-                    src={project.coverUrl}
-                    alt={project.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#2b2a29] to-[#141312]">
-                    <Gamepad2 className="h-10 w-10 text-[#8c887e]/40" />
-                  </div>
-                )}
+                <AppImage
+                  src={project.coverUrl}
+                  alt={project.title}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  fallback={
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#2b2a29] to-[#141312]">
+                      <Gamepad2 className="h-10 w-10 text-[#8c887e]/40" />
+                    </div>
+                  }
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1c1b1a] via-transparent to-black/30" />
 
                 {/* Owner Actions Overlay */}
@@ -139,17 +139,16 @@ export const PortfolioSection: React.FC<PortfolioSectionProps> = ({
           <div className="relative w-full max-w-2xl max-h-[90vh] flex flex-col rounded-3xl border border-[#363433] bg-[#1c1b1a] shadow-2xl overflow-hidden animate-fadeIn">
             {/* Thumbnail Header */}
             <div className="relative h-56 w-full overflow-hidden bg-[#201f1e]">
-              {selectedProject.coverUrl ? (
-                <img
-                  src={selectedProject.coverUrl}
-                  alt={selectedProject.title}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#2b2a29]">
-                  <Gamepad2 className="h-16 w-16 text-[#8c887e]/40" />
-                </div>
-              )}
+              <AppImage
+                src={selectedProject.coverUrl}
+                alt={selectedProject.title}
+                className="h-full w-full object-cover"
+                fallback={
+                  <div className="flex h-full w-full items-center justify-center bg-[#2b2a29]">
+                    <Gamepad2 className="h-16 w-16 text-[#8c887e]/40" />
+                  </div>
+                }
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-[#1c1b1a] via-transparent to-black/40" />
 
               <button
